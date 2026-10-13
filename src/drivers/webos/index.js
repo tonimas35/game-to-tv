@@ -148,8 +148,11 @@ const driver = {
       async function safe(uri) {
         try { return await c.request(uri); } catch (e) { return { error: e.message }; }
       }
+      const system = await safe('ssap://system/getSystemInfo');
+      // Hide the serial number: people paste this output into GitHub issues
+      if (system && system.serialNumber) system.serialNumber = String(system.serialNumber).slice(0, 3) + '…(oculto)';
       return {
-        system: await safe('ssap://system/getSystemInfo'),
+        system: system,
         software: await safe('ssap://com.webos.service.update/getCurrentSWInformation'),
         foreground: await safe('ssap://com.webos.applicationManager/getForegroundAppInfo'),
         volume: await safe('ssap://audio/getVolume')

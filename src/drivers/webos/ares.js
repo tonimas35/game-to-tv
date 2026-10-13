@@ -44,7 +44,9 @@ function run(cmd, args, opts) {
     const exe = which(cmd);
     if (!exe) return reject(Object.assign(new Error('No encuentro «' + cmd + '». Instala ares-cli: npm install -g @webos-tools/cli'), { code: 'ENOARES' }));
     const child = IS_WIN
-      ? spawn(quoteWin(exe), args.map(quoteWin), { shell: true, windowsHide: true })
+      // One already-quoted command string: passing an args array together with shell:true is
+      // deprecated since Node 24 (DEP0190, seen on a real Windows PC with Node 25)
+      ? spawn([quoteWin(exe)].concat(args.map(quoteWin)).join(' '), { shell: true, windowsHide: true })
       : spawn(exe, args, { windowsHide: true });
     let stdout = '', stderr = '';
     child.stdout.on('data', function (d) { stdout += d; if (opts.onStdout) opts.onStdout(String(d), child); });

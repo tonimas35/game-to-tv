@@ -163,6 +163,7 @@ async function driverAndCliTests() {
     let info = null;
     try { info = JSON.parse(r.out.slice(r.out.indexOf('{'))); } catch (e) { /* noop */ }
     check(info && info.system.modelName === '43UQ80006LB' && /401/.test(info.software.error) && info.volume.volume === 12, 'tv info: modelo, volumen y el 401 de la versión sin romper');
+    check(info && !/TESTSERIAL/.test(r.out) && /oculto/.test(info.system.serialNumber), 'tv info oculta el número de serie');
 
     r = await H_.runCli(['tv', 'luna', 'salon', 'luna://com.webos.service.tvpower/power/turnOnScreen', '{}'], env);
     check(r.code === 0 && /Llamada enviada/.test(r.out), 'tv luna (avanzado)');
@@ -202,6 +203,9 @@ async function ssdpTests() {
   const p = ssdp.parseResponse(sample, { address: '192.168.1.99' });
   check(p && p.ip === '192.168.1.50' && p.name === '[LG] webOS TV UQ80' && p.isWebOS && p.location === 'http://192.168.1.50:1912/', 'Respuesta SSDP: IP de LOCATION y nombre de DLNADeviceName (descodificado)');
   check(ssdp.parseResponse('HTTP/1.1 404 Not Found\r\n\r\n') === null && ssdp.parseResponse('basura') === null, 'Respuestas no válidas se ignoran');
+  const ips = ssdp.localIPv4s();
+  check(Array.isArray(ips) && ips.every(function (a) { return /^\d+\.\d+\.\d+\.\d+$/.test(a) && a !== '127.0.0.1' && !/^169\.254\./.test(a); }),
+    'La búsqueda sale por cada red del PC (sin loopback ni 169.254): arregla PCs con WSL/VPN');
   const search = ssdp.buildSearch();
   check(/^M-SEARCH \* HTTP\/1\.1\r\n/.test(search) && /HOST: 239\.255\.255\.250:1900/.test(search) && /ST: urn:lge-com:service:webos-second-screen:1/.test(search) && /MAN: "ssdp:discover"/.test(search), 'M-SEARCH correcto (239.255.255.250:1900, ST de webOS)');
 

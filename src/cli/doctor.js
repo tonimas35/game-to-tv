@@ -86,6 +86,7 @@ async function doctor(flags) {
       const r = firewall.analyzeFirewall(data, port);
       r.ok.forEach(function (s) { ui.ok(s); });
       r.problems.forEach(function (s) { problems++; ui.fail(s); });
+      (r.warnings || []).forEach(function (s) { ui.warn ? ui.warn(s) : ui.info('! ' + s); });
       if (r.commands.length) {
         console.log('\n  Para arreglarlo, abre PowerShell ' + ui.c.bold('como administrador') + ' y ejecuta:\n');
         r.commands.forEach(function (c) { console.log('    ' + ui.c.cyan(c)); });

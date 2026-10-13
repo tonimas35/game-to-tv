@@ -25,7 +25,9 @@ function psScript(port) {
     '    Protocol = [string]$pf.Protocol; LocalPort = [string]($pf.LocalPort -join ","); RemoteAddress = [string]($af.RemoteAddress -join ","); Program = [string]$app.Program } })',
     '$portRules = @(Get-NetFirewallPortFilter -Protocol TCP | Where-Object { $_.LocalPort -eq "' + port + '" } | Get-NetFirewallRule | Where-Object { $_.Enabled -eq "True" -and $_.Direction -eq "Inbound" } | ForEach-Object {',
     '  [pscustomobject]@{ Name = $_.Name; DisplayName = $_.DisplayName; Action = [string]$_.Action; Profile = [string]$_.Profile } })',
-    '[pscustomobject]@{ profiles = $profiles; nodeRules = $rules; portRules = $portRules } | ConvertTo-Json -Depth 4 -Compress'
+    // Without admin rights, some Windows setups return NO rules at all: count them to tell "none" from "can't read"
+    '$total = @(Get-NetFirewallRule -Direction Inbound).Count',
+    '[pscustomobject]@{ profiles = $profiles; nodeRules = $rules; portRules = $portRules; totalInbound = $total } | ConvertTo-Json -Depth 4 -Compress'
   ].join('\n');
 }
 
@@ -46,11 +48,11 @@ function hasProfile(rule, name) { return /any|todos/i.test(rule.Profile || '') |
 /**
  * Pure analysis (tested on Linux with sample data).
  * data: { profiles: [{InterfaceAlias, NetworkCategory}], nodeRules: [...], portRules: [...] }
- * Returns { problems: [string], ok: [string], commands: [string] }
+ * Returns { problems: [string], ok: [string], warnings: [string], commands: [string] }
  */
 function analyzeFirewall(data, port) {
   port = port || 3000;
-  const out = { problems: [], ok: [], commands: [] };
+  const out = { problems: [], ok: [], warnings: [], commands: [] };
   const profiles = arr(data.profiles);
   const nodeRules = arr(data.nodeRules);
   const portRules = arr(data.portRules);
@@ -61,6 +63,14 @@ function analyzeFirewall(data, port) {
     out.commands.push('Set-NetConnectionProfile -InterfaceAlias "' + (p.InterfaceAlias || p.Name) + '" -NetworkCategory Private');
   });
   if (profiles.length && !publicNets.length) out.ok.push('Perfil de red: ' + profiles.map(function (p) { return (p.InterfaceAlias || p.Name) + ' = ' + p.NetworkCategory; }).join(', '));
+
+  // Real-world case: a non-admin PowerShell got 0 inbound rules (Windows always has dozens).
+  // That means "can't read", not "no rule": warn instead of reporting a false problem.
+  if (data.totalInbound === 0 && !nodeRules.length && !portRules.length) {
+    out.warnings.push('No puedo leer las reglas del cortafuegos sin permisos de administrador. Si la tele no llega al PC, ejecuta como administrador:');
+    out.commands.push('New-NetFirewallRule -DisplayName "game-to-tv (TCP ' + port + ')" -Direction Inbound -Action Allow -Protocol TCP -LocalPort ' + port + ' -RemoteAddress LocalSubnet -Profile Private');
+    return out;
+  }
 
   const blocks = nodeRules.filter(function (r) { return /block|bloque/i.test(r.Action || ''); });
   if (blocks.length) {

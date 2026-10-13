@@ -65,7 +65,7 @@ function startFakeTv(opts) {
         case 'ssap://system.notifications/closeAlert': return reply({});
         case 'ssap://tv/executeOneShot': return reply({ imageUri: base() + '/resources/shot.jpg' });
         case 'ssap://com.webos.service.networkinput/getPointerInputSocket': return reply({ socketPath: state.url + '/pointer' });
-        case 'ssap://system/getSystemInfo': return reply({ modelName: '43UQ80006LB', features: { '3d': false } });
+        case 'ssap://system/getSystemInfo': return reply({ modelName: '43UQ80006LB', serialNumber: '999TESTSERIAL', features: { '3d': false } });
         case 'ssap://com.webos.applicationManager/getForegroundAppInfo': return reply({ appId: 'io.gametotv.launcher' });
         case 'ssap://audio/getVolume': return reply({ volume: 12, muted: false });
         case 'ssap://com.webos.service.update/getCurrentSWInformation':

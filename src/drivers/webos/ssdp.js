@@ -79,20 +79,40 @@ function fetchDescription(location, timeout) {
 }
 
 /**
+ * Local IPv4 addresses to search from. With several interfaces (WSL, Hyper-V,
+ * VPN…) the OS may send multicast through the wrong one, so we send the
+ * M-SEARCH from every non-internal IPv4 interface. Found on a real Windows PC
+ * with WSL: without this, no device on the LAN answered.
+ */
+function localIPv4s() {
+  const out = [];
+  const ifs = require('os').networkInterfaces();
+  Object.keys(ifs).forEach(function (name) {
+    (ifs[name] || []).forEach(function (a) {
+      const fam = typeof a.family === 'string' ? a.family : (a.family === 4 ? 'IPv4' : 'IPv6');
+      if (fam === 'IPv4' && !a.internal && !/^169\.254\./.test(a.address)) out.push(a.address);
+    });
+  });
+  return out;
+}
+
+/**
  * Sends M-SEARCH and collects answers for `timeout` ms.
- * opts: { timeout, st, address, port (tests: unicast target), describe }
+ * opts: { timeout, st, address, port (tests: unicast target), describe, interfaces }
  */
 function discover(opts) {
   opts = opts || {};
   const timeout = opts.timeout || 3000;
   return new Promise(function (resolve) {
     const found = {};
-    const sock = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+    // One socket bound to each LAN interface (+ one default) unless a unicast target is given (tests)
+    const binds = opts.address ? [null] : [null].concat(opts.interfaces || localIPv4s());
+    const socks = [];
     let finished = false;
     function finish() {
       if (finished) return;
       finished = true;
-      try { sock.close(); } catch (e) { /* noop */ }
+      socks.forEach(function (s) { try { s.close(); } catch (e) { /* noop */ } });
       const list = Object.keys(found).map(function (k) { return found[k]; });
       if (opts.describe === false) return resolve(list);
       Promise.all(list.map(function (tv) {
@@ -105,24 +125,35 @@ function discover(opts) {
         });
       })).then(resolve);
     }
-    sock.on('message', function (msg, rinfo) {
+    function onMessage(msg, rinfo) {
       const r = parseResponse(msg.toString('utf8'), rinfo);
       if (!r) return;
       if (opts.st !== '*' && r.st && r.st !== (opts.st || ST_WEBOS) && !r.isWebOS) return;
       if (!found[r.ip]) found[r.ip] = r;
-    });
-    sock.on('error', function () { finish(); });
-    sock.bind(0, function () {
-      const payload = Buffer.from(buildSearch(opts.st, 2));
-      const addr = opts.address || SSDP_ADDR;
-      const port = opts.port || SSDP_PORT;
-      try { if (!opts.address) sock.setMulticastTTL(4); } catch (e) { /* noop */ }
-      // Twice: UDP can get lost
-      sock.send(payload, 0, payload.length, port, addr);
-      setTimeout(function () { if (!finished) sock.send(payload, 0, payload.length, port, addr); }, 400);
+    }
+    const payload = Buffer.from(buildSearch(opts.st, 2));
+    const addr = opts.address || SSDP_ADDR;
+    const port = opts.port || SSDP_PORT;
+    binds.forEach(function (local) {
+      const sock = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+      socks.push(sock);
+      sock.on('message', onMessage);
+      sock.on('error', function () { try { sock.close(); } catch (e) { /* noop */ } });   // one bad interface must not stop the others
+      const ready = function () {
+        try {
+          if (!opts.address) {
+            sock.setMulticastTTL(4);
+            if (local) sock.setMulticastInterface(local);
+          }
+        } catch (e) { /* noop */ }
+        const send = function () { if (!finished) { try { sock.send(payload, 0, payload.length, port, addr); } catch (e) { /* noop */ } } };
+        send();
+        setTimeout(send, 400);   // twice: UDP can get lost
+      };
+      try { if (local) sock.bind(0, local, ready); else sock.bind(0, ready); } catch (e) { /* noop */ }
     });
     setTimeout(finish, timeout);
   });
 }
 
-module.exports = { ST_WEBOS: ST_WEBOS, buildSearch: buildSearch, parseResponse: parseResponse, fetchDescription: fetchDescription, discover: discover };
+module.exports = { ST_WEBOS: ST_WEBOS, buildSearch: buildSearch, parseResponse: parseResponse, fetchDescription: fetchDescription, discover: discover, localIPv4s: localIPv4s };

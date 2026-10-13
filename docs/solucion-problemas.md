@@ -40,6 +40,13 @@ New-NetFirewallRule -DisplayName "game-to-tv (TCP 3000)" -Direction Inbound -Act
 Para comprobarlo desde el móvil: abre `http://IP-DEL-PC:3000/info` en su
 navegador. Si responde, el cortafuegos ya no molesta.
 
+
+> **`doctor` dice que no puede leer las reglas.** En algunos Windows,
+> `Get-NetFirewallRule` no devuelve ninguna regla si PowerShell no se abre
+> como administrador. `doctor` lo detecta (Windows siempre tiene decenas de
+> reglas) y te avisa en vez de darte un falso error. Si la tele conecta, no
+> tienes que hacer nada.
+
 ### La IP del QR no es la buena
 
 El PC puede tener varias redes (VPN, máquinas virtuales, WSL, Docker…).
@@ -61,6 +68,17 @@ del PC en el router.
   pulsa «Salir» en el otro móvil. Para más jugadores: `--jugadores 4`.
 - **El puerto está ocupado**: otro programa (o otro `game-to-tv`) lo usa.
   `game-to-tv start --port 3001`.
+
+
+## `game-to-tv tv scan` no encuentra la tele
+
+- Comprueba que la tele está **encendida** (en reposo se desconecta del Wi‑Fi).
+- Si tu PC tiene **varias redes** (WSL, Hyper‑V, VirtualBox, VPN), las
+  versiones antiguas enviaban la búsqueda por la red equivocada y nadie
+  contestaba. Desde la 0.1.1 se busca por cada red del PC. Actualiza.
+- Algunos routers filtran el *multicast* entre el Wi‑Fi y el cable. Si aun así
+  no aparece, añádela a mano con su IP (la ves en la tele: Ajustes → General →
+  Red): `game-to-tv tv add salon 192.168.1.50`.
 
 ## La app de la tele dice «No encuentro el servidor… reintentando»
 

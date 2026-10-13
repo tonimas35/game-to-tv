@@ -89,8 +89,15 @@ async function firewallTests() {
     portRules: { DisplayName: 'game-to-tv (TCP 3000)', Action: 'Allow', Profile: 'Private' }
   }, 3000);
   check(!good.problems.length && !good.commands.length && good.ok.length === 2, 'Con perfil Privado y la regla del puerto: todo bien (acepta objetos sueltos de ConvertTo-Json)');
+  // Real Windows PC without admin rights: Get-NetFirewallRule returned 0 rules → "can't read", not "no rule"
+  const unknown = analyzeFirewall({ profiles: { InterfaceAlias: 'Ethernet', NetworkCategory: 'Private' }, nodeRules: [], portRules: [], totalInbound: 0 }, 3000);
+  check(!unknown.problems.length && unknown.warnings.length === 1 && /administrador/.test(unknown.warnings[0]) && unknown.commands.length === 1,
+    'Sin permisos para leer reglas (0 reglas): avisa en vez de dar un falso error');
+  const anyProfile = analyzeFirewall({ profiles: { InterfaceAlias: 'Ethernet', NetworkCategory: 'Private' }, nodeRules: [],
+    portRules: { DisplayName: 'Regla propia 3000', Action: 'Allow', Profile: 'Any' }, totalInbound: 120 }, 3000);
+  check(!anyProfile.problems.length && anyProfile.ok.some(function (o) { return /Regla propia 3000/.test(o); }), 'Una regla del puerto con perfil «Any» también vale');
   const script = psScript(3000);
-  check(/Get-NetConnectionProfile/.test(script) && /Get-NetFirewallRule/.test(script) && !/Set-|New-|Remove-/.test(script), 'El script de PowerShell solo lee (Get-*), nunca cambia nada');
+  check(/Get-NetConnectionProfile/.test(script) && /Get-NetFirewallRule/.test(script) && !/Set-|New-|Remove-/.test(script) && /totalInbound/.test(script), 'El script de PowerShell solo lee (Get-*), nunca cambia nada');
 }
 
 async function doctorTest() {

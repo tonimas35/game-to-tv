@@ -1,6 +1,6 @@
 {
   "name": "game-to-tv",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Juegos de grupo para el salón: la tele es la pantalla y los móviles son los mandos (escanea un QR, sin instalar nada).",
   "keywords": [
     "party-games",
