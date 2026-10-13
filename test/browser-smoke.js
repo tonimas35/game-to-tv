@@ -71,7 +71,8 @@ const OVERFLOW_CHECK = function () {
 async function main() {
   fs.mkdirSync(SHOTS, { recursive: true });
   console.log('Arrancando servidor en el puerto ' + PORT + ' (capturas en ' + SHOTS + ')');
-  const srv = await H_.startServer({ GAME_TO_TV_HOME: HOME, PORT: String(PORT), HOST_IP: '192.168.1.50', DIBUJA_DEBUG_SPEED: '4', REFLEJOS_DEBUG_SPEED: '4', SLOT_HOLD_MS: '30000' });
+  // The room for two (the classic flow: the QR goes away when both are in). Groups: browser-grupo.js
+  const srv = await H_.startServer({ GAME_TO_TV_HOME: HOME, PORT: String(PORT), HOST_IP: '192.168.1.50', DIBUJA_DEBUG_SPEED: '4', REFLEJOS_DEBUG_SPEED: '4', SLOT_HOLD_MS: '30000' }, ['--jugadores', '2']);
 
   const browser = await pw.chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
   const errors = [];

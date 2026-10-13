@@ -76,7 +76,7 @@
       var html = '<i class="mid"></i>';
       ps.forEach(function (p) {
         var c = host.colors()[p.slot - 1];
-        html += '<b class="' + (p.slot === slot() ? 'me' : '') + '" style="left:' + (p.x / 1920 * 100).toFixed(1) + '%;height:' + Math.round(p.h / 1080 * 100) + '%;background:' + c + '"></b>';
+        html += '<b class="' + (p.slot === slot() ? 'me' : '') + '" style="left:' + (p.x / 1920 * 100).toFixed(1) + '%;height:' + Math.min(70, Math.round(p.h / 1080 * 250)) + '%;background:' + c + '"></b>';
       });
       $('pField').innerHTML = html;
     }

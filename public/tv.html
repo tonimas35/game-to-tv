@@ -89,19 +89,22 @@
   .cards.many .card h2 { font-size: 56px; }
   .cards.many .card p { font-size: 25px; height: 99px; }
   .cards.many .card .tags { margin-top: 14px; }
+  .cards.many .card .tags span { font-size: 20px; padding: 5px 13px; margin-right: 10px; }
   /* Players: a grid of chips (1 row up to 3, then 3 or 4 columns) left of the QR; centred when the room is full */
   .players {
     position: absolute; left: 60px; width: 1146px; bottom: 34px; height: 262px;
     display: flex; flex-wrap: wrap; align-content: center; justify-content: flex-start;
   }
-  .players.center { left: 0; width: 1920px; justify-content: center; }
+  /* Room full (no QR): centred, 3 per row (4 per row with 7-8 slots) */
+  .players.full { left: 240px; width: 1440px; justify-content: center; }
+  .players.full.c4 { left: 60px; width: 1800px; }
   .pchip {
     width: 362px; height: 104px; box-sizing: border-box; margin: 6px 10px; padding: 0 22px;
     display: none; align-items: center; border-radius: 26px; background: var(--panel); border: 3px dashed var(--line);
   }
   .pchip.vis { display: flex; }
-  .players.center .pchip { width: 420px; margin: 6px 14px; }
-  .players.c4 .pchip, .players.c4.center .pchip { width: 266px; margin: 6px 8px; padding: 0 16px; }
+  .players.full .pchip { width: 420px; margin: 6px 14px; }
+  .players.c4 .pchip, .players.c4.full .pchip { width: 266px; margin: 6px 8px; padding: 0 16px; }
   .pchip .dot { width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto; margin-right: 16px; background: rgba(255,255,255,0.2); }
   .pchip .num { flex: 0 0 auto; margin-left: 10px; font-size: 22px; font-weight: 900; color: rgba(255,255,255,0.35); }
   .pchip .txt { min-width: 0; flex: 1; }
@@ -409,12 +412,13 @@
         setText(b, 'Hueco libre');
         b.style.color = '';
         b.style.fontSize = '';
-        setText(sm, 'Escanead el QR para entrar'); sm.style.fontSize = '';
+        setText(sm, 'Escanead el QR');
+        if (chip.classList.contains('vis')) fit(sm, 22, 15);
       }
     }
     var allIn = !freeShown;
     var box = $('menuPlayers');
-    box.className = 'players' + (visible > 6 ? ' c4' : '') + (allIn ? ' center' : '');
+    box.className = 'players' + (visible > 6 ? ' c4' : '') + (allIn ? ' full' : '');
     $('qrBox').style.display = allIn ? 'none' : 'flex';
     var st = $('menuStatus');
     if (hubState.ready) {
