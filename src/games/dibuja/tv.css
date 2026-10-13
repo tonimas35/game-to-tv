@@ -71,3 +71,42 @@
 .gitem .cap .p.n { background: rgba(255,77,94,0.18); color: var(--bad); }
 .gfoot { position: absolute; left: 0; right: 0; bottom: 34px; display: flex; justify-content: center; align-items: center; }
 .gfoot small { font-size: 26px; color: var(--muted); margin-left: 20px; }
+
+
+/* 3 to 6 players («todos contra todos») */
+#dBoardH, #dBoard { display: none; }
+#vDibuja.ffa #dBoardH, #vDibuja.ffa #dBoard { display: block; }
+#vDibuja.ffa .dright h3 { margin: 0 0 10px; font-size: 26px; }
+#dBoard { list-style: none; margin: 0 0 18px; padding: 0; }
+#dBoard li {
+  display: flex; align-items: center; height: 54px; box-sizing: border-box; padding: 0 14px; margin-bottom: 8px;
+  border-radius: 16px; background: var(--panel); border-left: 6px solid; font-size: 28px; font-weight: 800;
+}
+#dBoard .dot { width: 14px; height: 14px; border-radius: 50%; margin-right: 10px; flex: 0 0 auto; }
+#dBoard .n { flex: 1; min-width: 0; }
+#dBoard .t { flex: 0 0 auto; font-style: normal; font-size: 16px; font-weight: 900; padding: 4px 8px; border-radius: 8px; margin: 0 8px; }
+#dBoard .t.dr { background: rgba(255,255,255,0.15); color: #fff; }
+#dBoard .t.ok { background: var(--ok); color: #002a10; }
+#dBoard .t.au { background: rgba(176,130,255,0.3); color: #d9c6ff; }
+#dBoard .sc { flex: 0 0 auto; min-width: 60px; text-align: right; font-size: 30px; font-weight: 900; }
+#dFeed.ffa li { height: 64px; font-size: 26px; padding: 0 16px; margin-bottom: 8px; }
+#dFeed.ffa li.no { border-left: 6px solid; }
+#dFeed.ffa li .g small { display: block; font-size: 16px; font-weight: 900; line-height: 1.15; }
+#dFeed.ffa li .g b { font-weight: 900; }
+.rres { display: none; flex-wrap: wrap; justify-content: center; max-width: 1700px; margin: 14px auto 0; }
+.rres span { display: inline-flex; align-items: center; margin: 6px 10px; padding: 8px 22px; border-radius: 999px; background: var(--panel); border: 3px solid; font-size: 34px; white-space: nowrap; }
+.rres em { font-style: normal; font-weight: 900; margin-right: 12px; color: var(--muted); }
+.rres i { font-style: normal; font-weight: 900; margin-left: 12px; color: var(--warn); }
+/* End: ranking with medals (left) and the gallery (right) */
+.grank { display: none; position: absolute; left: 70px; top: 250px; width: 470px; margin: 0; padding: 0; list-style: none; }
+#oEnd.ffa .grank { display: block; }
+#oEnd.ffa .ghead .gr { display: none; }
+.grank li { display: flex; align-items: center; height: 84px; box-sizing: border-box; padding: 0 22px; margin-bottom: 14px; border-radius: 22px; background: var(--panel); font-size: 44px; font-weight: 900; }
+.grank .medal { flex: 0 0 auto; width: 56px; height: 56px; border-radius: 50%; margin-right: 18px; text-align: center; line-height: 56px; font-size: 30px; font-weight: 900; background: rgba(255,255,255,0.12); color: #fff; }
+.grank .medal.m1 { background: #f5c542; color: #3a2a00; }
+.grank .medal.m2 { background: #c9d1dc; color: #20262e; }
+.grank .medal.m3 { background: #d08a4e; color: #2e1600; }
+.grank .n { flex: 1; min-width: 0; }
+.grank .sc { flex: 0 0 auto; margin-left: 14px; font-size: 40px; }
+.ggrid.ffa { left: auto; right: 50px; top: 250px; }
+.gitem .by { font-size: 22px; font-weight: 800; margin-top: 2px; }

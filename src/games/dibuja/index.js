@@ -1,6 +1,27 @@
 'use strict';
 /*
- * «Dibuja y adivina»: cooperative Pictionary for 2 players.
+ * «Dibuja y adivina»: Pictionary for 2 to 6 players.
+ *
+ * Two modes, chosen when the match starts:
+ *   2 players     cooperative (as in 0.1/0.2): one draws, the other guesses,
+ *                 team score, 8 rounds (DIBUJA_ROUNDS), a final «title».
+ *   3-6 players   «todos contra todos»: the drawer rotates and everybody
+ *                 else guesses at the same time on their phone.
+ *                 Each player draws `vueltas` times: 2 with 3-4 players (6 or
+ *                 8 rounds), 1 with 5-6 (5 or 6 rounds), so a match lasts
+ *                 about as long as the 8 rounds for two (DIBUJA_VUELTAS forces it).
+ *                 Points of each correct guess, in order of arrival (k = 0, 1…):
+ *                   guesser  round((100 + 3 × seconds left) × ORDER[k]) + bonus
+ *                   drawer   round(200 / guessers of the round) (+ bonus with the first)
+ *                 ORDER = 1, 0.8, 0.65, 0.5, 0.4… and bonus = 0 / 25 / 75 by
+ *                 difficulty. The round ends when everybody has guessed or
+ *                 on timeout. Never sent to guessers or the TV before the
+ *                 reveal: the word, the text of a correct guess (only «Ana ha
+ *                 acertado»), and «¡Casi!» guesses (private to who wrote them).
+ *                 A secret word written by a player can be offered to any
+ *                 other drawer; its author sits that round out (they know it).
+ *                 If somebody leaves for good (onPlayerLeft) the match goes
+ *                 on: a drawer who leaves skips to the next drawer.
  *
  * Phases of each round:
  *   intro   «Ahora dibuja X» (transition screen)
@@ -8,26 +29,30 @@
  *   draw    80 s to draw and guess (hints at 50 % and 75 %)
  *   reveal  the word is revealed (guessed, or «Era: …»)
  * After the last round:
- *   end     gallery with the 8 drawings, final score and title
+ *   end     gallery with every drawing, and the score (2: team title;
+ *           3-6: ranking with medals)
  *
  * Messages it receives:
  *   d.pick {i}            the drawer picks option i (0..2)
- *   d.skip                «Pasar palabra» (once per round)
+ *   d.skip                «Pasar palabra» (once per round; 3-6: only before anyone guesses)
  *   d.s {id,c,w,p,end}    piece of a stroke: normalized points [x,y,x,y,...] 0..1
  *   d.undo {id?}          undo the last stroke
  *   d.clear               clear everything
  *   d.guess {text}        a guess
  *   d.again               another match (from the end screen)
- *   d.words {list}        (menu) the player's secret words for the partner
+ *   d.words {list}        (menu) the player's secret words for the others
  * Messages it sends:
  *   dmeta                 public state (never the secret word before the reveal)
- *   d.opts {opts}         ONLY to the drawer: the 3 options
+ *   d.opts {opts}         ONLY to the drawer: the 3 options (custom ones with `from`)
  *   d.secret {word,...}   ONLY to the drawer: the chosen word
  *   d.s / d.undo / d.clear / d.all {strokes}   strokes (to the TV; d.all also to a reconnecting drawer)
- *   d.g {text,res}        guess and result ('no' | 'casi')
+ *   d.g {text,res}        2 players: guess and result ('no' | 'casi'), to everybody
+ *   d.g {slot,text,res}   3-6: a wrong guess ('no') to everybody; 'casi' and
+ *                         'ok' ({res, points, order}, no text) only to who guessed
+ *   d.got {slot,order,points,drawerPoints}   3-6: somebody guessed (no text)
  *   d.hint {n}            a letter has been revealed
  *   d.skip                the word was skipped
- *   d.reveal {word,ok,points,...}
+ *   d.reveal {word,ok,points,...}   (3-6: mode 'ffa', results, drawer, drawerPoints, scores, reason)
  *   d.gallery {items}     to the TV: the drawings of the whole match
  *   d.words {list,max}    (menu) to the player: their secret words
  * Every finished round is saved as a PNG in the gallery folder
@@ -35,7 +60,8 @@
  *
  * Environment:
  *   DIBUJA_DEBUG_SPEED  (1)  speeds up every timer (tests only)
- *   DIBUJA_ROUNDS       (8)  rounds per match
+ *   DIBUJA_ROUNDS       (8)  rounds per match with 2 players
+ *   DIBUJA_VUELTAS      (auto: 2 with 3-4 players, 1 with 5-6) times each player draws
  */
 
 const fs = require('fs');
@@ -46,9 +72,14 @@ const { renderPngAsync } = require('./raster');
 
 const SPEED = Math.max(0.1, parseFloat(process.env.DIBUJA_DEBUG_SPEED) || 1);
 const ROUNDS = Math.max(1, Math.min(20, parseInt(process.env.DIBUJA_ROUNDS, 10) || 8));
+const FORCED_VUELTAS = Math.max(0, Math.min(5, parseInt(process.env.DIBUJA_VUELTAS, 10) || 0));
 const TIMES = { intro: 3500, choose: 15000, draw: 80000, reveal: 6500 }; // ms «lógicos»
 const HINTS_AT = [0.5, 0.75];
 const BONUS = { facil: 0, media: 25, dificil: 75 };
+// 3-6 players: share of «100 + 3 × seconds left» for the 1st, 2nd… correct guess
+const ORDER_FACTOR = [1, 0.8, 0.65, 0.5, 0.4];
+// 3-6 players: what the drawer can earn in a round if everybody guesses (split per guesser)
+const DRAWER_POOL = 200;
 const MAX_STROKES = 4000;
 const MAX_ROUND_POINTS = 200000; // pares x,y por ronda
 const MAX_PTS_PER_MSG = 1500;
@@ -68,6 +99,21 @@ function rating(score, rounds) {
   return RATINGS[RATINGS.length - 1];
 }
 
+/** Times each player draws in a match of n players (3-6). */
+function vueltasFor(n) {
+  if (FORCED_VUELTAS) return FORCED_VUELTAS;
+  return n >= 5 ? 1 : 2;
+}
+/** Points of the k-th correct guess (k = 0 first) with secs seconds left. */
+function guessPoints(k, secs, diff) {
+  const f = ORDER_FACTOR[Math.min(k, ORDER_FACTOR.length - 1)];
+  return Math.round((100 + 3 * secs) * f) + (BONUS[diff] || 0);
+}
+/** Points the drawer gets for one correct guess (bonus only with the first). */
+function drawerPoints(k, guessers, diff) {
+  return Math.round(DRAWER_POOL / Math.max(1, guessers)) + (k === 0 ? (BONUS[diff] || 0) : 0);
+}
+
 function wkey(w) { return normalize(w).replace(/\s+/g, ' '); }
 function pad2(n) { return (n < 10 ? '0' : '') + n; }
 function stampOf(d) {
@@ -82,18 +128,35 @@ function shuffle(a) {
   return a;
 }
 function isLetter(ch) { return /[0-9a-zA-ZÀ-ÿ]/.test(ch); }
+// A wrong guess that still gives part of the answer away («mi abuela» for
+// «abuela feliz», «abuel»): in 3-6 it is kept private, like «¡Casi!».
+function givesAway(guessText, word) {
+  const g = normalize(guessText), t = normalize(word);
+  if (!g || !t) return false;
+  const gc = g.replace(/\s+/g, ''), tc = t.replace(/\s+/g, '');
+  if (gc.indexOf(tc) >= 0) return true;
+  if (gc.length >= 4 && tc.indexOf(gc) >= 0) return true;
+  const gTok = g.split(' ');
+  return t.split(' ').some(function (w) { return w.length >= 3 && gTok.indexOf(w) >= 0; });
+}
 
 let firstDrawerToggle = Math.random() < 0.5 ? 0 : 1;
+let ffaStart = 0;
 
 function create(api) {
   const S = {
+    mode: 'coop',          // 'coop' (2 players) | 'ffa' (3-6, todos contra todos)
+    order: [],             // slots playing this match (a phone that joins mid-match watches)
+    turns: [],             // drawer of each round (slot)
+    vueltas: 1,
     phase: 'intro',
     round: 0,
     drawer: 0,
     left: 0,
     total: 0,
     paused: false,
-    score: 0,
+    score: 0,              // coop: team score
+    scores: [],            // ffa: points by slot
     used: new Set(),
     customOffered: new Set(),
     options: [],
@@ -101,20 +164,31 @@ function create(api) {
     revealed: new Set(),
     hintsGiven: 0,
     skipsLeft: 1,
-    guesses: [],
+    guesses: [],           // the feed (ffa: wrong guesses with text, correct ones without)
+    eligible: [],          // ffa: who can guess this round
+    guessersAtStart: 0,    // ffa: how many could guess when the word was chosen
+    correct: [],           // ffa: [{ slot, order, points, secs, drawer }]
+    author: -1,            // ffa: author of the secret word being drawn (sits the round out)
+    drawerPts: 0,          // ffa: drawer's points this round
     strokes: [],
     strokeMap: new Map(),
     roundPoints: 0,
     history: [],
     last: null,
     stamp: stampOf(new Date()),
-    lastGuessAt: 0
+    lastGuessAt: {}
   };
   let dirty = true;
   let lastMetaAt = 0;
   let stopped = false;
 
-  function guesser() { return 1 - S.drawer; }
+  function ffa() { return S.mode === 'ffa'; }
+  // coop: the other player
+  function guesser() {
+    for (let k = 0; k < S.order.length; k++) if (S.order[k] !== S.drawer) return S.order[k];
+    return S.drawer;
+  }
+  function rounds() { return S.turns.length; }
 
   // ---------------------------------------------------------------- palabras
   function randomWord(diff, avoidCats) {
@@ -126,12 +200,16 @@ function create(api) {
     return { word: w.word, diff: w.diff, cat: w.cat, custom: false };
   }
 
+  // Secret words written by the OTHER players of the match (with 2: the partner)
   function customFor(drawerIdx) {
-    // Palabras secretas que ha escrito la PAREJA del que dibuja
-    const list = api.store(1 - drawerIdx).words || [];
-    const fresh = list.filter(function (w) { return !S.used.has(wkey(w)); });
+    const pool = [];
+    S.order.forEach(function (s) {
+      if (s === drawerIdx) return;
+      (api.store(s).words || []).forEach(function (w) { pool.push({ word: w, from: s }); });
+    });
+    const fresh = pool.filter(function (c) { return !S.used.has(wkey(c.word)); });
     if (!fresh.length) return null;
-    const notOffered = fresh.filter(function (w) { return !S.customOffered.has(wkey(w)); });
+    const notOffered = fresh.filter(function (c) { return !S.customOffered.has(wkey(c.word)); });
     const src = notOffered.length ? notOffered : fresh;
     return src[Math.floor(Math.random() * src.length)];
   }
@@ -145,12 +223,19 @@ function create(api) {
     });
     const cw = customFor(S.drawer);
     if (cw) {
-      S.customOffered.add(wkey(cw));
-      opts[1] = { word: cw, diff: 'media', cat: 'secreta', custom: true };
+      S.customOffered.add(wkey(cw.word));
+      opts[1] = { word: cw.word, diff: 'media', cat: 'secreta', custom: true, from: cw.from };
     }
     // Las palabras normales ofrecidas no se vuelven a ofrecer en la partida
     opts.forEach(function (o) { if (!o.custom) S.used.add(wkey(o.word)); });
     return opts;
+  }
+  function publicOpts() {
+    return S.options.map(function (o) {
+      const p = { word: o.word, diff: o.diff, cat: o.cat, custom: o.custom };
+      if (o.custom) p.from = o.from + 1;
+      return p;
+    });
   }
 
   // ---------------------------------------------------------------- pistas
@@ -187,15 +272,32 @@ function create(api) {
   function sendDrawer(obj) { api.sendSlot(S.drawer, obj); }
 
   function startMatch() {
+    S.order = api.players().slice(0, 6);
+    S.mode = S.order.length >= 3 ? 'ffa' : 'coop';
     S.round = 0;
     S.score = 0;
+    S.scores = new Array(api.slots).fill(0);
     S.used = new Set();
     S.customOffered = new Set();
     S.history = [];
     S.stamp = stampOf(new Date());
-    firstDrawerToggle = 1 - firstDrawerToggle;
-    S.firstDrawer = firstDrawerToggle;
-    api.log('[dibuja] Nueva partida (' + ROUNDS + ' rondas)');
+    S.turns = [];
+    if (!ffa()) {
+      // Two players: they take turns, and the one who starts alternates between matches
+      firstDrawerToggle = 1 - firstDrawerToggle;
+      S.firstDrawer = firstDrawerToggle;
+      const a = S.order[S.firstDrawer % S.order.length], b = S.order[(S.firstDrawer + 1) % S.order.length];
+      for (let r = 0; r < ROUNDS; r++) S.turns.push(r % 2 === 0 ? a : b);
+      S.vueltas = ROUNDS / 2;
+    } else {
+      // Everybody draws `vueltas` times, in turn; who starts rotates between matches
+      const n = S.order.length;
+      const start = ffaStart++ % n;
+      const rot = S.order.slice(start).concat(S.order.slice(0, start));
+      S.vueltas = vueltasFor(n);
+      for (let v = 0; v < S.vueltas; v++) rot.forEach(function (s) { S.turns.push(s); });
+    }
+    api.log('[dibuja] Nueva partida (' + (ffa() ? S.order.length + ' jugadores, todos contra todos, ' + S.vueltas + (S.vueltas === 1 ? ' vuelta' : ' vueltas') + ', ' : 'en equipo, ') + rounds() + ' rondas)');
     nextRound();
   }
 
@@ -207,7 +309,7 @@ function create(api) {
 
   function nextRound() {
     S.round++;
-    S.drawer = (S.firstDrawer + S.round - 1) % 2;
+    S.drawer = S.turns[S.round - 1];
     S.word = null;
     S.options = [];
     S.revealed = new Set();
@@ -215,15 +317,26 @@ function create(api) {
     S.skipsLeft = 1;
     S.guesses = [];
     S.last = null;
+    S.correct = [];
+    S.author = -1;
+    S.drawerPts = 0;
+    S.eligible = S.order.filter(function (s) { return s !== S.drawer; });
+    S.guessersAtStart = S.eligible.length;
     resetRoundDrawing();
     api.sendTvs({ t: 'd.all', strokes: [] });
     setPhase('intro', TIMES.intro);
   }
 
+  // After a round (or a skipped turn): the next one, or the end
+  function advance() {
+    if (S.round >= rounds()) enterEnd();
+    else nextRound();
+  }
+
   function enterChoose() {
     S.options = pickOptions();
     setPhase('choose', TIMES.choose);
-    sendDrawer({ t: 'd.opts', round: S.round, opts: S.options });
+    sendDrawer({ t: 'd.opts', round: S.round, opts: publicOpts() });
   }
 
   function chooseWord(i) {
@@ -233,6 +346,12 @@ function create(api) {
     S.used.add(wkey(o.word));
     S.options = [];
     S.revealed = new Set();
+    if (ffa() && o.custom && S.order.indexOf(o.from) >= 0) {
+      // The author knows the word: they sit this round out
+      S.author = o.from;
+      S.eligible = S.eligible.filter(function (s) { return s !== o.from; });
+    }
+    S.guessersAtStart = S.eligible.length;
     setPhase('draw', TIMES.draw);
     sendDrawer(secretMsg());
     api.log('[dibuja] Ronda ' + S.round + ': dibuja ' + api.name(S.drawer));
@@ -244,6 +363,7 @@ function create(api) {
 
   function skipWord() {
     if (S.phase !== 'draw' || S.skipsLeft <= 0 || !S.word) return;
+    if (ffa() && S.correct.length) return; // somebody already guessed this one
     let nw;
     if (S.word.custom) {
       nw = randomWord('media', [S.word.cat]);
@@ -253,6 +373,12 @@ function create(api) {
     S.used.add(wkey(nw.word));
     S.skipsLeft--;
     S.word = nw;
+    if (S.author >= 0) {
+      // Not their word any more: the author guesses again
+      if (S.order.indexOf(S.author) >= 0) S.eligible.push(S.author);
+      S.author = -1;
+      S.guessersAtStart = S.eligible.length;
+    }
     S.revealed = new Set();
     for (let k = 0; k < S.hintsGiven; k++) revealOne();
     resetRoundDrawing();
@@ -272,7 +398,7 @@ function create(api) {
     S.last = { word: S.word.word, diff: S.word.diff, custom: !!S.word.custom, ok: ok, points: points, secsLeft: secsLeft, bonus: ok ? bonus : 0 };
     const entry = {
       round: S.round, word: S.word.word, diff: S.word.diff, cat: S.word.cat, custom: !!S.word.custom,
-      ok: ok, points: points, drawer: S.drawer + 1, strokes: S.strokes, file: null
+      ok: ok, points: points, drawer: S.drawer + 1, drawerName: api.name(S.drawer), strokes: S.strokes, file: null
     };
     S.history.push(entry);
     savePng(entry);
@@ -281,18 +407,55 @@ function create(api) {
     api.log('[dibuja] Ronda ' + S.round + ' ' + (ok ? 'acertada (+' + points + ')' : 'sin acertar') + ': ' + S.word.word);
   }
 
+  // 3-6 players: everybody guessed ('all'), time is up ('time') or the drawer left ('left')
+  function endRoundFfa(reason) {
+    const ok = S.correct.length > 0;
+    const results = S.correct.map(function (c) { return { slot: c.slot + 1, order: c.order, points: c.points, secs: c.secs }; });
+    S.last = {
+      mode: 'ffa', word: S.word.word, diff: S.word.diff, custom: !!S.word.custom, ok: ok, reason: reason,
+      results: results, drawer: S.drawer + 1, drawerPoints: S.drawerPts, guessers: S.guessersAtStart,
+      author: S.author + 1, bonus: BONUS[S.word.diff] || 0
+    };
+    const entry = {
+      round: S.round, word: S.word.word, diff: S.word.diff, cat: S.word.cat, custom: !!S.word.custom,
+      ok: ok, points: S.drawerPts, guessed: S.correct.length, guessers: S.guessersAtStart,
+      drawer: S.drawer + 1, drawerName: api.name(S.drawer), strokes: S.strokes, file: null
+    };
+    S.history.push(entry);
+    savePng(entry);
+    setPhase('reveal', TIMES.reveal);
+    api.broadcast({
+      t: 'd.reveal', mode: 'ffa', round: S.round, word: S.word.word, diff: S.word.diff, ok: ok, reason: reason,
+      results: results, drawer: S.drawer + 1, drawerPoints: S.drawerPts, guessers: S.guessersAtStart,
+      bonus: S.last.bonus, scores: S.scores.slice()
+    });
+    api.log('[dibuja] Ronda ' + S.round + ': ' + S.correct.length + ' de ' + S.guessersAtStart + ' aciertan «' + S.word.word + '»' + (reason === 'left' ? ' (se ha ido quien dibujaba)' : ''));
+  }
+
+  function ranking() {
+    const list = S.order.map(function (s) { return { slot: s + 1, name: api.name(s), score: S.scores[s] || 0 }; });
+    list.sort(function (a, b) { return b.score - a.score || a.slot - b.slot; });
+    list.forEach(function (r) { r.rank = 1 + list.filter(function (o) { return o.score > r.score; }).length; });
+    return list;
+  }
+
   function enterEnd() {
     setPhase('end', 0);
-    S.rating = rating(S.score, ROUNDS);
+    if (ffa()) {
+      S.ranking = ranking();
+      api.log('[dibuja] Fin de partida: ' + S.ranking.map(function (r) { return r.rank + 'º ' + r.name + ' ' + r.score; }).join(', '));
+    } else {
+      S.rating = rating(S.score, rounds());
+      api.log('[dibuja] Fin de partida: ' + S.score + ' puntos (' + S.rating.title + ')');
+    }
     api.sendTvs(galleryMsg());
-    api.log('[dibuja] Fin de partida: ' + S.score + ' puntos (' + S.rating.title + ')');
   }
 
   function galleryMsg() {
     return {
       t: 'd.gallery',
       items: S.history.map(function (h) {
-        return { round: h.round, word: h.word, diff: h.diff, ok: h.ok, points: h.points, drawer: h.drawer, strokes: h.strokes };
+        return { round: h.round, word: h.word, diff: h.diff, ok: h.ok, points: h.points, drawer: h.drawer, drawerName: h.drawerName, guessed: h.guessed, guessers: h.guessers, strokes: h.strokes };
       })
     };
   }
@@ -301,11 +464,8 @@ function create(api) {
     switch (S.phase) {
       case 'intro': enterChoose(); break;
       case 'choose': chooseWord(Math.floor(Math.random() * S.options.length)); break;
-      case 'draw': endRound(false); break;
-      case 'reveal':
-        if (S.round >= ROUNDS) enterEnd();
-        else nextRound();
-        break;
+      case 'draw': if (ffa()) endRoundFfa('time'); else endRound(false); break;
+      case 'reveal': advance(); break;
     }
   }
 
@@ -401,10 +561,16 @@ function create(api) {
     return Array.from(s).slice(0, 40).join('');
   }
 
-  function guess(text) {
+  function tooFast(who) {
     const now = Date.now();
-    if (now - S.lastGuessAt < 150) return;
-    S.lastGuessAt = now;
+    if (now - (S.lastGuessAt[who] || 0) < 150) return true;
+    S.lastGuessAt[who] = now;
+    return false;
+  }
+
+  // 2 players (coop)
+  function guess(who, text) {
+    if (tooFast(who)) return;
     const t = cleanGuess(text);
     if (!t) return;
     const res = judge(t, S.word.word);
@@ -415,15 +581,58 @@ function create(api) {
     dirty = true;
   }
 
+  // 3-6 players: everybody guesses at once
+  function guessFfa(who, text) {
+    if (S.eligible.indexOf(who) < 0) return;
+    if (S.correct.some(function (c) { return c.slot === who; })) return; // «¡Acertaste!»: no more guesses
+    if (tooFast(who)) return;
+    const t = cleanGuess(text);
+    if (!t) return;
+    let res = judge(t, S.word.word);
+    if (res === 'ok') { scoreCorrect(who); return; }
+    if (res === 'no' && givesAway(t, S.word.word)) res = 'casi';
+    if (res === 'casi') {
+      // Private: it would give the word away to everybody else
+      api.sendSlot(who, { t: 'd.g', slot: who + 1, text: t, res: 'casi', mine: true });
+      return;
+    }
+    S.guesses.push({ slot: who + 1, text: t, res: 'no' });
+    if (S.guesses.length > 30) S.guesses.shift();
+    api.broadcast({ t: 'd.g', slot: who + 1, text: t, res: 'no' });
+    dirty = true;
+  }
+
+  function scoreCorrect(who) {
+    const k = S.correct.length;
+    const secs = Math.max(0, Math.ceil(S.left / 1000));
+    const pts = guessPoints(k, secs, S.word.diff);
+    const dp = drawerPoints(k, S.guessersAtStart, S.word.diff);
+    S.scores[who] = (S.scores[who] || 0) + pts;
+    S.scores[S.drawer] = (S.scores[S.drawer] || 0) + dp;
+    S.drawerPts += dp;
+    S.correct.push({ slot: who, order: k + 1, points: pts, secs: secs, drawer: dp });
+    S.guesses.push({ slot: who + 1, res: 'ok', order: k + 1 });
+    if (S.guesses.length > 30) S.guesses.shift();
+    // The text of a correct guess is never sent to anybody (not even back)
+    api.sendSlot(who, { t: 'd.g', slot: who + 1, res: 'ok', points: pts, order: k + 1, mine: true });
+    api.broadcast({ t: 'd.got', slot: who + 1, order: k + 1, points: pts, drawerPoints: dp });
+    api.log('[dibuja] ' + api.name(who) + ' acierta (' + (k + 1) + 'º, +' + pts + '; ' + api.name(S.drawer) + ' +' + dp + ')');
+    dirty = true;
+    if (S.correct.length >= S.eligible.length) endRoundFfa('all');
+  }
+
   // ---------------------------------------------------------------- estado público
   function buildMeta() {
     const m = {
       t: 'dmeta',
+      mode: S.mode,
       phase: S.phase,
       round: S.round,
-      rounds: ROUNDS,
+      rounds: rounds(),
+      vueltas: S.vueltas,
+      players: S.order.map(function (s) { return s + 1; }),
       drawer: S.drawer + 1,
-      guesser: guesser() + 1,
+      guesser: ffa() ? 0 : guesser() + 1,
       left: Math.max(0, Math.round(S.left)),
       total: S.total,
       speed: SPEED,
@@ -436,21 +645,28 @@ function create(api) {
       guesses: [],
       last: null
     };
-    for (let i = 0; i < 2; i++) if (!api.isConnected(i)) m.waiting.push(api.name(i));
+    S.order.forEach(function (s) { if (!api.isConnected(s)) m.waiting.push(api.name(s)); });
+    if (ffa()) {
+      m.scores = S.scores.slice();
+      m.guessers = S.eligible.map(function (s) { return s + 1; });
+      m.correct = S.correct.map(function (c) { return { slot: c.slot + 1, order: c.order, points: c.points }; });
+      m.author = S.author + 1;
+    }
     if (S.phase === 'draw') {
       m.hint = hintPattern();
       m.letters = letterCount();
-      m.guesses = S.guesses.slice(-5);
+      m.guesses = S.guesses.slice(ffa() ? -6 : -5);
     }
     if (S.phase === 'reveal' || S.phase === 'end') {
       m.last = S.last;
-      if (S.phase === 'reveal') m.guesses = S.guesses.slice(-5);
+      if (S.phase === 'reveal') m.guesses = S.guesses.slice(ffa() ? -6 : -5);
     }
     if (S.phase === 'end') {
-      m.rating = S.rating;
+      if (ffa()) m.ranking = S.ranking;
+      else m.rating = S.rating;
       m.maxRound = 100 + 3 * Math.ceil(TIMES.draw / 1000) + BONUS.dificil;
       m.history = S.history.map(function (h) {
-        return { round: h.round, word: h.word, diff: h.diff, ok: h.ok, points: h.points, drawer: h.drawer, custom: h.custom };
+        return { round: h.round, word: h.word, diff: h.diff, ok: h.ok, points: h.points, drawer: h.drawer, drawerName: h.drawerName, custom: h.custom, guessed: h.guessed, guessers: h.guessers };
       });
     }
     return m;
@@ -462,6 +678,10 @@ function create(api) {
     api.broadcast(JSON.stringify(buildMeta()));
   }
 
+  function everybodyHere() {
+    return S.order.length > 0 && S.order.every(function (s) { return api.isConnected(s); });
+  }
+
   // ---------------------------------------------------------------- interfaz del módulo
   return {
     id: 'dibuja',
@@ -469,7 +689,7 @@ function create(api) {
     stop: function () { stopped = true; },
     tick: function (dt) {
       if (stopped) return;
-      const paused = !api.bothConnected();
+      const paused = !everybodyHere();
       if (paused !== S.paused) {
         S.paused = paused;
         dirty = true;
@@ -484,8 +704,7 @@ function create(api) {
       if (dirty || Date.now() - lastMetaAt >= 1000) sendMeta();
     },
     onMessage: function (who, msg) {
-      const isDrawer = who === S.drawer;
-      const isGuesser = who === guesser();
+      const isDrawer = who === S.drawer && S.order.indexOf(who) >= 0;
       switch (msg.t) {
         case 'd.pick':
           if (isDrawer && S.phase === 'choose') {
@@ -506,7 +725,9 @@ function create(api) {
           if (isDrawer && S.phase === 'draw') clearAll();
           break;
         case 'd.guess':
-          if (isGuesser && S.phase === 'draw' && !S.paused) guess(msg.text);
+          if (S.phase !== 'draw' || S.paused || who < 0) break;
+          if (ffa()) guessFfa(who, msg.text);
+          else if (who === guesser() && who !== S.drawer) guess(who, msg.text);
           break;
         case 'd.again':
           if (S.phase === 'end') startMatch();
@@ -516,14 +737,41 @@ function create(api) {
     onPlayerDisconnected: function () { /* el tick detecta la pausa */ },
     onPlayerJoined: function (i) {
       api.sendSlot(i, buildMeta());
-      if (i === S.drawer) {
-        if (S.phase === 'choose') api.sendSlot(i, { t: 'd.opts', round: S.round, opts: S.options });
+      if (i === S.drawer && S.order.indexOf(i) >= 0) {
+        if (S.phase === 'choose') api.sendSlot(i, { t: 'd.opts', round: S.round, opts: publicOpts() });
         if (S.phase === 'draw') {
           api.sendSlot(i, secretMsg());
           api.sendSlot(i, { t: 'd.all', strokes: S.strokes });
         }
       }
       dirty = true;
+    },
+    // Somebody left for good (did not come back in time, or «Salir»).
+    // 2 players: back to the menu. 3-6: the match goes on without them.
+    onPlayerLeft: function (i) {
+      if (!ffa()) return false;
+      const idx = S.order.indexOf(i);
+      if (idx < 0) return true; // was only watching
+      S.order.splice(idx, 1);
+      if (S.order.length < 2) return false;
+      // Their future turns are dropped (the rounds already played stay)
+      S.turns = S.turns.filter(function (s, k) { return k < S.round || s !== i; });
+      S.eligible = S.eligible.filter(function (s) { return s !== i; });
+      if (S.author === i) S.author = -1;
+      dirty = true;
+      if (S.phase === 'end') { S.ranking = ranking(); return true; }
+      if (i === S.drawer) {
+        if (S.phase === 'draw') endRoundFfa('left');
+        else if (S.phase === 'intro' || S.phase === 'choose') {
+          // The turn had not really started: straight to the next drawer
+          S.turns.splice(S.round - 1, 1);
+          S.round--;
+          advance();
+        }
+      } else if (S.phase === 'draw' && S.correct.length >= S.eligible.length) {
+        endRoundFfa('all');
+      }
+      return true;
     },
     syncTv: function (ws) {
       api.sendWs(ws, buildMeta());
@@ -537,8 +785,9 @@ function create(api) {
 }
 
 // ---------------------------------------------------------------- menu (lobby)
-// «Palabras secretas para tu pareja»: each player can type up to 10 words in
-// the phone menu. They are kept in memory only (per player, in the hub).
+// «Palabras secretas»: each player can type up to 10 words in the phone menu,
+// for the others to draw (with 2 players, for the partner). They are kept in
+// memory only (per player, in the hub).
 const MAX_CUSTOM_WORDS = 10;
 
 function cleanWords(list) {
@@ -573,4 +822,8 @@ const lobby = {
   }
 };
 
-module.exports = { create: create, lobby: lobby, cleanWords: cleanWords, TIMES: TIMES, ROUNDS: ROUNDS, RATINGS: RATINGS, MAX_CUSTOM_WORDS: MAX_CUSTOM_WORDS };
+module.exports = {
+  create: create, lobby: lobby, cleanWords: cleanWords, TIMES: TIMES, ROUNDS: ROUNDS, RATINGS: RATINGS, MAX_CUSTOM_WORDS: MAX_CUSTOM_WORDS,
+  BONUS: BONUS, ORDER_FACTOR: ORDER_FACTOR, DRAWER_POOL: DRAWER_POOL,
+  vueltasFor: vueltasFor, guessPoints: guessPoints, drawerPoints: drawerPoints, givesAway: givesAway
+};

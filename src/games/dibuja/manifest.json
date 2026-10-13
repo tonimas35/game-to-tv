@@ -1,11 +1,11 @@
 {
   "id": "dibuja",
   "title": "Dibuja y adivina",
-  "description": "Uno dibuja en el móvil y el otro adivina mirando la tele. ¡Juntos contra el reloj!",
-  "phoneDescription": "Uno dibuja en el móvil y el otro adivina mirando la tele",
+  "description": "Uno dibuja en el móvil y los demás adivinan mirando la tele. Con 2, en equipo; de 3 a 6, todos contra todos.",
+  "phoneDescription": "Uno dibuja en el móvil y los demás adivinan mirando la tele",
   "minPlayers": 2,
-  "maxPlayers": 2,
-  "tags": ["8 rondas", "En equipo", "80 s"],
+  "maxPlayers": 6,
+  "tags": ["Por turnos", "80 s"],
   "icon": "icon.svg",
   "accent": "#22e6ff",
   "order": 10

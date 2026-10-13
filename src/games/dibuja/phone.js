@@ -3,7 +3,11 @@
  * - The drawer picks a word and draws on a 4:3 canvas (normalized 0..1
  *   coordinates, sent in small batches every ~40 ms).
  * - The guesser types answers; Enter sends and keeps the keyboard open.
- * - Menu panel: «Palabras secretas para tu pareja».
+ * - Menu panel: «Palabras secretas» (for the partner, or for the others).
+ * - 3-6 players (dmeta.mode 'ffa'): everybody but the drawer guesses at the
+ *   same time; after a correct guess the phone shows «¡Acertaste! Espera a
+ *   los demás» and no more guesses can be sent. The author of a secret word
+ *   sits that round out, and a phone that joins mid-match just watches.
  */
 (function () {
   'use strict';
@@ -69,18 +73,26 @@
     '  <div class="fb" id="gFb"></div>' +
     '  <ul class="feed" id="gFeed"></ul>' +
     '</div>' +
+    '<div class="pn center hidden" id="pnGot">' +
+    '  <div class="k2" id="gtTitle">¡Acertaste!</div>' +
+    '  <p class="k3" id="gtSub">Espera a los demás</p>' +
+    '  <p class="k1" id="gtPts"></p>' +
+    '  <ul class="feed" id="gtFeed" style="width:100%;flex:0 0 auto;margin-top:18px"></ul>' +
+    '</div>' +
     '<div class="pn center hidden" id="pnReveal">' +
     '  <div class="k2" id="rvTitle">¡Acertado!</div>' +
     '  <p class="k1" id="rvEra">Era:</p>' +
     '  <div class="k2 fit" id="rvWord" style="font-size:44px">—</div>' +
     '  <p class="k3" id="rvPts"></p>' +
+    '  <ol class="rk" id="rvRank"></ol>' +
     '</div>' +
     '<div class="pn center hidden" id="pnEnd">' +
     '  <p class="k1">¡Partida terminada!</p>' +
     '  <div class="k2" id="enScore" style="font-size:56px">0</div>' +
-    '  <p class="k1">puntos del equipo</p>' +
+    '  <p class="k1" id="enLbl">puntos del equipo</p>' +
     '  <div class="k2" id="enRating" style="margin-top:18px">—</div>' +
     '  <p class="k3" id="enSub"></p>' +
+    '  <ol class="rk" id="enRank"></ol>' +
     '  <button class="bigbtn c" id="enAgain" type="button" style="margin-top:18px">Jugar otra vez</button>' +
     '  <button class="bigbtn ghost menuBtn" type="button" style="margin-top:12px;font-size:22px;padding:16px">Menú</button>' +
     '</div>';
@@ -92,7 +104,7 @@
 
   var MENU_HTML =
     '<div class="secret">' +
-    '  <h3><span>Palabras secretas para tu pareja</span><span id="wCount">0/10</span></h3>' +
+    '  <h3><span id="wTitle">Palabras secretas para tu pareja</span><span id="wCount">0/10</span></h3>' +
     '  <p class="small" id="wHelp">Saldrán en «Dibuja y adivina» cuando le toque dibujar a tu pareja. Solo las ves tú.</p>' +
     '  <form class="wform" id="wForm" autocomplete="off" novalidate>' +
     '    <input id="wInput" type="text" maxlength="30" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="done" placeholder="Ej.: la siesta del domingo">' +
@@ -116,6 +128,17 @@
   var fbTimer = null;
 
   function slot() { return host.slot(); }
+  function ffa() { return !!(dm && dm.mode === 'ffa'); }
+  function inMatch() { return !dm || !dm.players || dm.players.indexOf(slot()) >= 0; }
+  function colorOf(s) { return host.colors()[s - 1] || '#ffffff'; }
+  function myCorrect() {
+    var c = (dm && dm.correct) || [];
+    for (var i = 0; i < c.length; i++) if (c[i].slot === slot()) return c[i];
+    return null;
+  }
+  // 3-6: can I guess right now?
+  function canGuess() { return !!(dm && (dm.guessers || []).indexOf(slot()) >= 0 && !myCorrect()); }
+  function myPoints() { return ffa() ? ((dm.scores || [])[slot() - 1] || 0) : dm.score; }
   function myColor() { return host.myColor(); }
   function otherName() { return host.otherName(); }
   function sendMsg(o) { return host.send(o); }
@@ -127,7 +150,7 @@
     dmAt = now();
     if (!prev || prev.round !== m.round) { opts = null; if (m.drawer !== slot()) secret = null; }
     if (m.phase === 'choose' && opts && opts.round !== m.round) opts = null;
-    if (prev && prev.phase !== m.phase && m.phase === 'draw' && m.drawer !== slot()) {
+    if (prev && prev.phase !== m.phase && m.phase === 'draw' && m.drawer !== slot() && (m.mode !== 'ffa' || (m.guessers || []).indexOf(slot()) >= 0)) {
       setTimeout(function () { try { $('gInput').focus(); } catch (e) { /* noop */ } }, 50);
     }
     renderDibuja();
@@ -140,7 +163,7 @@
   }
 
   function setPanel(id) {
-    var ids = ['pnIntro', 'pnChoose', 'pnWait', 'pnDraw', 'pnGuess', 'pnReveal', 'pnEnd'];
+    var ids = ['pnIntro', 'pnChoose', 'pnWait', 'pnDraw', 'pnGuess', 'pnGot', 'pnReveal', 'pnEnd'];
     for (var i = 0; i < ids.length; i++) show($(ids[i]), ids[i] === id);
     if (id !== currentPanel) {
       currentPanel = id;
@@ -152,9 +175,10 @@
     if (!dm || !isActive()) return;
     var iDraw = dm.drawer === slot();
     setText($('dRound'), 'Ronda ' + dm.round + '/' + dm.rounds);
-    setText($('dScore'), dm.score);
+    setText($('dScore'), myPoints());
     show($('dPause'), !!dm.paused && dm.phase !== 'end');
-    if (dm.paused) setText($('dPauseWho'), 'Esperando a ' + (dm.waiting && dm.waiting.length ? dm.waiting.join(' y ') : 'tu pareja') + '…');
+    if (dm.paused) setText($('dPauseWho'), 'Esperando a ' + (dm.waiting && dm.waiting.length ? G2T.joinNames(dm.waiting) : 'tu pareja') + '…');
+    if (ffa()) { renderFfa(iDraw); updateTimers(); return; }
 
     switch (dm.phase) {
       case 'intro':
@@ -174,10 +198,14 @@
         break;
       case 'reveal':
         setPanel('pnReveal');
+        $('rvRank').innerHTML = '';
         renderReveal();
         break;
       case 'end':
         setPanel('pnEnd');
+        setText($('enLbl'), 'puntos del equipo');
+        $('enRank').innerHTML = '';
+        $('enScore').style.color = '';
         setText($('enScore'), dm.score);
         setText($('enRating'), dm.rating ? dm.rating.title : '');
         setText($('enSub'), dm.rating ? dm.rating.sub : '');
@@ -186,6 +214,98 @@
     }
     if (dm.phase !== 'end') $('enAgain').removeAttribute('data-sent');
     updateTimers();
+  }
+
+  // ---- 3-6 players («todos contra todos»)
+  function renderFfa(iDraw) {
+    var drawerName = host.nameOf(dm.drawer);
+    if (!inMatch()) {
+      setPanel('pnWait');
+      setText($('wtTitle'), 'Estás mirando');
+      setText($('wtTime'), 'Entrarás en la próxima partida. ¡Mira la tele!');
+      return;
+    }
+    switch (dm.phase) {
+      case 'intro':
+        setPanel('pnIntro');
+        setText($('iRound'), 'Ronda ' + dm.round + ' de ' + dm.rounds);
+        setText($('iTitle'), iDraw ? 'Te toca dibujar' : 'Te toca adivinar');
+        $('iTitle').style.color = host.myColor();
+        setText($('iSub'), iDraw ? 'Adivinan los demás mirando la tele' : 'Dibuja ' + drawerName + '. ¡Mira la tele!');
+        break;
+      case 'choose':
+        if (iDraw) { setPanel('pnChoose'); renderOptions(); }
+        else { setPanel('pnWait'); setText($('wtTitle'), drawerName + ' está eligiendo palabra…'); }
+        break;
+      case 'draw':
+        if (iDraw) { setPanel('pnDraw'); renderDrawer(); break; }
+        var mine = myCorrect();
+        if (mine || dm.author === slot()) {
+          setPanel('pnGot');
+          setText($('gtTitle'), mine ? '¡Acertaste!' : 'Es tu palabra secreta');
+          $('gtTitle').style.color = mine ? 'var(--ok)' : '#c9a8ff';
+          setText($('gtSub'), mine ? 'Espera a los demás' : 'Esta ronda no adivinas: ¡mira cómo la dibuja ' + drawerName + '!');
+          setText($('gtPts'), mine ? ('+' + mine.points + ' puntos · ' + mine.order + 'º en acertar') : '');
+          setFeed($('gtFeed'), (dm.guesses || []).slice(-4));
+        } else {
+          setPanel('pnGuess');
+          renderGuesser();
+        }
+        break;
+      case 'reveal':
+        setPanel('pnReveal');
+        renderRevealFfa();
+        break;
+      case 'end':
+        setPanel('pnEnd');
+        renderEndFfa();
+        break;
+    }
+    if (dm.phase !== 'end') $('enAgain').removeAttribute('data-sent');
+  }
+
+  function rankHtml(list, max) {
+    var html = '';
+    list.slice(0, max || 6).forEach(function (r) {
+      html += '<li class="' + (r.slot === slot() ? 'me' : '') + '"><span class="md m' + Math.min(r.rank, 4) + '">' + r.rank + '</span><b style="color:' + colorOf(r.slot) + '">' + esc(host.nameOf(r.slot)) + '</b><i>' + r.score + '</i></li>';
+    });
+    return html;
+  }
+
+  function renderRevealFfa() {
+    var r = dm.last;
+    if (!r) return;
+    var t = $('rvTitle');
+    var mine = null;
+    (r.results || []).forEach(function (x) { if (x.slot === slot()) mine = x; });
+    var iDrew = r.drawer === slot();
+    var k = (r.results || []).length;
+    var title = r.reason === 'left' ? host.nameOf(r.drawer) + ' se ha ido' :
+      (mine ? '¡Acertaste!' : (iDrew ? (k ? 'Lo han adivinado ' + k + ' de ' + r.guessers : 'Nadie lo ha adivinado') : (k ? '¡Se acabó la ronda!' : '¡Se acabó el tiempo!')));
+    setText(t, title);
+    t.style.color = mine || (iDrew && k) ? 'var(--ok)' : (k ? '#ffffff' : 'var(--bad)');
+    show($('rvEra'), true);
+    setText($('rvWord'), r.word);
+    var pts = mine ? mine.points : (iDrew ? r.drawerPoints : 0);
+    setText($('rvPts'), pts ? ('+' + pts + ' puntos para ti' + (mine ? ' (' + mine.order + 'º)' : '')) : 'Sin puntos para ti esta ronda');
+    var list = (dm.players || []).map(function (s) { return { slot: s, score: (dm.scores || [])[s - 1] || 0 }; });
+    list.sort(function (a, b) { return b.score - a.score || a.slot - b.slot; });
+    list.forEach(function (x) { x.rank = 1 + list.filter(function (o) { return o.score > x.score; }).length; });
+    $('rvRank').innerHTML = rankHtml(list, 6);
+  }
+
+  function renderEndFfa() {
+    var rk = dm.ranking || [];
+    var me = null;
+    rk.forEach(function (r) { if (r.slot === slot()) me = r; });
+    var winners = rk.filter(function (r) { return r.rank === 1; });
+    setText($('enLbl'), me ? 'puesto de ' + rk.length : 'clasificación');
+    setText($('enScore'), me ? me.rank + 'º' : '—');
+    $('enScore').style.color = me && me.rank === 1 ? 'var(--ok)' : '';
+    setText($('enRating'), me && me.rank === 1 ? (winners.length > 1 ? '¡Empate en cabeza!' : '¡Has ganado!') : 'Gana ' + G2T.joinNames(winners.map(function (w) { return host.nameOf(w.slot); })));
+    setText($('enSub'), me ? me.score + ' puntos' : '');
+    $('enRank').innerHTML = rankHtml(rk, 6);
+    if (!$('enAgain').getAttribute('data-sent')) { $('enAgain').disabled = false; setText($('enAgain'), 'Jugar otra vez'); }
   }
 
   function renderOptions() {
@@ -197,7 +317,7 @@
     var html = '';
     for (var i = 0; i < opts.opts.length; i++) {
       var o = opts.opts[i];
-      var tag = o.custom ? '<span class="tag secreta">secreta · de ' + esc(otherName()) + '</span>' : '<span class="tag ' + o.diff + '">' + DIFF_LABEL[o.diff] + '</span>';
+      var tag = o.custom ? '<span class="tag secreta">secreta · de ' + esc(o.from ? host.nameOf(o.from) : otherName()) + '</span>' : '<span class="tag ' + o.diff + '">' + DIFF_LABEL[o.diff] + '</span>';
       html += '<button type="button" class="opt" data-i="' + i + '">' + tag + '<b>' + esc(o.word) + '</b></button>';
     }
     box.innerHTML = html;
@@ -207,6 +327,12 @@
     var html = '';
     for (var i = list.length - 1; i >= 0; i--) {
       var g = list[i];
+      if (g.slot) {
+        // 3-6: with the name; a correct guess never carries its text
+        if (g.res === 'ok') html += '<li class="ok"><span><b style="color:' + colorOf(g.slot) + '">' + esc(host.nameOf(g.slot)) + '</b> ha acertado</span><em>' + g.order + 'º</em></li>';
+        else html += '<li class="' + g.res + '"><span><b style="color:' + colorOf(g.slot) + '">' + esc(host.nameOf(g.slot)) + ':</b> ' + esc(g.text) + '</span><em>NO</em></li>';
+        continue;
+      }
       html += '<li class="' + g.res + '"><span>' + esc(g.text) + '</span><em>' + (g.res === 'ok' ? '¡SÍ!' : (g.res === 'casi' ? '¡CASI!' : 'NO')) + '</em></li>';
     }
     return html;
@@ -228,12 +354,17 @@
     var skipBtn = $('tSkip');
     skipBtn.disabled = !(dm.skipsLeft > 0);
     setText(skipBtn, dm.skipsLeft > 0 ? 'Pasar palabra' : 'Ya has pasado');
+    if (ffa()) {
+      skipBtn.disabled = !(dm.skipsLeft > 0) || !!(dm.correct && dm.correct.length);
+      var n = (dm.guessers || []).length, k = (dm.correct || []).length;
+      setText($('dwFeedLbl'), k ? ('Han acertado ' + k + ' de ' + n) : ((dm.guesses && dm.guesses.length) ? 'Intentos:' : 'Aún no ha escrito nadie'));
+    } else
     setText($('dwFeedLbl'), (dm.guesses && dm.guesses.length) ? ('Intentos de ' + otherName() + ':') : (otherName() + ' aún no ha escrito nada'));
     setFeed($('dwFeed'), dm.guesses);
   }
 
   function renderGuesser() {
-    setText($('gLabel'), 'Adivina lo que dibuja ' + otherName() + ' en la tele');
+    setText($('gLabel'), 'Adivina lo que dibuja ' + (ffa() ? host.nameOf(dm.drawer) : otherName()) + ' en la tele');
     var h = dm.hint || '';
     var shown = Array.from(h).map(function (ch) { return ch === ' ' ? '  ' : ch.toUpperCase(); }).join(' ');
     setText($('gHint'), shown);
@@ -285,6 +416,11 @@
 
   function onGuessResult(g) {
     if (!dm) return;
+    if (ffa()) {
+      // Only my own guesses get feedback (others' wrong guesses are in the feed)
+      if (!g.mine && g.slot !== slot()) return;
+      if (g.res === 'ok') { host.vibrate([30, 40, 30]); renderDibuja(); return; }
+    }
     if (dm.drawer === slot()) {
       host.vibrate(g.res === 'casi' ? 40 : 10);
       return;
@@ -292,6 +428,7 @@
     var fb = $('gFb');
     fb.className = 'fb on ' + g.res;
     setText(fb, g.res === 'casi' ? '¡Casi!' : 'No');
+    if (ffa() && g.res === 'casi') setText(fb, '¡Casi! (solo lo ves tú)');
     clearTimeout(fbTimer);
     fbTimer = setTimeout(function () { fb.className = 'fb'; }, 1300);
     host.vibrate(g.res === 'casi' ? [20, 30, 20] : 25);
@@ -564,8 +701,15 @@
       });
     },
     render: function () {
-      var o = host.hub() && host.hub().players ? host.hub().players[slot() === 1 ? 1 : 0] : null;
-      setText($('wHelp'), 'Saldrán en «Dibuja y adivina» cuando le toque dibujar a ' + (o ? o.name : 'tu pareja') + '. Solo las ves tú.');
+      var others = [];
+      ((host.hub() && host.hub().players) || []).forEach(function (p, i) { if (p && i !== slot() - 1) others.push(p.name); });
+      if (others.length <= 1) {
+        setText($('wTitle'), 'Palabras secretas para tu pareja');
+        setText($('wHelp'), 'Saldrán en «Dibuja y adivina» cuando le toque dibujar a ' + (others[0] || 'tu pareja') + '. Solo las ves tú.');
+      } else {
+        setText($('wTitle'), 'Palabras secretas para los demás');
+        setText($('wHelp'), 'Saldrán cuando dibuje cualquier otro jugador; mientras dibujen una tuya, tú no adivinas. Solo las ves tú.');
+      }
       renderWords();
     },
     onMessage: function (msg) {
@@ -609,8 +753,9 @@
           break;
         case 'd.all': setLocalStrokes(msg.strokes || []); break;
         case 'd.g': onGuessResult(msg); break;
-        case 'd.skip': if (dm && dm.drawer !== slot()) host.toast('¡Palabra nueva!'); break;
-        case 'd.hint': if (dm && dm.drawer !== slot()) host.toast('¡Pista! Una letra más'); break;
+        case 'd.got': if (msg.slot !== slot()) { host.toast(host.nameOf(msg.slot) + ' ha acertado'); if (dm && dm.drawer === slot()) host.vibrate(30); } break;
+        case 'd.skip': if (dm && dm.drawer !== slot() && (!ffa() || canGuess())) host.toast('¡Palabra nueva!'); break;
+        case 'd.hint': if (dm && dm.drawer !== slot() && (!ffa() || canGuess())) host.toast('¡Pista! Una letra más'); break;
         case 'd.reveal': host.vibrate(msg.ok ? [30, 40, 30] : 60); break;
       }
     }

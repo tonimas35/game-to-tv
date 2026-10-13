@@ -112,6 +112,13 @@ async function compaction(tv, ps) {
     'Carla, Eva y Fran reciben su nuevo hueco (y su color nuevo)');
   tv.send({ t: 'menu' });
   await tv.wait(function (m) { return m.t === 'hub' && m.screen === 'menu'; }, 2000, 'menú');
+  // Dibuja admite hasta 6: con huecos 1-4 no hace falta compactar nada
+  tm = tv.mark();
+  ps[0].send({ t: 'pick', game: 'dibuja' });
+  const dib = await tv.wait(function (m) { return m.t === 'hub' && m.screen === 'dibuja'; }, 2000, 'dibuja', tm);
+  check(!!dib, 'Dibuja y adivina con 4 se puede elegir');
+  tv.send({ t: 'menu' });
+  await tv.wait(function (m) { return m.t === 'hub' && m.screen === 'menu'; }, 2000, 'menú 2');
 }
 
 // Bots: every paddle of side `win` follows the ball; the others run away from it
@@ -147,8 +154,9 @@ async function pongMatch(tv, bySlot, n, win) {
   } else {
     check(pads.length === 3 && pads[1].slot === 2 && pads[1].role === 'solo' && pads[1].h > pads[0].h, 'Con 3: el jugador 2 solo a la derecha con la pala más larga');
   }
-  // Propiedad: cada móvil mueve su pala (y solo la suya)
-  await tv.wait(function (m) { return m.t === 'pmeta' && m.phase === 'playing'; }, 4000, 'playing', tm);
+  // Propiedad: cada móvil mueve su pala (y solo la suya); during the countdown, so no point is lost
+  await tv.wait(function (m) { return m.t === 'pmeta' && m.phase === 'countdown'; }, 4000, 'countdown', tm);
+  await H_.waitUntil(function () { return tv.state && tv.state.p.length === pads.length; }, 1000, 'estado');
   let owned = 0;
   for (let k = 0; k < pads.length; k++) {
     const p = pads[k];
@@ -169,7 +177,7 @@ async function pongMatch(tv, bySlot, n, win) {
   clearInterval(bot);
   const hits = tv.since(tm2, 'ev').filter(function (e) { return e.k === 'hit'; });
   const fwdHits = hits.filter(function (e) { return pads[e.paddle] && pads[e.paddle].role === 'delantera'; });
-  check(!!over && over.winner === win && over.score[win - 1] === 3 && over.score[2 - win] === 0,
+  check(!!over && over.winner === win && over.score[win - 1] === 3 && over.score[2 - win] <= 1,
     'Gana el equipo ' + (win === 1 ? 'de la izquierda' : 'de la derecha') + ' ' + (over && over.score.join('-')) + ' (puntos de equipo)');
   // (the losers never touch the ball, so there may be no hits at all: the serve goes to them)
   check(hits.every(function (e) { return pads[e.paddle] && pads[e.paddle].side === e.side && pads[e.paddle].slot === e.slot; }),

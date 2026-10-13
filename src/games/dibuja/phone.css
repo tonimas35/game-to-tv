@@ -64,3 +64,14 @@
 .fb.on { opacity: 1; }
 .fb.casi { color: var(--warn); }
 .fb.no { color: var(--bad); }
+/* 3-6 players: rankings on the reveal and the end screens */
+.rk { list-style: none; margin: 14px 0 0; padding: 0; width: 100%; max-width: 360px; }
+.rk li { display: flex; align-items: center; gap: 10px; padding: 7px 12px; margin-bottom: 6px; border-radius: 12px; background: var(--panel); font-size: 18px; font-weight: 800; }
+.rk li.me { box-shadow: inset 0 0 0 2px var(--c); }
+.rk li b { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rk li i { font-style: normal; font-weight: 900; }
+.rk .md { flex: 0 0 auto; width: 28px; height: 28px; line-height: 28px; border-radius: 50%; text-align: center; font-size: 15px; font-weight: 900; background: rgba(255,255,255,0.12); }
+.rk .md.m1 { background: #f5c542; color: #3a2a00; }
+.rk .md.m2 { background: #c9d1dc; color: #20262e; }
+.rk .md.m3 { background: #d08a4e; color: #2e1600; }
+.feed li span b { font-weight: 900; }
