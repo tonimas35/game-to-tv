@@ -96,6 +96,7 @@ function publicManifests(games) {
       minPlayers: m.minPlayers,
       maxPlayers: m.maxPlayers,
       tags: m.tags,
+      howTo: Array.isArray(m.howTo) ? m.howTo : null,
       accent: m.accent,
       icon: m.icon ? '/games/' + m.id + '/' + m.icon : null,
       client: g.client,

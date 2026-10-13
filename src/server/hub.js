@@ -15,6 +15,7 @@
  *   server -> { t: 'full' }
  *   server -> { t: 'hub', screen, ready, pick, slots, players: [...] }
  *   server -> { t: 'ev', k: 'join' | 'menu' | 'left', ... }
+ *             ('menu' may carry `text`: why, ready to show)
  *   server -> { t: 'ev', k: 'need2' | 'toomany', game, title, min, max, n, by, text }
  *             a game that does not fit the players in the room was picked
  *             (sent to the TV and every phone; `text` is ready to show)
@@ -199,13 +200,16 @@ function createHub(opts) {
     if (hub.game.flush) hub.game.flush();
   }
 
-  function backToMenu(reason) {
+  // text: optional explanation in Spanish, shown by the TV and the phones
+  function backToMenu(reason, text) {
     if (hub.game) { try { hub.game.stop(); } catch (e) { /* noop */ } }
     hub.game = null;
     hub.gameId = null;
     hub.screen = 'menu';
     log('[hub] Vuelta al menú' + (reason ? ' (' + reason + ')' : ''));
-    broadcast({ t: 'ev', k: 'menu', reason: reason || '' });
+    const ev = { t: 'ev', k: 'menu', reason: reason || '' };
+    if (text) ev.text = text;
+    broadcast(ev);
     broadcastHub(true);
   }
 
@@ -279,7 +283,7 @@ function createHub(opts) {
       log('[hub] «' + g.manifest.title + '» sigue sin ' + p.name);
       broadcast({ t: 'ev', k: 'left', slot: i + 1, name: p.name });
     } else {
-      backToMenu('falta un jugador');
+      backToMenu('falta un jugador', g ? p.name + ' se ha ido y «' + g.manifest.title + '» necesita al menos ' + g.manifest.minPlayers + ' jugadores. Volvemos al menú.' : '');
     }
   }
 

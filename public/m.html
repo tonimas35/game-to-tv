@@ -354,7 +354,7 @@
       case 'ev':
         if (msg.k === 'need2') toast(msg.text || 'Faltan jugadores', 4500);
         if (msg.k === 'toomany') toast(msg.text || ('«' + msg.title + '» es para ' + msg.max + ' jugadores como mucho'), 4500);
-        if (msg.k === 'menu' && msg.reason) toast('Volvemos al menú');
+        if (msg.k === 'menu' && msg.reason) toast(msg.text || 'Volvemos al menú', msg.text ? 5000 : 2600);
         if (msg.k === 'left' && msg.name) toast(msg.name + ' se ha ido; la partida sigue');
         break;
     }
