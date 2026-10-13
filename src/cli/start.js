@@ -55,6 +55,11 @@ async function start(flags) {
   console.log('');
 
   if (typeof flags.abrir === 'string') {
+    const target = cfg.tvs[flags.abrir];
+    if (target && target.driver === 'webos' && target.mode === 'tele') {
+      ui.warn('La app de «' + flags.abrir + '» está instalada en modo tele: usará el servidor de dentro de la tele, no este.');
+      ui.info('Para que use este PC: game-to-tv tv install ' + flags.abrir + ' --modo pc');
+    }
     // Opens the game screen on a configured TV
     const tvcmd = require('./tv');
     tvcmd.run(['open', flags.abrir], { 'server-url': urls.base }).catch(function (e) {

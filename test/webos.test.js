@@ -21,6 +21,7 @@ const ipk = require('../src/drivers/webos/ipk');
 const launcher = require('../src/drivers/webos/launcher');
 const cdp = require('../src/drivers/webos/cdp');
 const { MANIFEST } = require('../src/drivers/webos/manifest');
+const PKG = require('../package.json');
 
 const check = H_.checker('Driver de LG webOS (tele falsa)');
 const TMP = H_.tmpHome('g2t-webos-');
@@ -231,8 +232,8 @@ async function ssdpTests() {
 }
 
 async function ipkTests() {
-  console.log('\n[App lanzadora e .ipk]');
-  const app = launcher.buildApp({ serverUrl: '192.168.1.50:3000', version: '0.1.0' });
+  console.log('\n[App lanzadora e .ipk (modo pc)]');
+  const app = launcher.buildApp({ mode: 'pc', serverUrl: '192.168.1.50:3000', version: '0.1.0' });
   const info = JSON.parse(fs.readFileSync(path.join(app.dir, 'appinfo.json'), 'utf8'));
   check(app.serverUrl === 'http://192.168.1.50:3000', 'La URL del servidor se normaliza (http://IP:puerto)');
   check(info.id === 'io.gametotv.launcher' && info.type === 'web' && info.main === 'index.html' && info.resolution === '1920x1080' &&
@@ -241,8 +242,8 @@ async function ipkTests() {
   check(info.icon === 'icon-0.1.0.png' && info.largeIcon === 'largeIcon-0.1.0.png' && fs.existsSync(path.join(app.dir, 'icon-0.1.0.png')),
     'Los iconos llevan la versión en el nombre (la tele cachea el icono)');
   const html = fs.readFileSync(path.join(app.dir, 'index.html'), 'utf8');
-  check(html.indexOf("var SERVER = 'http://192.168.1.50:3000';") >= 0 && html.indexOf('@@SERVER_URL@@') < 0, 'index.html lleva la URL del servidor');
-  check(/qr\.svg/.test(html) && /location\.replace\(SERVER/.test(html) && /No encuentro el servidor/.test(html), 'El lanzador sondea /qr.svg, avisa «No encuentro el servidor…» y navega al servidor');
+  check(html.indexOf("var SERVER = 'http://192.168.1.50:3000';") >= 0 && html.indexOf("var MODE = 'pc';") >= 0 && !/'@@[A-Z_]+@@'/.test(html), 'index.html lleva el modo pc y la URL del servidor');
+  check(/qr\.svg/.test(html) && /location\.replace\(base/.test(html) && /go\(SERVER\)/.test(html) && /No encuentro el servidor/.test(html), 'El lanzador sondea /qr.svg, avisa «No encuentro el servidor…» y navega al servidor');
   let threw = null;
   try { launcher.normalizeServerUrl('http://'); } catch (e) { threw = e; }
   check(threw && /no válida/.test(threw.message), 'Una URL del servidor inválida da un error claro');
@@ -280,8 +281,8 @@ async function ipkTests() {
   }
   // CLI: tv ipk
   const out = path.join(TMP, 'ipk-out');
-  const r = await H_.runCli(['tv', 'ipk', '--server-url', 'http://192.168.1.50:3000', '--salida', out], { GAME_TO_TV_HOME: path.join(TMP, 'home-ipk') });
-  check(r.code === 0 && fs.existsSync(path.join(out, 'io.gametotv.launcher_0.1.0_all.ipk')), 'game-to-tv tv ipk --server-url … --salida … crea el .ipk sin tele ni ares-cli');
+  const r = await H_.runCli(['tv', 'ipk', '--modo', 'pc', '--server-url', 'http://192.168.1.50:3000', '--salida', out], { GAME_TO_TV_HOME: path.join(TMP, 'home-ipk') });
+  check(r.code === 0 && fs.existsSync(path.join(out, 'io.gametotv.launcher_' + PKG.version + '_all.ipk')) && /modo pc/.test(r.out), 'game-to-tv tv ipk --modo pc --server-url … --salida … crea el .ipk sin tele ni ares-cli');
 }
 
 // Fake ares-* commands that log their arguments
@@ -312,7 +313,7 @@ async function aresTests() {
     const binNoDev = path.join(TMP, 'ares-nodev');
     makeFakeAres(binNoDev, {});
     const PATH0 = binNoDev + path.delimiter + process.env.PATH;
-    let r = await H_.runCli(['tv', 'install', 'salon', '--server-url', 'http://192.168.1.50:3000'], { GAME_TO_TV_HOME: HOME, PATH: PATH0 });
+    let r = await H_.runCli(['tv', 'install', 'salon', '--modo', 'pc', '--server-url', 'http://192.168.1.50:3000'], { GAME_TO_TV_HOME: HOME, PATH: PATH0 });
     check(r.code === 1 && /ares-cli no conoce la tele «salon»/.test(r.out) && /ares-setup-device -a salon -i "host=192.168.1.50" -i "port=9922" -i "username=prisoner"/.test(r.out) &&
       /ares-novacom --device salon --getkey/.test(r.out) && /privatekey=salon_webos/.test(r.out), 'Tele sin configurar en ares-cli: pasos exactos (setup-device, novacom --getkey, privatekey)');
 
@@ -320,16 +321,16 @@ async function aresTests() {
     const bin = path.join(TMP, 'ares-ok');
     const log = makeFakeAres(bin, { device: 'salon', cdpPort: cdpServer.port });
     const PATH1 = bin + path.delimiter + process.env.PATH;
-    r = await H_.runCli(['tv', 'install', 'salon', '--server-url', 'http://192.168.1.50:3000', '--salida', path.join(TMP, 'ipk-ares')], { GAME_TO_TV_HOME: HOME, PATH: PATH1 });
+    r = await H_.runCli(['tv', 'install', 'salon', '--modo', 'pc', '--server-url', 'http://192.168.1.50:3000', '--salida', path.join(TMP, 'ipk-ares')], { GAME_TO_TV_HOME: HOME, PATH: PATH1 });
     const lines = fs.readFileSync(log, 'utf8').trim().split('\n');
     const pkgLine = lines.filter(function (l) { return /^ares-package /.test(l); })[0] || '';
     const instLine = lines.filter(function (l) { return /^ares-install /.test(l); })[0] || '';
-    check(r.code === 0 && /App instalada/.test(r.out), 'tv install con ares-cli: «App instalada»');
+    check(r.code === 0 && /App instalada/.test(r.out) && readConfig(HOME).tvs.salon.mode === 'pc', 'tv install --modo pc con ares-cli: «App instalada» (y guarda el modo)');
     check(/^ares-package \S+g2t-webos-app-\S+ -o \S+ipk-ares$/.test(pkgLine), 'ares-package <carpeta de la app> -o <salida>  (' + pkgLine.replace(TMP, '…') + ')');
     check(/^ares-install --device salon \S+io\.gametotv\.launcher_0\.1\.0_all\.ipk$/.test(instLine), 'ares-install --device salon <paquete>.ipk');
 
-    r = await H_.runCli(['tv', 'install', 'salon', '--solo-ipk', '--server-url', 'http://192.168.1.50:3000', '--salida', path.join(TMP, 'ipk-solo')], { GAME_TO_TV_HOME: HOME, PATH: PATH1 });
-    check(r.code === 0 && /Paquete creado/.test(r.out) && fs.existsSync(path.join(TMP, 'ipk-solo', 'io.gametotv.launcher_0.1.0_all.ipk')), 'tv install --solo-ipk solo crea el paquete (en JavaScript)');
+    r = await H_.runCli(['tv', 'install', 'salon', '--modo', 'pc', '--solo-ipk', '--server-url', 'http://192.168.1.50:3000', '--salida', path.join(TMP, 'ipk-solo')], { GAME_TO_TV_HOME: HOME, PATH: PATH1 });
+    check(r.code === 0 && /Paquete creado/.test(r.out) && fs.existsSync(path.join(TMP, 'ipk-solo', 'io.gametotv.launcher_' + PKG.version + '_all.ipk')), 'tv install --solo-ipk solo crea el paquete (en JavaScript)');
 
     // perf: ares-inspect -> DevTools URL -> CDP Runtime.evaluate
     r = await H_.runCli(['tv', 'perf', 'salon', '--segundos', '1'], { GAME_TO_TV_HOME: HOME, PATH: PATH1 });
@@ -358,7 +359,7 @@ async function aresTests() {
   } catch (e) {
     check.fail('Excepción: ' + (e && e.stack || e));
   } finally {
-    fs.rmSync(TMP, { recursive: true, force: true });
+    H_.rmrf(TMP);
   }
   check.done();
 })();

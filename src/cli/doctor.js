@@ -6,7 +6,8 @@
  *  - LAN IP (and suspicious adapters)
  *  - Windows firewall (network profile, Node.js block rules, port rule)
  *  - ares-cli (needed to install the LG app)
- *  - configured TVs (reachable?)
+ *  - configured TVs (reachable?) and, for LG, whether the server inside the
+ *    TV («modo tele», port 8090) is answering
  */
 const fs = require('fs');
 const net = require('net');
@@ -126,6 +127,17 @@ async function doctor(flags) {
       const parts = [ssap ? 'responde' : 'no responde (¿apagada o en otra red?)', t.clientKey ? 'emparejada' : 'sin emparejar', dev ? 'modo desarrollador activo' : 'modo desarrollador no detectado'];
       if (ssap) ui.ok('Tele «' + n + '» (' + d.name + ', ' + t.ip + '): ' + parts.join(' · '));
       else { problems++; ui.fail('Tele «' + n + '» (' + d.name + ', ' + t.ip + '): ' + parts.join(' · ')); }
+      // «Modo tele»: is the game server inside the TV answering? (only while the app is open or recently used)
+      const st = await d.status(Object.assign({ name: n }, t), { timeout: 1500 });
+      const mode = d.modeOf(t);
+      if (st.reachable) {
+        const i = st.info || {};
+        ui.ok('  Servidor dentro de «' + n + '» respondiendo en ' + st.url + ' (modo ' + (i.mode || '?') + ', versión ' + (i.version || '?') + ')');
+      } else if (mode === 'tele' && t.installedAt) {
+        ui.info(ui.c.dim('  Servidor dentro de «' + n + '»: no responde en ' + st.url + ' (normal si la app no está abierta: game-to-tv tv open ' + n + ')'));
+      } else {
+        ui.info(ui.c.dim('  Servidor dentro de «' + n + '»: no responde en ' + st.url + (t.mode === 'pc' ? ' (app instalada en modo pc)' : ' (¿instalada en modo tele? game-to-tv tv install ' + n + ')')));
+      }
     } else {
       ui.ok('Tele «' + n + '» (' + d.name + ', ' + t.ip + ')');
     }

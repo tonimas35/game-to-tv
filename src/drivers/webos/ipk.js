@@ -6,8 +6,12 @@
  *   debian-binary     "2.0\n"
  *   control.tar.gz    ./control  (Package, Version, Architecture: all, ...)
  *   data.tar.gz       ./usr/palm/applications/<id>/...   (the app)
+ *                     ./usr/palm/services/<serviceId>/... (each JS service, if any)
  *                     ./usr/palm/packages/<id>/packageinfo.json
- * This mirrors what `ares-package` produces. Installing still needs
+ *                       { app, id, version, services: [<serviceId>], ... }
+ * This mirrors what `ares-package <appDir> <serviceDir>` produces (a service
+ * is a folder with services.json; its folder in the package is named after
+ * services.json's `id`). Installing still needs
  * `ares-install` (or another tool that talks to the TV in Developer Mode).
  */
 const fs = require('fs');
@@ -138,15 +142,15 @@ function walk(dir, base) {
 }
 
 /**
- * Builds an .ipk from an app folder (with appinfo.json).
- * Returns { buffer, fileName, appId, version }.
+ * Builds an .ipk from an app folder (with appinfo.json) and, optionally, the
+ * folders of its JS services (opts.serviceDirs, each with services.json).
+ * Returns { buffer, fileName, appId, version, services }.
  */
 function buildIpk(appDir, opts) {
   opts = opts || {};
   const appinfo = JSON.parse(fs.readFileSync(path.join(appDir, 'appinfo.json'), 'utf8'));
   const id = appinfo.id;
   const version = appinfo.version;
-  const files = walk(appDir);
   let installedSize = 0;
   const appRoot = './usr/palm/applications/' + id;
   const pkgRoot = './usr/palm/packages/' + id;
@@ -154,16 +158,37 @@ function buildIpk(appDir, opts) {
     { name: './', dir: true }, { name: './usr', dir: true }, { name: './usr/palm', dir: true },
     { name: './usr/palm/applications', dir: true }, { name: appRoot, dir: true }
   ];
-  files.forEach(function (f) {
-    if (f.dir) { entries.push({ name: appRoot + '/' + f.rel, dir: true }); return; }
-    const data = fs.readFileSync(f.file);
-    installedSize += data.length;
-    entries.push({ name: appRoot + '/' + f.rel, data: data });
+  function addTree(dir, root) {
+    walk(dir).forEach(function (f) {
+      if (f.dir) { entries.push({ name: root + '/' + f.rel, dir: true }); return; }
+      const data = fs.readFileSync(f.file);
+      installedSize += data.length;
+      entries.push({ name: root + '/' + f.rel, data: data });
+    });
+  }
+  addTree(appDir, appRoot);
+
+  const services = [];
+  (opts.serviceDirs || []).forEach(function (sdir, i) {
+    let info;
+    try { info = JSON.parse(fs.readFileSync(path.join(sdir, 'services.json'), 'utf8')); } catch (e) {
+      throw new Error('El servicio ' + sdir + ' no tiene un services.json válido: ' + e.message);
+    }
+    const sid = info.id;
+    if (!/^[a-z0-9.+-]+$/.test(String(sid || ''))) throw new Error('services.json: id no válido («' + sid + '»)');
+    if (sid.indexOf(id + '.') !== 0) throw new Error('El id del servicio («' + sid + '») debe empezar por el de la app («' + id + '.»)');
+    if (i === 0) entries.push({ name: './usr/palm/services', dir: true });
+    entries.push({ name: './usr/palm/services/' + sid, dir: true });
+    addTree(sdir, './usr/palm/services/' + sid);
+    services.push(sid);
   });
-  const packageinfo = Buffer.from(JSON.stringify({
+
+  const pinfo = {
     app: id, id: id, loc_name: appinfo.title, package_format_version: 2,
     vendor: appinfo.vendor || 'game-to-tv', version: version
-  }, null, 2) + '\n');
+  };
+  if (services.length) pinfo.services = services;
+  const packageinfo = Buffer.from(JSON.stringify(pinfo, null, 2) + '\n');
   installedSize += packageinfo.length;
   entries.push({ name: './usr/palm/packages', dir: true }, { name: pkgRoot, dir: true }, { name: pkgRoot + '/packageinfo.json', data: packageinfo });
 
@@ -189,7 +214,7 @@ function buildIpk(appDir, opts) {
     { name: 'control.tar.gz', data: controlTgz },
     { name: 'data.tar.gz', data: dataTgz }
   ], mtime);
-  return { buffer: buffer, fileName: id + '_' + version + '_all.ipk', appId: id, version: version };
+  return { buffer: buffer, fileName: id + '_' + version + '_all.ipk', appId: id, version: version, services: services };
 }
 
 module.exports = { tar: tar, parseTar: parseTar, ar: ar, parseAr: parseAr, buildIpk: buildIpk };

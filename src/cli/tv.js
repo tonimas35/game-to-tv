@@ -14,9 +14,14 @@ const TV_HELP = [
   '  game-to-tv tv list',
   '  game-to-tv tv remove NOMBRE',
   '  game-to-tv tv pair NOMBRE',
-  '  game-to-tv tv install NOMBRE [--server-url URL] [--solo-ipk] [--salida CARPETA] [--empaquetador js|ares]',
-  '  game-to-tv tv ipk [--server-url URL] [--salida CARPETA]',
+  '  game-to-tv tv install NOMBRE [--modo tele|pc] [--server-url URL] [--puerto 8090] [--apagado MIN]',
+  '                               [--solo-ipk] [--salida CARPETA] [--empaquetador js|ares]',
+  '      --modo tele (por defecto en LG): el servidor va DENTRO de la tele; el PC solo hace falta para instalar.',
+  '                  --server-url (opcional) es un servidor de PC de reserva si el de la tele falla.',
+  '      --modo pc:  la app abre el servidor del PC (--server-url, por defecto este PC en el puerto 3000).',
+  '  game-to-tv tv ipk [--modo tele|pc] [--server-url URL] [--salida CARPETA]',
   '  game-to-tv tv open NOMBRE [--ruta /ambiente] [--navegador]',
+  '  game-to-tv tv status NOMBRE [--logs] [--json]   (modo tele: ¿responde el servidor de la tele?)',
   '  game-to-tv tv shot NOMBRE [archivo.jpg]',
   '  game-to-tv tv perf NOMBRE [--segundos 4] [--cdp http://IP:PUERTO]',
   '  game-to-tv tv toast NOMBRE "mensaje"',
@@ -31,6 +36,19 @@ function defaultServerUrl(flags) {
   const cfg = config.load();
   const port = typeof flags.port === 'string' ? flags.port : (process.env.PORT || cfg.port || 3000);
   return 'http://' + detectLanIp(typeof flags['host-ip'] === 'string' ? flags['host-ip'] : undefined) + ':' + port;
+}
+
+function installMode(flags, driverId) {
+  const m = typeof flags.modo === 'string' ? flags.modo.toLowerCase() : (driverId === 'webos' ? 'tele' : 'pc');
+  if (m !== 'tele' && m !== 'pc') throw new drivers.DriverError('--modo debe ser «tele» o «pc».', 'EARGS');
+  return m;
+}
+
+function intFlag(flags, name, def) {
+  if (flags[name] === undefined) return def;
+  const n = Number(flags[name]);
+  if (!(n >= 0) || Math.floor(n) !== n) throw new drivers.DriverError('--' + name + ' debe ser un número entero.', 'EARGS');
+  return n;
 }
 
 function getTv(name) {
@@ -188,16 +206,35 @@ async function run(args, flags) {
       const tv = getTv(name);
       const d = drivers.get(tv.driver);
       drivers.requireCapability(d, 'install');
-      const serverUrl = defaultServerUrl(flags);
+      const mode = installMode(flags, tv.driver);
+      const port = intFlag(flags, 'puerto', tv.telePort || 8090);
+      const idle = intFlag(flags, 'apagado', 15);
+      // tele: --server-url is only a fallback; pc: the server the app opens
+      const serverUrl = mode === 'pc' ? defaultServerUrl(flags)
+        : (typeof flags['server-url'] === 'string' ? defaultServerUrl(flags) : '');
       const outDir = typeof flags.salida === 'string' ? flags.salida : path.join(config.homeDir(), 'ipk');
-      ui.info('Servidor que abrirá la app: ' + ui.c.cyan(serverUrl) + ui.c.dim('  (cámbialo con --server-url)'));
+      if (mode === 'tele') {
+        ui.info('Modo tele: el servidor de los juegos irá ' + ui.c.bold('dentro de la tele') + ' (puerto ' + port + '). El PC ya no hará falta para jugar.');
+        ui.info(serverUrl ? 'Servidor de reserva (PC): ' + ui.c.cyan(serverUrl) : ui.c.dim('(sin servidor de reserva en el PC; añádelo con --server-url URL)'));
+      } else {
+        ui.info('Modo pc: la app abrirá el servidor ' + ui.c.cyan(serverUrl) + ui.c.dim('  (cámbialo con --server-url)'));
+      }
       const r = await d.install(tv, {
-        serverUrl: serverUrl, outDir: outDir, ipkOnly: !!flags['solo-ipk'],
+        mode: mode, serverUrl: serverUrl, port: port, idleMinutes: idle, outDir: outDir, ipkOnly: !!flags['solo-ipk'],
         packager: typeof flags.empaquetador === 'string' ? flags.empaquetador : undefined,
         log: function (s) { ui.info(s); }
       });
       if (r.installed) {
+        tv.mode = mode;
+        if (mode === 'tele') tv.telePort = port; else delete tv.telePort;
+        tv.installedAt = new Date().toISOString();
+        tv.installedVersion = r.appinfo ? r.appinfo.version : undefined;
+        saveTv(tv);
         ui.ok('App instalada en «' + tv.name + '». Ábrela con: game-to-tv tv open ' + tv.name);
+        if (mode === 'tele') {
+          ui.info('Al abrirla, la tele arranca su propio servidor y muestra el QR (http://' + tv.ip + ':' + port + '/m).');
+          ui.info('Para comprobarlo desde el PC: game-to-tv tv status ' + tv.name);
+        }
         ui.info(ui.c.dim('(si ya estaba instalada y no ves el icono nuevo, reinicia la tele)'));
       } else {
         ui.ok('Paquete creado: ' + r.ipk);
@@ -208,10 +245,49 @@ async function run(args, flags) {
 
     case 'ipk': {
       const webos = drivers.get('webos');
-      const serverUrl = defaultServerUrl(flags);
+      const mode = installMode(flags, 'webos');
+      const serverUrl = mode === 'pc' || typeof flags['server-url'] === 'string' ? defaultServerUrl(flags) : '';
       const outDir = typeof flags.salida === 'string' ? flags.salida : process.cwd();
-      const r = await webos.build({ name: 'tele', appId: typeof flags['app-id'] === 'string' ? flags['app-id'] : undefined }, { serverUrl: serverUrl, outDir: outDir, packager: 'js' });
-      ui.ok('Paquete creado: ' + r.ipk + '  (abre ' + r.serverUrl + ')');
+      const r = await webos.build({ name: 'tele', appId: typeof flags['app-id'] === 'string' ? flags['app-id'] : undefined }, {
+        mode: mode, serverUrl: serverUrl, port: intFlag(flags, 'puerto', 8090), idleMinutes: intFlag(flags, 'apagado', 15), outDir: outDir, packager: 'js'
+      });
+      const kb = r.size ? ', ' + Math.round(r.size / 1024) + ' KB' : '';
+      ui.ok('Paquete creado: ' + r.ipk + (mode === 'tele' ? '  (modo tele, servidor en la tele, puerto ' + r.port + kb + ')' : '  (modo pc, abre ' + r.serverUrl + kb + ')'));
+      return 0;
+    }
+
+    case 'status':
+    case 'estado': {
+      const tv = getTv(name);
+      const d = drivers.get(tv.driver);
+      if (typeof d.status !== 'function') throw new drivers.DriverError('El driver «' + d.name + '» no tiene servidor en la tele (solo LG en modo tele).', 'EUNSUPPORTED');
+      const r = await d.status(tv, { port: typeof flags.puerto === 'string' ? flags.puerto : undefined, logs: !!flags.logs });
+      if (flags.json) { console.log(JSON.stringify(r, null, 2)); return r.reachable ? 0 : 1; }
+      console.log('');
+      if (!r.reachable) {
+        ui.warn('El servidor de la tele no responde en ' + r.url + ' (' + r.error + ').');
+        ui.info('· ¿Está abierta la app «Juegos del Salón»? Ábrela con: game-to-tv tv open ' + tv.name);
+        ui.info('· ¿Se instaló en modo tele? (game-to-tv tv install ' + tv.name + ')' + (tv.mode ? '  Modo guardado: ' + tv.mode : ''));
+        ui.info('· Si las apps del modo desarrollador desaparecieron, la sesión de Developer Mode ha caducado.');
+        ui.info('  Más ayuda: docs/solucion-problemas.md');
+        console.log('');
+        return 1;
+      }
+      const i = r.info || {};
+      const t = i.tele || {};
+      const a = i.actividad || {};
+      ui.ok('Servidor de «' + tv.name + '» respondiendo en ' + ui.c.cyan(r.url) + ' · modo ' + (i.mode || '?') + ' · versión ' + (i.version || '?'));
+      ui.info('Móviles (QR): ' + (i.movil || '?'));
+      ui.info('Ahora: ' + (a.tvs || 0) + ' pantalla(s), ' + (a.players || 0) + ' jugador(es)' + (a.screen ? ' · ' + a.screen : ''));
+      if (i.mode === 'tele') {
+        ui.info('Node ' + (t.node || '?') + ' · encendido hace ' + (t.uptime != null ? Math.round(t.uptime / 60) + ' min' : '?') +
+          ' · se apaga tras ' + (t.idleMinutes || '?') + ' min sin uso' + (t.idleFor ? ' (sin uso desde hace ' + Math.round(t.idleFor / 60) + ' min)' : ''));
+        ui.info('Galería: ' + (t.gallerySaving ? t.galleryDir : 'no se guardan dibujos (ninguna carpeta con permiso de escritura)'));
+      } else {
+        ui.warn('Este servidor está en modo pc (no es el de dentro de la tele).');
+      }
+      if (r.logs) { console.log('\n  Registro del servidor:\n'); console.log(r.logs.split('\n').map(function (l) { return '    ' + l; }).join('\n')); }
+      console.log('');
       return 0;
     }
 
@@ -222,6 +298,7 @@ async function run(args, flags) {
       drivers.requireCapability(d, 'launch');
       const r = await d.launch(tv, Object.assign(sessionOpts(tv), {
         serverUrl: defaultServerUrl(flags),
+        forceServerUrl: typeof flags['server-url'] === 'string',
         path: typeof flags.ruta === 'string' ? flags.ruta : undefined,
         browser: !!flags.navegador
       }));
@@ -229,7 +306,7 @@ async function run(args, flags) {
         console.log('\n  ' + r.message.split('\n').join('\n  '));
         if (r.qr) console.log(r.qr.split('\n').map(function (l) { return '  ' + l; }).join('\n'));
       } else {
-        ui.ok('Abierto en «' + tv.name + '».');
+        ui.ok('Abierto en «' + tv.name + '».' + (r && r.mode === 'tele' ? ' La tele arranca su propio servidor (game-to-tv tv status ' + tv.name + ' para comprobarlo).' : ''));
       }
       return 0;
     }

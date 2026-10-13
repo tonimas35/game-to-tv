@@ -9,7 +9,7 @@
 const { parseArgs } = require('./args');
 const pkg = require('../../package.json');
 
-const BOOLEANS = ['help', 'sin-qr', 'solo-ipk', 'json', 'version', 'forzar', 'ares', 'js'];
+const BOOLEANS = ['help', 'sin-qr', 'solo-ipk', 'json', 'version', 'forzar', 'ares', 'js', 'logs', 'navegador'];
 
 const HELP = [
   '',
@@ -32,11 +32,13 @@ const HELP = [
   '    game-to-tv tv list                   Teles configuradas',
   '    game-to-tv tv remove NOMBRE',
   '    game-to-tv tv pair NOMBRE            Empareja con la tele (acepta el aviso en la pantalla)',
-  '    game-to-tv tv install NOMBRE [--server-url URL] [--solo-ipk] [--salida CARPETA]',
-  '                                         Crea la app lanzadora con la URL del servidor y la instala',
-  '    game-to-tv tv ipk [--server-url URL] [--salida CARPETA]',
+  '    game-to-tv tv install NOMBRE [--modo tele|pc] [--server-url URL] [--solo-ipk] [--salida CARPETA]',
+  '                                         Crea la app y la instala. LG: por defecto en modo tele (el',
+  '                                         servidor va dentro de la tele, sin PC); --modo pc abre el del PC',
+  '    game-to-tv tv ipk [--modo tele|pc] [--server-url URL] [--salida CARPETA]',
   '                                         Solo crea el .ipk de la app para LG (sin tele)',
   '    game-to-tv tv open NOMBRE [--ruta /ambiente]   Abre los juegos en la tele',
+  '    game-to-tv tv status NOMBRE [--logs]           ¿Responde el servidor de dentro de la tele? (modo tele)',
   '    game-to-tv tv shot NOMBRE [archivo.jpg]        Captura de pantalla de la tele',
   '    game-to-tv tv perf NOMBRE [--segundos 4]       Mide los FPS reales en la tele (ares-inspect + CDP)',
   '    game-to-tv tv toast NOMBRE "mensaje"           Muestra un aviso en la tele',

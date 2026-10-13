@@ -24,3 +24,15 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run check
+
+  # The server also runs INSIDE LG TVs («modo tele»), whose Node.js is v12
+  node12:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:node12

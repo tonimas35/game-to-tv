@@ -6,42 +6,55 @@
 <style>
   html, body { margin: 0; width: 100%; height: 100%; background: #070915; color: #fff; overflow: hidden; cursor: none;
     font-family: 'LG Smart UI', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+  body { background: radial-gradient(ellipse at 50% 30%, #1a1440 0%, #070915 62%); }
   #box { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; padding: 0 6vw; }
-  h1 { margin: 0; font-size: 5.6vw; font-weight: 900; color: #a98bff; }
+  h1 { margin: 0; font-size: 5.6vw; font-weight: 900; color: #a98bff; letter-spacing: 0.02em; }
   #title { margin: 3vh 0 0; font-size: 3vw; font-weight: 800; }
   #sub { margin: 1.5vh 0 0; font-size: 1.9vw; color: rgba(255,255,255,0.65); }
   #url { margin: 2.5vh 0 0; font-size: 2vw; font-family: 'Courier New', monospace; color: #22e6ff; }
   #tips { margin: 4vh auto 0; max-width: 64vw; text-align: left; font-size: 1.6vw; line-height: 1.5; color: rgba(255,255,255,0.7); display: none; }
   #tips.on { display: block; }
+  #tips b { color: #fff; }
+  #fallback { display: none; margin: 3vh auto 0; padding: 1.2vh 2.4vw; border-radius: 1vw; border: 0.3vw solid #22e6ff; color: #22e6ff; font-size: 1.9vw; font-weight: 800; }
+  #fallback.on { display: inline-block; }
   .dots span { display: inline-block; width: 1.2vw; height: 1.2vw; margin: 3vh 0.5vw 0; border-radius: 50%; background: #22e6ff; opacity: 0.25; }
   .dots span.on { opacity: 1; }
+  .dots.off { visibility: hidden; }
+  .err #title { color: #ff8a9a; }
 </style>
 </head>
 <body>
 <div id="box">
   <h1>Juegos del Salón</h1>
-  <p id="title">Conectando con el servidor…</p>
+  <p id="title">Conectando…</p>
   <p id="sub"></p>
   <p id="url"></p>
-  <div class="dots"><span></span><span></span><span></span></div>
-  <div id="tips">
-    · ¿Está encendido el PC y abierto <b>game-to-tv start</b>?<br>
-    · ¿Están la tele y el PC conectados al mismo router?<br>
-    · En Windows, el cortafuegos puede bloquear a la tele: ejecuta <b>game-to-tv doctor</b> en el PC.<br>
-    · Pulsa <b>Atrás</b> para salir.
-  </div>
+  <div class="dots" id="dots"><span></span><span></span><span></span></div>
+  <div id="fallback">OK: usar el servidor del PC</div>
+  <div id="tips"></div>
 </div>
 <script>
 (function () {
   'use strict';
-  // This app only opens the game-to-tv server running on the PC. The URL is
-  // baked in by `game-to-tv tv install` (the webOS built-in browser is not
-  // reliable: it may get stuck on a page that failed to load).
-  var SERVER = '@@SERVER_URL@@';
+  // The launcher of «Juegos del Salón» for LG webOS. Built by
+  // `game-to-tv tv install` in one of two modes:
+  //  - tele: the game server runs INSIDE the TV, as this app's JS service
+  //          (luna://<appId>.service). Start it, wait for it, open it.
+  //  - pc:   the server runs on a PC: wait for it and open it (the webOS
+  //          built-in browser is not reliable on pages that failed to load).
+  var MODE = '@@MODE@@';
+  var SERVER = '@@SERVER_URL@@';      // pc: the server; tele: optional PC fallback ('' = none)
+  var SERVICE = '@@SERVICE_ID@@';
+  var PORT = '@@PORT@@';
+  var LOCAL = 'http://127.0.0.1:' + PORT;
   var RETRY_MS = 3000;
-  var attempts = 0, dot = 0, done = false;
+  var attempts = 0, dot = 0, done = false, failed = false;
+  var bridges = [];                   // keep PalmServiceBridge objects alive (subscriptions)
 
   function $(id) { return document.getElementById(id); }
+  function text(id, s) { $(id).textContent = s; }
+  function tips(html) { $('tips').innerHTML = html; $('tips').className = html ? 'on' : ''; }
+  function placeholder(s) { return !s || s.indexOf('@@') === 0; }
 
   // Optional launch parameter { path: '/ambiente' } (game-to-tv tv open --ruta)
   function targetPath() {
@@ -52,34 +65,152 @@
     return '/';
   }
 
-  function go() {
+  function go(base) {
     if (done) return;
     done = true;
-    location.replace(SERVER + targetPath());
+    location.replace(base + targetPath());
   }
 
-  function fail() {
-    attempts++;
-    $('title').textContent = 'No encuentro el servidor… reintentando';
-    $('sub').textContent = 'Intento ' + attempts + '. Vuelvo a probar cada ' + (RETRY_MS / 1000) + ' segundos.';
-    $('tips').className = 'on';
-    setTimeout(probe, RETRY_MS);
-  }
-
-  // The server answers /qr.svg as soon as it is ready
-  function probe() {
-    if (done) return;
+  // GET base/qr.svg: the hub answers it as soon as it is ready
+  function probeOnce(base, cb) {
     var x = new XMLHttpRequest();
     var finished = false;
-    function end(ok) { if (finished) return; finished = true; if (ok) go(); else fail(); }
+    function end(ok) { if (finished) return; finished = true; cb(ok); }
     try {
-      x.open('GET', SERVER + '/qr.svg?t=' + Date.now(), true);
+      x.open('GET', base + '/qr.svg?t=' + Date.now(), true);
       x.timeout = 4000;
       x.onload = function () { end(x.status === 200); };
       x.onerror = function () { end(false); };
       x.ontimeout = function () { end(false); };
       x.send();
     } catch (e) { end(false); }
+  }
+
+  // ==================================================================
+  // PC mode (also the fallback of tele mode)
+  // ==================================================================
+  function pcProbe() {
+    if (done) return;
+    probeOnce(SERVER, function (ok) {
+      if (ok) return go(SERVER);
+      attempts++;
+      text('title', 'No encuentro el servidor… reintentando');
+      text('sub', 'Intento ' + attempts + '. Vuelvo a probar cada ' + (RETRY_MS / 1000) + ' segundos.');
+      tips('· ¿Está encendido el PC y abierto <b>game-to-tv start</b>?<br>' +
+        '· ¿Están la tele y el PC conectados al mismo router?<br>' +
+        '· En Windows, el cortafuegos puede bloquear a la tele: ejecuta <b>game-to-tv doctor</b> en el PC.<br>' +
+        '· Pulsa <b>Atrás</b> para salir.');
+      setTimeout(pcProbe, RETRY_MS);
+    });
+  }
+  function startPc() {
+    MODE = 'pc';
+    failed = false;
+    document.body.className = '';
+    $('dots').className = 'dots';
+    $('fallback').className = '';
+    text('title', 'Conectando con el servidor…');
+    text('sub', '');
+    text('url', SERVER);
+    tips('');
+    attempts = 0;
+    pcProbe();
+  }
+
+  // ==================================================================
+  // Tele mode
+  // ==================================================================
+  function luna(method, params, cb, keep) {
+    var b = new window.PalmServiceBridge();
+    b.onservicecallback = function (raw) {
+      var r;
+      try { r = JSON.parse(raw); } catch (e) { r = { returnValue: false, errorText: String(raw) }; }
+      if (cb) cb(r);
+    };
+    if (keep) bridges.push(b);
+    b.call('luna://' + SERVICE + '/' + method, JSON.stringify(params || {}));
+    return b;
+  }
+
+  function teleError(title, detail) {
+    failed = true;
+    document.body.className = 'err';
+    $('dots').className = 'dots off';
+    text('title', title);
+    text('sub', detail || '');
+    tips('· Si las apps del modo desarrollador han desaparecido o no arrancan, puede que la sesión de ' +
+      '<b>Developer Mode</b> haya caducado: abre la app Developer Mode, pulsa <b>Extend</b> y, desde el PC, ' +
+      'vuelve a instalar con <b>game-to-tv tv install</b>.<br>' +
+      '· Diagnóstico desde el PC: <b>game-to-tv tv status</b> y <b>game-to-tv doctor</b>.<br>' +
+      '· OK para reintentar · Atrás para salir.');
+    if (!placeholder(SERVER)) {
+      $('fallback').className = 'on';
+      $('fallback').textContent = 'Pulsa ▲ para usar el servidor del PC (' + SERVER.replace(/^https?:\/\//, '') + ')';
+    }
+  }
+
+  var waitT0 = 0, waitDelay = 250;
+  function waitLocal() {
+    if (done || failed) return;
+    probeOnce(LOCAL, function (ok) {
+      if (ok) return go(LOCAL);
+      if (Date.now() - waitT0 > 45000) {
+        teleError('El servidor de la tele no responde', 'Ha arrancado, pero ' + LOCAL + ' no contesta.');
+        return;
+      }
+      waitDelay = Math.min(2000, waitDelay * 2);   // 250 ms, 500 ms, 1 s, 2 s, 2 s…
+      setTimeout(waitLocal, waitDelay);
+    });
+  }
+
+  var startTries = 0, startTimer = null, startAnswered = false;
+  function startTele() {
+    MODE = 'tele';
+    failed = false;
+    done = false;
+    document.body.className = '';
+    $('dots').className = 'dots';
+    $('fallback').className = '';
+    tips('');
+    text('title', 'Arrancando los juegos…');
+    text('sub', 'La tele está poniendo en marcha su servidor. Tarda unos segundos la primera vez.');
+    text('url', '');
+    if (typeof window.PalmServiceBridge === 'undefined') {
+      teleError('Esta app necesita una tele LG', 'No encuentro PalmServiceBridge (¿se ha abierto en un navegador?).');
+      return;
+    }
+    startTries++;
+    startAnswered = false;
+    clearTimeout(startTimer);
+    // A cold start takes ~3 s; give it room before retrying
+    startTimer = setTimeout(function () {
+      if (startAnswered || done) return;
+      if (startTries < 3) startTele();
+      else teleError('El servidor de la tele no arranca', 'El servicio ' + SERVICE + ' no contesta.');
+    }, 15000);
+    luna('start', {}, function (r) {
+      if (startAnswered) return;
+      startAnswered = true;
+      clearTimeout(startTimer);
+      if (!r || r.returnValue === false) {
+        var why = (r && (r.errorText || r.errorCode)) || 'error desconocido';
+        if (startTries < 3 && !/ocupado|no deja/.test(String(why))) {
+          text('sub', 'Reintentando (' + why + ')…');
+          setTimeout(startTele, 1000 * startTries);
+          return;
+        }
+        teleError('No se pudo arrancar el servidor de la tele', String(why));
+        return;
+      }
+      text('title', 'Casi listo…');
+      text('sub', 'Para jugar, los móviles abrirán:');
+      text('url', r.url ? String(r.url).replace(/\/$/, '') + '/m' : '');
+      // Keep the service company until the hub page takes over (it re-subscribes itself)
+      if (!bridges.length) luna('heartbeat', { subscribe: true }, null, true);
+      waitT0 = Date.now();
+      waitDelay = 250;
+      waitLocal();
+    });
   }
 
   setInterval(function () {
@@ -93,16 +224,22 @@
       try { if (window.webOS && window.webOS.platformBack) { window.webOS.platformBack(); return; } } catch (err) { /* noop */ }
       try { window.close(); } catch (err) { /* noop */ }
     } else if (e.keyCode === 13) {
-      probe();
+      if (MODE === 'pc') pcProbe();
+      else if (failed) { startTries = 0; startTele(); }
+    } else if (e.keyCode === 38 && MODE === 'tele' && failed && !placeholder(SERVER)) {
+      startPc();
     }
   });
 
-  $('url').textContent = SERVER;
-  if (SERVER.indexOf('@@') === 0) {
-    $('title').textContent = 'Falta la dirección del servidor';
-    $('sub').textContent = 'Instala la app con: game-to-tv tv install NOMBRE-DE-LA-TELE';
+  window.__launcher = { mode: function () { return MODE; }, failed: function () { return failed; } };
+
+  if (MODE === 'tele') {
+    startTele();
+  } else if (placeholder(SERVER)) {
+    text('title', 'Falta la dirección del servidor');
+    text('sub', 'Instala la app con: game-to-tv tv install NOMBRE-DE-LA-TELE');
   } else {
-    probe();
+    startPc();
   }
 })();
 </script>

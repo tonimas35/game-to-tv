@@ -1,7 +1,7 @@
 {
   "name": "game-to-tv",
   "version": "0.1.1",
-  "description": "Juegos de grupo para el salón: la tele es la pantalla y los móviles son los mandos (escanea un QR, sin instalar nada).",
+  "description": "Juegos de grupo para el salón: la tele es la pantalla y los móviles son los mandos (escanea un QR, sin instalar nada). En LG webOS, el servidor puede ir dentro de la tele.",
   "keywords": [
     "party-games",
     "tv",
@@ -29,8 +29,9 @@
   "scripts": {
     "start": "node bin/game-to-tv.js start",
     "test": "node test/run.js",
-    "check": "node scripts/check-browser-js.js",
-    "test:browser": "node test/browser-smoke.js",
+    "check": "node scripts/check-browser-js.js && node scripts/check-node12.js",
+    "test:browser": "node test/browser-smoke.js && node test/browser-tele.js",
+    "test:node12": "npx -y -p node@12 -c \"node test/run.js\"",
     "icons": "node scripts/make-icons.js"
   },
   "engines": {
