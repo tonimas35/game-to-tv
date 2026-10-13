@@ -71,6 +71,11 @@ Con más de 2 jugadores arranca el servidor con `game-to-tv start --jugadores 4`
 El módulo exporta `create(api)`, que devuelve un objeto con unas pocas
 funciones. El hub lo crea al elegir el juego y lo para al volver al menú.
 
+> **Node 12**: en las teles LG el servidor corre dentro de la tele (modo tele),
+> con su Node.js 12. El `index.js` y lo que requiera no pueden usar `?.`, `??`,
+> `||=`, campos de clase, `fs.rm`, `fetch`, `.at()`, `replaceAll`,
+> `structuredClone`… `npm run check` lo comprueba.
+
 ```js
 'use strict';
 const SPEED = Math.max(0.1, parseFloat(process.env.REFLEJOS_DEBUG_SPEED) || 1);
@@ -139,7 +144,7 @@ Ideas clave:
 | `api.sendTvs(obj)` · `api.sendPhones(obj)` · `api.sendSlot(i, obj)` | Solo a la tele, a los móviles o a un jugador (p. ej. la palabra secreta en Dibuja). |
 | `api.sendWs(ws, obj)` | A una conexión concreta (en `syncTv`). |
 | `api.store(i)` | Datos del jugador que sobreviven entre partidas (ver «menú» abajo). |
-| `api.galleryDir` | Carpeta para guardar archivos (la galería de dibujos). |
+| `api.galleryDir` | Carpeta para guardar archivos (la galería de dibujos). Puede ser `null` en una tele sin carpeta con permiso de escritura: entonces no guardes nada. |
 | `api.log(texto)` | Escribe en la consola del servidor. |
 
 Funciones opcionales del objeto del juego: `onPlayerDisconnected(i)`,
@@ -276,7 +281,8 @@ sirven de plantilla:
 ```bash
 npm test               # todas las pruebas
 node test/run.js reflejos
-npm run check          # tu tv.js y phone.js deben ser ES2019
+npm run check          # tu tv.js y phone.js deben ser ES2019, y tu index.js compatible con Node 12
+npm run test:node12    # las pruebas con Node 12, como en la tele
 ```
 
 ## 7. Lista de comprobación
@@ -287,7 +293,9 @@ npm run check          # tu tv.js y phone.js deben ser ES2019
       `onPlayerJoined` para los que se reconectan.
 - [ ] Pausa si `api.allConnected()` es `false`.
 - [ ] Nada secreto en los mensajes a la tele (la tele la ve todo el mundo).
-- [ ] Vistas en ES2019 (`npm run check`), textos en español.
+- [ ] Vistas en ES2019 y servidor compatible con Node 12 (`npm run check`),
+      textos en español.
+- [ ] Si guardas archivos, comprueba antes que `api.galleryDir` no sea `null`.
 - [ ] Rendimiento en la tele: nada de `shadowBlur` ni degradados grandes en cada
       fotograma; pinta lo estático una vez en un canvas aparte; usa
       `host.capDpr()` al dimensionar canvas (en webOS el `devicePixelRatio` es 2

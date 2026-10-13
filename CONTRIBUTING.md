@@ -10,7 +10,8 @@ git clone <este repositorio>
 cd game-to-tv
 npm install
 npm test            # todas las pruebas (sin tele ni red)
-npm run check       # JavaScript del navegador en ES2019
+npm run check       # JavaScript del navegador en ES2019 y servidor de la tele en Node 12
+npm run test:node12 # las pruebas con Node 12, el de las teles LG (lo descarga npx)
 node bin/game-to-tv.js start
 ```
 
@@ -25,6 +26,12 @@ Playwright: `npm install -g playwright && npx playwright install chromium`).
 - **Navegador**: todo el JavaScript que corre en la tele o en el móvil debe ser
   **ES2019** sin dependencias ni CDNs (`npm run check` lo comprueba). La tele LG
   de referencia usa Chromium 87.
+- **Servidor en Node 12**: el código del servidor y de los juegos (`src/server`,
+  `src/games/*/index.js` y lo que requieran, `src/tv-service`) también corre
+  dentro de las teles LG, que traen **Node 12**. Nada de `?.`, `??`, `||=`,
+  campos de clase, `fs.rm`, `fetch`, `structuredClone`, `.at()`,
+  `replaceAll`, `Object.hasOwn` ni `crypto.randomUUID`. `npm run check` lo
+  comprueba y `npm run test:node12` pasa las pruebas con Node 12.
 - **Rendimiento en la tele**: sin `shadowBlur` ni degradados grandes por
   fotograma; canvas dimensionados con `capDpr()`. Ver
   [docs/crear-un-juego.md](docs/crear-un-juego.md).

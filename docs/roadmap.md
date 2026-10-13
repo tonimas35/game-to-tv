@@ -30,13 +30,15 @@ Ideas ordenadas más o menos por prioridad. ¿Te apetece alguna? Mira
 - Publicar en npm (`npx game-to-tv start`).
 - `doctor` para Linux (ufw/firewalld) y macOS.
 - Arranque automático del servidor con el PC (servicio de Windows / systemd).
-- Abrir la app de la tele al arrancar el servidor (`start --abrir`) y despertar
-  la tele (Wake-on-LAN) si está en reposo.
+- Despertar la tele (Wake-on-LAN) si está en reposo antes de `tv open`.
+- Modo tele: subir fotos del modo ambiente a la tele desde el PC.
 - Prueba con navegador real en la integración continua (Playwright).
 - Traducciones (la interfaz está en español de España).
 
 ## Limitaciones conocidas
 
 - LG no permite que una app se abra sola al encender la tele.
+- En LG, las apps del modo desarrollador (y con ellas el servidor del modo
+  tele) desaparecen si la sesión de Developer Mode caduca.
 - El modo desarrollador de LG caduca (50 h, ampliable a 999 h).
 - YouTube incrustado falla con el error 153 dentro de apps `file://` de webOS.

@@ -5,7 +5,7 @@ Un **driver** es el código que sabe hablar con un tipo de pantalla. Están en
 
 | Driver | Estado | Qué hace |
 |---|---|---|
-| `webos` | ✅ | LG webOS: SSDP, emparejamiento SSAP, app lanzadora (`.ipk`), avisos, botones, capturas, FPS por DevTools. |
+| `webos` | ✅ | LG webOS: SSDP, emparejamiento SSAP, app con el servidor dentro de la tele (modo tele) o lanzadora (modo pc), estado del servidor de la tele, avisos, botones, capturas, FPS por DevTools. |
 | `browser` | ✅ | Cualquier pantalla con navegador: solo da la dirección (y un QR). |
 | `firetv` | 🔜 | Esqueleto con el plan ([README](../src/drivers/firetv/README.md)). |
 
@@ -23,13 +23,14 @@ module.exports = {
 
   async discover({ timeout }) { return [{ name, ip, model, driver: 'mitele' }]; },
   async pair(tv, { onPrompt }) { return { clientKey: '…' }; },        // el CLI la guarda
-  async install(tv, { serverUrl, ipkOnly, outDir, log }) { return { installed: true }; },
+  async install(tv, { mode, serverUrl, ipkOnly, outDir, log }) { return { installed: true }; }, // mode: 'tele' | 'pc'
   async launch(tv, { serverUrl, path }) { return { opened: 'app' }; }, // o { url, message } si solo puede indicar la dirección
   async toast(tv, message) {},           // capacidad «control»
   async sendKey(tv, button) {},          // capacidad «control»: 'UP', 'ENTER', 'BACK'…
   async screenshot(tv, outFile) { return { file: outFile }; },
   async info(tv) { return {}; },
   async perf(tv, { seconds }) { return { fps, frames, worstMs, width, height, dpr }; },
+  async status(tv, { logs }) { return { reachable, url, info, logs }; }, // opcional: servidor dentro de la tele
 
   // Opcional: texto de ayuda cuando se pide algo que no sabe hacer
   unsupportedHelp(capability) { return 'Mientras tanto, usa el driver «browser».'; }
@@ -54,6 +55,9 @@ module.exports = {
    del servidor como marcador (mira `apps/webos-launcher/` y
    `src/drivers/webos/launcher.js`): la app debe **esperar al servidor** y
    luego navegar a él, con una pantalla «No encuentro el servidor… reintentando».
+   Si la tele puede ejecutar Node.js (como los servicios JS de webOS), el
+   servidor puede ir dentro: mira el modo tele (`src/tv-service/` y
+   `src/drivers/webos/bundle.js`).
 4. Si hay herramientas externas (como `ares-cli` o `adb`), búscalas en el
    `PATH` y, si faltan, explica **los pasos exactos** para instalarlas.
 5. Pruebas en `test/<id>.test.js` **sin tele real**: un servidor falso que hable
@@ -69,9 +73,10 @@ module.exports = {
 | `ssdp.js` | M-SEARCH a `239.255.255.250:1900` con `ST: urn:lge-com:service:webos-second-screen:1`; lee `LOCATION` y el nombre de `DLNADeviceName.lge.com`, y el XML de descripción (modelo). |
 | `ssap.js` | Cliente SSAP: `wss://IP:3001` (certificado autofirmado) o `ws://IP:3000`; registro con aviso (`pairingType: PROMPT`) y `client-key`; peticiones; botones por el socket de puntero (`type:button\nname:UP\n\n`); llamadas `luna://` con el truco de la alerta; captura con `ssap://tv/executeOneShot`. |
 | `manifest.js` | Manifiesto y permisos que se piden al emparejar. |
-| `launcher.js` | Copia la plantilla, mete la URL del servidor y pone la versión en el nombre de los iconos. |
-| `ipk.js` | `.ipk` en JavaScript puro (`ar` + `tar.gz`). |
-| `ares.js` | Ejecuta `ares-setup-device`, `ares-package`, `ares-install`, `ares-inspect` y escribe los pasos si faltan. |
+| `launcher.js` | Copia la plantilla, mete el modo (`tele` o `pc`), el servicio y el puerto o la URL del servidor, y pone la versión en el nombre de los iconos. |
+| `bundle.js` | Modo tele: la carpeta del servicio JS (servidor, juegos, `public/` y `node_modules` de producción; nunca `webos-service`). |
+| `ipk.js` | `.ipk` en JavaScript puro (`ar` + `tar.gz`), con la app y sus servicios, como `ares-package`. |
+| `ares.js` | Ejecuta `ares-setup-device`, `ares-package` (`<app> <servicio> --no-minify` en modo tele), `ares-install`, `ares-inspect` y escribe los pasos si faltan. |
 | `cdp.js` | Mide FPS con `Runtime.evaluate` (`requestAnimationFrame` durante N s) por el protocolo de DevTools. |
 
 Ideas para otras marcas: [roadmap.md](roadmap.md).

@@ -1,6 +1,10 @@
 # Arquitectura
 
+El mismo servidor (`src/server/`, HTTP + WebSocket en un puerto) puede correr
+en dos sitios:
+
 ```
+ MODO PC (cualquier pantalla con navegador; desarrollo; reserva)
                  ┌──────────────────────── PC (Node.js ≥ 18) ────────────────────────┐
                  │  game-to-tv start                                                  │
   Móviles ──────▶│  HTTP + WebSocket en UN puerto (3000)                              │
@@ -10,6 +14,22 @@
   (/ = shell)    │                                                                    │
                  │  game-to-tv tv …  ──▶ src/drivers/<driver>/  (LG webOS, navegador) │
                  └────────────────────────────────────────────────────────────────────┘
+
+ MODO TELE (LG webOS: la tele es el servidor; el PC solo instala)
+                 ┌──────────────────────── Tele LG (webOS 22) ────────────────────────┐
+                 │  app «Juegos del Salón» (file://…/index.html, modo tele)           │
+                 │    1. luna://io.gametotv.launcher.service/start (PalmServiceBridge)│
+                 │    2. sondea http://127.0.0.1:8090/qr.svg  →  3. abre esa página   │
+                 │                    │                               ▲ heartbeat     │
+                 │                    ▼                               │ (tvservice.js)│
+                 │  servicio JS (Node 12 de la tele, src/tv-service/) │               │
+                 │    actividad keepAlive · apagado tras 15 min sin uso               │
+  Móviles ──────▶│    el MISMO servidor: src/server + src/games, puerto 8090          │
+  (QR → IP de    │    HOST_IP = IP de la tele (eth0 / wlan0)                          │
+   la tele:8090) └────────────────────────────────────────────────────────────────────┘
+                     ▲ game-to-tv tv install (app + servicio en un .ipk, ares-cli)
+                     ▲ game-to-tv tv status / doctor  (GET :8090/info)
+                   PC
 ```
 
 ## Piezas
@@ -19,12 +39,13 @@
 | `bin/game-to-tv.js` | Entrada del CLI. |
 | `src/cli/` | Comandos: `start`, `doctor` (con el análisis del cortafuegos), `tv …`. Analizador de argumentos mínimo, sin dependencias. |
 | `src/config.js` | `~/.game-to-tv/config.json` (teles, clave de emparejamiento, carpetas). Se escribe con permisos `0600`. `GAME_TO_TV_HOME` la mueve. |
-| `src/server/` | `index.js` (HTTP, WebSocket, rutas), `hub.js` (jugadores y juegos), `net.js` (IP de la red local), `ambient.js` (modo ambiente). |
+| `src/server/` | `index.js` (HTTP, WebSocket, rutas; modo `pc` o `tele`), `hub.js` (jugadores y juegos), `net.js` (IP de la red local), `ambient.js` (modo ambiente). |
+| `src/tv-service/` | El servicio JS de webOS del modo tele: `core.js` (métodos `start`, `status`, `heartbeat`, `stop`, `logs`; IP de la tele, carpeta de la galería, apagado por inactividad) y `service.js` (la entrada que ejecuta webOS). |
 | `src/games/` | `index.js` (registro de juegos) y una carpeta por juego. |
 | `public/` | `tv.html` y `m.html` (los *shells*), `ambiente.html`, `keepalive.mp4` y `lib/` (ayudas compartidas del navegador). |
 | `src/drivers/` | Interfaz y registro de drivers, y uno por tipo de tele. |
-| `apps/webos-launcher/` | Plantilla de la app lanzadora para LG. |
-| `scripts/` | `check-browser-js.js` (ES2019) y `make-icons.js`. |
+| `apps/webos-launcher/` | Plantilla de la app lanzadora para LG (una sola, para el modo tele y el modo pc). |
+| `scripts/` | `check-browser-js.js` (ES2019), `check-node12.js` (el servidor de la tele, compatible con Node 12) y `make-icons.js`. |
 | `test/` | Pruebas sin dependencias de test (scripts de Node con `check()`). |
 
 ## El servidor
@@ -44,6 +65,35 @@
   (`perMessageDeflate: false`) por latencia; `TCP_NODELAY` lo pone `ws`.
 - **Detección de IP**: puntúa las interfaces (192.168.x > 10.x > 172.16-31.x;
   penaliza VPN, Docker, WSL, Hyper‑V, 169.254…). `--host-ip`/`HOST_IP` manda.
+  En la tele: `eth0`, luego `wlan0` (nunca Wi‑Fi Direct `p2p0`).
+- **`/info`** dice `{ mode: 'pc' | 'tele', version }`, las direcciones y la
+  actividad (pantallas y jugadores). En modo tele añade `tele` (Node, carpeta
+  de la galería, minutos sin uso) y sirve `/logs`.
+- **Mismo origen**: la tele y los móviles usan la dirección desde la que se
+  cargó la página (`location.host`), nunca la del PC: así el mismo código sirve
+  en el PC y en la tele.
+
+## El modo tele (`src/tv-service/`)
+
+- **Arranque**: `start` es idempotente (dos llamadas a la vez = un servidor) y
+  crea la actividad `keepAlive`: sin ella, webOS cierra el servicio unos
+  segundos después de la última llamada. Si la IP de la tele ha cambiado, el
+  servidor se reinicia para que el QR sea el bueno.
+- **Apagado**: cada 30 s mira si hay alguna pantalla, jugador o suscripción
+  `heartbeat`; tras 15 min sin nada (`--apagado MIN`), cierra el servidor y
+  completa la actividad para que webOS pueda terminar el proceso.
+- **Galería**: prueba carpetas hasta encontrar una donde escribir (`$HOME`,
+  `/media/developer/temp`, la del servicio, `os.tmpdir()`). Si ninguna sirve,
+  no guarda PNG, pero la galería del final de la partida se ve igual.
+- **Registro**: anillo con las últimas 300 líneas (`logs`, `/logs`,
+  `tv status --logs`).
+- **Paquete** (`src/drivers/webos/bundle.js`): solo el código del servidor, los
+  juegos, `public/` y las dependencias de producción (`ws`, `qrcode`, `pngjs`),
+  sin pruebas, documentación, CLI ni drivers. Nunca `webos-service` (lo pone
+  la tele). Unos 200 KB en total.
+- **Node 12**: la tele trae Node 12.21. `npm run check` analiza el paquete real
+  (acorn en ES2019 + APIs prohibidas) y las pruebas arrancan el servicio
+  empaquetado; `npm run test:node12` lo pasa todo con Node 12.
 
 ## El hub (`src/server/hub.js`)
 
@@ -75,6 +125,7 @@ Protocolo completo: comentario al principio de `src/server/hub.js`.
 | `keys.js` | Mando de la tele: flechas, OK (13), **Atrás (461)** y captura del `history.back()` de webOS. |
 | `sound.js` | Sonidos sintetizados con WebAudio (nunca rompen nada si el audio está bloqueado). |
 | `keepalive.js` | Evitar el salvapantallas de webOS (servicio luna si hay `PalmServiceBridge`, vídeo diminuto en bucle y un píxel que cambia). |
+| `tvservice.js` | Modo tele: la página de la tele abre su propia suscripción `heartbeat` con el servicio (la del lanzador muere al navegar). No hace nada fuera de webOS ni con un servidor de PC. |
 
 La **tele** (`tv.html`) dibuja un escenario fijo de 1920x1080 y lo escala a la
 pantalla; cada juego añade su vista. El **móvil** (`m.html`) gestiona la
@@ -101,6 +152,10 @@ lo que no puede hacer. Detalles: [drivers.md](drivers.md).
 - **App lanzadora en vez del navegador de la tele** en LG: el navegador se
   atascaba en páginas que fallaban al cargar; la app sondea `/qr.svg` y
   después navega al servidor.
+- **El servidor dentro de la tele (modo tele)** en vez de un PC encendido: es
+  el mismo código, empaquetado como servicio JS de la app. El PC queda para
+  instalar, para pantallas sin app y como reserva.
+- **Puerto 8090 en la tele**: el 3000 y el 3001 son del servicio SSAP de LG.
 - **Empaquetado `.ipk` en JavaScript puro**: se puede crear la app sin
   instalar nada de LG. Para instalarla sí hace falta `ares-cli`.
 - **Configuración fuera del repositorio** (`~/.game-to-tv/`): la clave de

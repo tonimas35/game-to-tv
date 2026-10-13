@@ -7,7 +7,9 @@ game-to-tv doctor
 ```
 
 Revisa Node, el puerto, la IP, el cortafuegos de Windows, `ares-cli` y las
-teles configuradas, **sin cambiar nada**, y dice qué hacer.
+teles configuradas (en las LG, también si el servidor de dentro de la tele
+responde), **sin cambiar nada**, y dice qué hacer. Para una tele LG en modo
+tele: `game-to-tv tv status salon`.
 
 ## La tele o los móviles no conectan con el PC
 
@@ -82,12 +84,76 @@ del PC en el router.
 
 ## La app de la tele dice «No encuentro el servidor… reintentando»
 
-La app sigue probando cada 3 s; en cuanto el servidor responda, entra sola.
+Esto es el **modo pc** (el servidor está en el PC). La app sigue probando cada
+3 s; en cuanto el servidor responda, entra sola.
 
 - ¿Está `game-to-tv start` en marcha en el PC?
 - ¿Es la dirección que aparece en pantalla la del PC? Si no, reinstala con
   `--server-url`.
 - Revisa el cortafuegos (arriba).
+
+## Modo tele (LG): el servidor de la tele no arranca
+
+La app se queda en «Arrancando los juegos…» o dice «No se pudo arrancar el
+servidor de la tele».
+
+- **«Service does not exist»** o la app no está: la app se instaló en modo pc,
+  con una versión anterior a la 0.2, o el modo desarrollador caducó (abajo).
+  Reinstala: `game-to-tv tv install salon`.
+- **«El puerto 8090 de la tele está ocupado»**: otra app usa ese puerto.
+  Reinstala con otro: `game-to-tv tv install salon --puerto 8095` (nunca 3000
+  ni 3001, que son de LG).
+- **Se queda arrancando**: la primera vez tarda unos segundos. Si pasa de 15 s,
+  la app reintenta 3 veces; pulsa **OK** para volver a probar. Mira el
+  registro (abajo) y, si lo tienes, usa el servidor del PC con **▲** (solo si
+  instalaste con `--server-url`).
+- Comprueba desde el PC: `game-to-tv tv status salon` y `game-to-tv doctor`.
+
+## Modo tele (LG): los móviles no llegan al puerto 8090
+
+El QR de la tele apunta a `http://IP-DE-LA-TELE:8090/m`.
+
+- Los móviles deben estar en **la misma red** que la tele (no en la red de
+  invitados ni con datos móviles).
+- Comprueba desde el PC: `game-to-tv tv status salon` (o abre
+  `http://IP-DE-LA-TELE:8090/info` en un navegador). Si el PC llega y el móvil
+  no, el problema es la red del móvil o el aislamiento de clientes del router
+  («AP isolation»).
+- Si la IP del QR no es la de la tele en tu red (por ejemplo, la tele está por
+  cable y por Wi‑Fi a la vez), mira `tv status`: la tele prefiere el cable
+  (`eth0`) y después el Wi‑Fi (`wlan0`). Desconecta la que no uses.
+- Conviene reservar la IP de la tele en el router (DHCP estático). Si cambia, al
+  volver a abrir la app el servidor se reinicia con la nueva.
+- El servidor se apaga solo tras 15 min sin pantalla ni jugadores: abre la app
+  otra vez («Juegos del Salón»).
+
+## Modo tele (LG): ha caducado el modo desarrollador
+
+Síntomas: la app «Juegos del Salón» ha desaparecido de la tele, `tv status` no
+responde y `ares-install` falla. La sesión de Developer Mode dura 50 h (999 h
+si pulsas **Extend**) y, al caducar, webOS borra las apps instaladas en modo
+desarrollador, servidor incluido.
+
+1. En la tele, abre **Developer Mode**, inicia sesión y activa **Dev Mode
+   Status** si está apagado (la tele se reinicia).
+2. Pulsa **Extend** para tener 999 horas.
+3. Desde el PC: `game-to-tv tv install salon`.
+
+Pon un recordatorio para pulsar *Extend* de vez en cuando.
+
+## Modo tele (LG): ver el registro del servidor de la tele
+
+- Desde el PC: `game-to-tv tv status salon --logs`.
+- Desde cualquier navegador de casa: `http://IP-DE-LA-TELE:8090/logs` (y
+  `http://IP-DE-LA-TELE:8090/info` para el estado en JSON: versión, Node,
+  carpeta de la galería, minutos sin uso).
+- Si el servidor no llega a arrancar, el registro solo se ve en la tele: con
+  `ares-inspect --device salon --service io.gametotv.launcher.service` (abre
+  el inspector de Node del servicio), o con
+  `ares-inspect --device salon --app io.gametotv.launcher` para la consola de la
+  app.
+- Desde la propia app, el método `luna://io.gametotv.launcher.service/logs`
+  devuelve las mismas líneas.
 
 ## La tele va a tirones (pocos FPS)
 
@@ -125,7 +191,8 @@ reinstalas la misma versión, reinicia la tele.
 
 ## `ares-install` falla
 
-- **Sesión caducada**: abre Developer Mode en la tele y pulsa *Extend*.
+- **Sesión caducada**: abre Developer Mode en la tele y pulsa *Extend* (ver
+  [arriba](#modo-tele-lg-ha-caducado-el-modo-desarrollador)).
 - **Falta la clave privada en el dispositivo** (el error típico tras
   `--getkey`):
   `ares-setup-device -m salon -i "privatekey=salon_webos" -i "passphrase=TU-PASSPHRASE"`.

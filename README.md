@@ -2,9 +2,10 @@
 
 **Juegos de grupo para el salón: la tele es la pantalla y los móviles son los
 mandos.** Se escanea un QR y a jugar: no hay que instalar nada en los móviles.
-Un pequeño servidor de Node.js corre en un PC de casa y unos *drivers* se
-encargan de poner los juegos en la tele (instalar una app, abrirla, mandar
-avisos, hacer capturas…).
+Un pequeño servidor de Node.js reparte el juego. En una **tele LG va dentro de
+la propia tele** (el PC solo hace falta para instalar la app); con cualquier
+otra pantalla, corre en un PC de casa. Unos *drivers* se encargan de poner los
+juegos en la tele (instalar una app, abrirla, mandar avisos, hacer capturas…).
 
 ![Menú de Juegos del Salón en la tele](docs/img/menu.jpg)
 
@@ -16,7 +17,15 @@ avisos, hacer capturas…).
 ![Pong en la tele](docs/img/pong.jpg)
 
 ```
-  Móvil 1 ──┐                          ┌── Tele (app lanzadora o navegador)
+  LG webOS (modo tele, sin PC):
+  Móvil 1 ──┐            ┌──────────── Tele LG ────────────┐
+            ├── Wi‑Fi ──▶│ app «Juegos del Salón»          │
+  Móvil 2 ──┘            │ + servidor dentro (puerto 8090) │
+                         └─────────────────────────────────┘
+  QR en la tele → http://IP-DE-LA-TELE:8090/m
+
+  Cualquier pantalla con navegador (modo pc):
+  Móvil 1 ──┐                          ┌── Tele (navegador o app lanzadora)
             ├── Wi‑Fi ── PC con Node ──┤   http://IP-DEL-PC:3000/
   Móvil 2 ──┘   (game-to-tv start)     └── QR → http://IP-DEL-PC:3000/m
 ```
@@ -33,7 +42,7 @@ avisos, hacer capturas…).
 
 | Pantalla | Estado | Cómo |
 |---|---|---|
-| LG webOS (probado en webOS 22) | ✅ | App lanzadora instalada con el modo desarrollador; emparejar, abrir, avisos, botones, capturas y medir FPS desde el PC. |
+| LG webOS (probado en webOS 22) | ✅ sin PC (la tele es el servidor) | App instalada con el modo desarrollador; el servidor de los juegos va dentro de la tele. Desde el PC: instalar, abrir, estado, avisos, botones, capturas y medir FPS. También en modo pc (`--modo pc`). |
 | Navegador (cualquier tele, proyector o portátil con navegador) | ✅ | Abrir la dirección que muestra `game-to-tv start`. Nada que instalar. |
 | Amazon Fire TV | 🔜 | De momento, con el driver «Navegador» y el navegador Silk. Plan en [src/drivers/firetv/README.md](src/drivers/firetv/README.md). |
 | Samsung Tizen | 🔜 | Pendiente (ver [docs/roadmap.md](docs/roadmap.md)). |
@@ -42,7 +51,8 @@ avisos, hacer capturas…).
 ## Inicio rápido
 
 Necesitas un PC (Windows, macOS o Linux) con **Node.js 18 o superior** en la
-misma red que la tele y los móviles.
+misma red que la tele y los móviles. Con una tele LG, el PC solo se usa para
+instalar la app ([más abajo](#lg-webos)); para cualquier otra pantalla:
 
 ```bash
 npm install -g game-to-tv      # o, sin instalar: npx game-to-tv start
@@ -76,18 +86,26 @@ cortafuegos de Windows y te dice exactamente qué hacer.
 game-to-tv tv scan                      # busca teles LG en la red
 game-to-tv tv add salon 192.168.1.50    # dale un nombre corto
 game-to-tv tv pair salon                # acepta el aviso en la tele con el mando
-game-to-tv tv install salon             # crea la app con la URL del servidor y la instala
-game-to-tv start --abrir salon          # arranca el servidor y abre los juegos en la tele
+game-to-tv tv install salon             # instala la app CON el servidor dentro (modo tele)
+game-to-tv tv open salon                # o ábrela con el mando: «Juegos del Salón»
 ```
+
+Desde ese momento **el PC ya no hace falta**: al abrir «Juegos del Salón», la
+tele arranca su propio servidor (puerto 8090) y el QR apunta a la tele.
+`game-to-tv tv status salon` comprueba desde el PC que responde.
 
 Instalar la app necesita el **modo desarrollador** de LG (gratis, con una
 cuenta de desarrollador) y `ares-cli`. Si falta algo, `tv install` te dice los
-pasos exactos. Guía completa: [docs/tele-lg.md](docs/tele-lg.md).
+pasos exactos. **Ojo**: si la sesión de Developer Mode caduca, la app
+desaparece de la tele; ábrela de vez en cuando y pulsa *Extend*. Guía
+completa, con el modo tele y el modo pc: [docs/tele-lg.md](docs/tele-lg.md).
+
+¿Prefieres que el servidor siga en el PC (por ejemplo, para desarrollar)?
+`game-to-tv tv install salon --modo pc` y luego `game-to-tv start --abrir salon`.
 
 ¿Por qué una app y no el navegador de la tele? El navegador de webOS se quedaba
-atascado en páginas que no cargaban a la primera. La app lanzadora espera a que
-el servidor responda («No encuentro el servidor… reintentando») y entonces
-abre los juegos.
+atascado en páginas que no cargaban a la primera. La app espera a que el
+servidor responda y entonces abre los juegos.
 
 ### Cualquier otra pantalla con navegador
 
@@ -105,7 +123,10 @@ game-to-tv tv open proyector            # te recuerda la dirección (y un QR)
    menú, con confirmación.
 
 Los dibujos de «Dibuja y adivina» se guardan en PNG en `~/.game-to-tv/galeria`
-y se ven en `http://IP-DEL-PC:3000/galeria`.
+y se ven en `http://IP-DEL-PC:3000/galeria`. En modo tele se guardan en la tele
+si encuentra una carpeta con permiso de escritura (`tv status` dice cuál) y se
+ven en `http://IP-DE-LA-TELE:8090/galeria`; si no, se ven igualmente al final
+de cada partida.
 
 **Modo ambiente**: `http://IP-DEL-PC:3000/ambiente` muestra un pase de las
 fotos de `~/.game-to-tv/ambiente` con un reloj (hora de Madrid por defecto). Sin
@@ -120,8 +141,9 @@ fotos, muestra un fondo tranquilo. En LG: `game-to-tv tv open salon --ruta /ambi
 | `game-to-tv tv scan` | Busca teles (LG por SSDP) |
 | `game-to-tv tv add NOMBRE IP [--driver webos\|browser]` · `tv list` · `tv remove NOMBRE` | Gestiona las teles |
 | `game-to-tv tv pair NOMBRE` | Empareja (aviso en la tele) |
-| `game-to-tv tv install NOMBRE [--server-url URL] [--solo-ipk]` · `tv ipk` | Crea e instala la app lanzadora |
+| `game-to-tv tv install NOMBRE [--modo tele\|pc] [--server-url URL] [--puerto 8090] [--solo-ipk]` · `tv ipk` | Crea e instala la app (LG: modo tele por defecto, con el servidor dentro) |
 | `game-to-tv tv open NOMBRE [--ruta /ambiente]` | Abre los juegos en la tele |
+| `game-to-tv tv status NOMBRE [--logs]` | ¿Responde el servidor de dentro de la tele? Versión, Node, galería y registro |
 | `game-to-tv tv shot NOMBRE [archivo.jpg]` | Captura de pantalla de la tele |
 | `game-to-tv tv perf NOMBRE` | FPS reales medidos en la tele |
 | `game-to-tv tv toast NOMBRE "mensaje"` · `tv key NOMBRE ENTER` · `tv info NOMBRE` | Avisos, botones del mando, información |
@@ -144,31 +166,35 @@ el hub. Guía paso a paso con un juego completo de ejemplo («Reflejos»):
 - [docs/arquitectura.md](docs/arquitectura.md): cómo encaja todo.
 - [docs/crear-un-juego.md](docs/crear-un-juego.md): tu propio juego en una tarde.
 - [docs/drivers.md](docs/drivers.md): cómo dar soporte a otra marca de tele.
-- [docs/tele-lg.md](docs/tele-lg.md): guía completa para LG (modo desarrollador incluido).
+- [docs/tele-lg.md](docs/tele-lg.md): guía completa para LG (modo tele y modo pc, modo desarrollador incluido).
 - [docs/solucion-problemas.md](docs/solucion-problemas.md): cortafuegos, IP, FPS, salvapantallas, YouTube, iconos…
 - [docs/roadmap.md](docs/roadmap.md): lo que viene.
+- [CHANGELOG.md](CHANGELOG.md): cambios de cada versión.
 - [CONTRIBUTING.md](CONTRIBUTING.md): cómo colaborar.
 
 ## Desarrollo
 
 ```bash
 npm install
-npm test               # servidor, juegos y drivers (tele LG falsa); sin red ni tele real
-npm run check          # el JavaScript del navegador debe ser ES2019 (Chromium 87 de webOS 22)
-npm run test:browser   # prueba con Chromium sin pantalla (si Playwright está instalado)
+npm test               # servidor, juegos, drivers y servicio de la tele (todo falso); sin red ni tele real
+npm run check          # navegador en ES2019 (Chromium 87) y servidor de la tele compatible con Node 12
+npm run test:node12    # todas las pruebas con Node 12, como el de la tele (lo descarga con npx)
+npm run test:browser   # pruebas con Chromium sin pantalla (si Playwright está instalado)
 ```
 
 ## English summary
 
 **game-to-tv** turns the living-room TV into a party-game screen while
 everyone's phone becomes the controller (scan a QR code, no app install). A
-small Node.js server (HTTP + WebSocket on one port) runs on a PC on the home
-LAN. Games are self-contained folders (`src/games/<id>/`: manifest, server
+small Node.js server (HTTP + WebSocket on one port) runs either INSIDE an LG
+webOS TV (as a JS service of the launcher app, on the TV's own Node 12, port
+8090: no PC needed to play) or on a PC on the home LAN. Games are self-contained folders (`src/games/<id>/`: manifest, server
 module, TV view, phone view); the hub handles players, reconnection, the menu
 and the QR. *Drivers* get the game screen onto TVs: the LG webOS driver
-discovers TVs (SSDP), pairs over SSAP, builds and installs a tiny launcher app
-(pure-JS `.ipk` packaging, installed with LG's `ares-cli` in Developer Mode),
-launches it, sends toasts and remote buttons, takes screenshots and measures
+discovers TVs (SSDP), pairs over SSAP, builds and installs the launcher app
+with its server service (pure-JS `.ipk` packaging or `ares-package`, installed
+with LG's `ares-cli` in Developer Mode), launches it, checks the TV-hosted
+server, sends toasts and remote buttons, takes screenshots and measures
 real FPS through Chrome DevTools. A generic «browser» driver covers any screen
 with a web browser; Fire TV, Tizen and Android TV are on the roadmap.
 Includes «Dibuja y adivina» (Pictionary for two), Pong and a tiny example
