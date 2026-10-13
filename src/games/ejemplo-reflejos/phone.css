@@ -1,0 +1,12 @@
+/* «Reflejos»: phone view */
+#rxPad {
+  flex: 1; min-height: 0; margin-top: 12px; border-radius: 28px; border: 3px solid var(--c);
+  background: var(--panel); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; touch-action: none; padding: 20px;
+}
+#rxPad.go { background: #1f9d55; border-color: #3ee07a; }
+#rxPad.early { background: #5a1a22; border-color: var(--bad); }
+#rxMsg { font-size: 46px; font-weight: 900; line-height: 1.1; }
+#rxInfo { font-size: 18px; color: var(--muted); margin-top: 12px; }
+#rxScore { font-size: 15px; font-weight: 800; color: var(--muted); white-space: nowrap; }
+#rxEnd { margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }

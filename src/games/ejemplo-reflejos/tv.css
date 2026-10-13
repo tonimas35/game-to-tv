@@ -1,0 +1,12 @@
+/* «Reflejos»: TV view (1920x1080 stage) */
+#vReflejos { background: #0a0c1f; }
+#vReflejos.go { background: #0f3d22; }
+.rx-top { position: absolute; left: 0; right: 0; top: 40px; text-align: center; font-size: 44px; font-weight: 800; color: var(--muted); }
+.rx-main { position: absolute; left: 60px; right: 60px; top: 220px; height: 460px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.rx-big { font-size: 220px; font-weight: 900; line-height: 1.05; max-width: 1800px; }
+.rx-sub { font-size: 48px; color: var(--muted); margin-top: 18px; max-width: 1700px; }
+.rx-early { position: absolute; left: 0; right: 0; top: 700px; text-align: center; font-size: 40px; font-weight: 800; color: var(--warn); }
+.rx-scores { position: absolute; left: 0; right: 0; bottom: 70px; display: flex; justify-content: center; }
+.rx-p { width: 400px; margin: 0 16px; padding: 18px 26px; box-sizing: border-box; border-radius: 26px; background: var(--panel); border: 4px solid var(--line); }
+.rx-p b { display: block; font-size: 40px; }
+.rx-dots { margin-top: 8px; font-size: 44px; letter-spacing: 8px; }

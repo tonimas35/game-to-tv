@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="170" viewBox="0 0 300 170">
+  <rect x="10" y="10" width="280" height="150" rx="14" fill="#05060f" stroke="rgba(255,255,255,0.2)" stroke-width="3"/>
+  <circle cx="150" cy="85" r="58" fill="#3ee07a"/>
+  <text x="150" y="104" text-anchor="middle" font-family="Arial, sans-serif" font-size="52" font-weight="900" fill="#05060f">¡YA!</text>
+  <path d="M52 50 l22 12 M44 85 h26 M52 120 l22 -12 M248 50 l-22 12 M256 85 h-26 M248 120 l-22 -12" stroke="#ffd23e" stroke-width="7" stroke-linecap="round"/>
+</svg>
