@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Juegos del Salón</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: #070915; color: #fff; overflow: hidden; cursor: none;
+    font-family: 'LG Smart UI', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+  #box { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; padding: 0 6vw; }
+  h1 { margin: 0; font-size: 5.6vw; font-weight: 900; color: #a98bff; }
+  #title { margin: 3vh 0 0; font-size: 3vw; font-weight: 800; }
+  #sub { margin: 1.5vh 0 0; font-size: 1.9vw; color: rgba(255,255,255,0.65); }
+  #url { margin: 2.5vh 0 0; font-size: 2vw; font-family: 'Courier New', monospace; color: #22e6ff; }
+  #tips { margin: 4vh auto 0; max-width: 64vw; text-align: left; font-size: 1.6vw; line-height: 1.5; color: rgba(255,255,255,0.7); display: none; }
+  #tips.on { display: block; }
+  .dots span { display: inline-block; width: 1.2vw; height: 1.2vw; margin: 3vh 0.5vw 0; border-radius: 50%; background: #22e6ff; opacity: 0.25; }
+  .dots span.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="box">
+  <h1>Juegos del Salón</h1>
+  <p id="title">Conectando con el servidor…</p>
+  <p id="sub"></p>
+  <p id="url"></p>
+  <div class="dots"><span></span><span></span><span></span></div>
+  <div id="tips">
+    · ¿Está encendido el PC y abierto <b>game-to-tv start</b>?<br>
+    · ¿Están la tele y el PC conectados al mismo router?<br>
+    · En Windows, el cortafuegos puede bloquear a la tele: ejecuta <b>game-to-tv doctor</b> en el PC.<br>
+    · Pulsa <b>Atrás</b> para salir.
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  // This app only opens the game-to-tv server running on the PC. The URL is
+  // baked in by `game-to-tv tv install` (the webOS built-in browser is not
+  // reliable: it may get stuck on a page that failed to load).
+  var SERVER = '@@SERVER_URL@@';
+  var RETRY_MS = 3000;
+  var attempts = 0, dot = 0, done = false;
+
+  function $(id) { return document.getElementById(id); }
+
+  // Optional launch parameter { path: '/ambiente' } (game-to-tv tv open --ruta)
+  function targetPath() {
+    try {
+      var p = window.PalmSystem && window.PalmSystem.launchParams ? JSON.parse(window.PalmSystem.launchParams || '{}') : {};
+      if (p && typeof p.path === 'string' && p.path.charAt(0) === '/') return p.path;
+    } catch (e) { /* noop */ }
+    return '/';
+  }
+
+  function go() {
+    if (done) return;
+    done = true;
+    location.replace(SERVER + targetPath());
+  }
+
+  function fail() {
+    attempts++;
+    $('title').textContent = 'No encuentro el servidor… reintentando';
+    $('sub').textContent = 'Intento ' + attempts + '. Vuelvo a probar cada ' + (RETRY_MS / 1000) + ' segundos.';
+    $('tips').className = 'on';
+    setTimeout(probe, RETRY_MS);
+  }
+
+  // The server answers /qr.svg as soon as it is ready
+  function probe() {
+    if (done) return;
+    var x = new XMLHttpRequest();
+    var finished = false;
+    function end(ok) { if (finished) return; finished = true; if (ok) go(); else fail(); }
+    try {
+      x.open('GET', SERVER + '/qr.svg?t=' + Date.now(), true);
+      x.timeout = 4000;
+      x.onload = function () { end(x.status === 200); };
+      x.onerror = function () { end(false); };
+      x.ontimeout = function () { end(false); };
+      x.send();
+    } catch (e) { end(false); }
+  }
+
+  setInterval(function () {
+    var d = document.querySelectorAll('.dots span');
+    for (var i = 0; i < d.length; i++) d[i].className = i === dot ? 'on' : '';
+    dot = (dot + 1) % d.length;
+  }, 400);
+
+  window.addEventListener('keydown', function (e) {
+    if (e.keyCode === 461 || e.keyCode === 27) {
+      try { if (window.webOS && window.webOS.platformBack) { window.webOS.platformBack(); return; } } catch (err) { /* noop */ }
+      try { window.close(); } catch (err) { /* noop */ }
+    } else if (e.keyCode === 13) {
+      probe();
+    }
+  });
+
+  $('url').textContent = SERVER;
+  if (SERVER.indexOf('@@') === 0) {
+    $('title').textContent = 'Falta la dirección del servidor';
+    $('sub').textContent = 'Instala la app con: game-to-tv tv install NOMBRE-DE-LA-TELE';
+  } else {
+    probe();
+  }
+})();
+</script>
+</body>
+</html>

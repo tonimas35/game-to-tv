@@ -1,0 +1,15 @@
+{
+  "id": "io.gametotv.launcher",
+  "version": "0.1.0",
+  "vendor": "game-to-tv",
+  "type": "web",
+  "main": "index.html",
+  "title": "Juegos del Salón",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#070915",
+  "resolution": "1920x1080",
+  "disallowScrollingInMainFrame": true,
+  "disableBackHistoryAPI": true,
+  "requiredACG": []
+}
