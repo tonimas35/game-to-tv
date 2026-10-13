@@ -55,6 +55,9 @@ Si el servicio falla, la app muestra el error y cómo arreglarlo. Si al instalar
 le diste un servidor de PC de reserva (`tv install salon --server-url
 http://192.168.1.40:3000`), con **▲** en el mando se pasa a él.
 
+**Jugadores**: hasta 6 por defecto, como en modo pc (`--jugadores N` al
+instalar, de 2 a 8; queda en `tv-service.json`).
+
 **Puerto**: 8090 por defecto (`--puerto N` al instalar). **No uses 3000 ni
 3001**: en la tele los ocupa el servicio de LG para segundas pantallas (SSAP).
 

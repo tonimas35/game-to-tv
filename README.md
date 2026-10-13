@@ -1,7 +1,7 @@
 # game-to-tv · Juegos del Salón
 
-**Juegos de grupo para el salón: la tele es la pantalla y los móviles son los
-mandos.** Se escanea un QR y a jugar: no hay que instalar nada en los móviles.
+**Juegos de grupo para el salón (de 2 a 6 jugadores): la tele es la pantalla y
+los móviles son los mandos.** Se escanea un QR y a jugar: no hay que instalar nada en los móviles.
 Un pequeño servidor de Node.js reparte el juego. En una **tele LG va dentro de
 la propia tele** (el PC solo hace falta para instalar la app); con cualquier
 otra pantalla, corre en un PC de casa. Unos *drivers* se encargan de poner los
@@ -19,24 +19,27 @@ juegos en la tele (instalar una app, abrirla, mandar avisos, hacer capturas…).
 ```
   LG webOS (modo tele, sin PC):
   Móvil 1 ──┐            ┌──────────── Tele LG ────────────┐
-            ├── Wi‑Fi ──▶│ app «Juegos del Salón»          │
-  Móvil 2 ──┘            │ + servidor dentro (puerto 8090) │
+     …      ├── Wi‑Fi ──▶│ app «Juegos del Salón»          │
+  Móvil 6 ──┘            │ + servidor dentro (puerto 8090) │
                          └─────────────────────────────────┘
   QR en la tele → http://IP-DE-LA-TELE:8090/m
 
   Cualquier pantalla con navegador (modo pc):
   Móvil 1 ──┐                          ┌── Tele (navegador o app lanzadora)
-            ├── Wi‑Fi ── PC con Node ──┤   http://IP-DEL-PC:3000/
-  Móvil 2 ──┘   (game-to-tv start)     └── QR → http://IP-DEL-PC:3000/m
+     …      ├── Wi‑Fi ── PC con Node ──┤   http://IP-DEL-PC:3000/
+  Móvil 6 ──┘   (game-to-tv start)     └── QR → http://IP-DEL-PC:3000/m
 ```
 
 ## Juegos incluidos
 
 | Juego | Jugadores | De qué va |
 |---|---|---|
-| **Dibuja y adivina** | 2 | Pictionary en equipo: uno dibuja en el móvil y el otro adivina mirando la tele. 8 rondas, pistas, palabras secretas para tu pareja y galería de dibujos en PNG. |
-| **Pong** | 2 | El clásico, con el móvil como pala. A 60 FPS en la tele. |
-| **Reflejos** | 2 a 4 | El juego de ejemplo: la tele dice «¡YA!» y gana el punto quien antes toque su móvil. Al mejor de 5. |
+| **Dibuja y adivina** | 2 a 6 | Pictionary: uno dibuja en el móvil y los demás adivinan mirando la tele. Con 2, en equipo (8 rondas y un título final). De 3 a 6, todos contra todos: el dibujante rota, todos adivinan a la vez y quien antes acierta, más puntos; clasificación con medallas. Pistas, palabras secretas para los demás y galería de dibujos en PNG. |
+| **Pong** | 2 a 4 | El clásico, con el móvil como pala, a 60 FPS en la tele. Con 3 o 4, por parejas: dos palas por lado, como en el futbolín. |
+| **Reflejos** | 2 a 6 | El juego de ejemplo: la tele dice «¡YA!» y gana el punto quien antes toque su móvil. Al mejor de 5. |
+
+El menú de la tele muestra para cuántos es cada juego y, si no encaja con los
+que sois, lo pone en gris con el motivo («De 2 a 4 jugadores · sois 6»).
 
 ## Pantallas compatibles
 
@@ -116,8 +119,9 @@ game-to-tv tv open proyector            # te recuerda la dirección (y un QR)
 
 ## Cómo se juega
 
-1. Cada jugador escanea el QR de la tele, escribe su nombre y pulsa «Unirse».
-   Si alguien pierde la conexión, su sitio se le guarda 30 s.
+1. Cada jugador escanea el QR de la tele, escribe su nombre y pulsa «Unirse»
+   (hasta 6; cada uno con su color). Si alguien pierde la conexión, su sitio
+   se le guarda 30 s.
 2. Se elige juego con el mando de la tele (◀ ▶ y OK) o desde cualquier móvil.
 3. En cualquier juego, «Menú» en el móvil (o **Atrás** en el mando) vuelve al
    menú, con confirmación.
@@ -136,12 +140,12 @@ fotos, muestra un fondo tranquilo. En LG: `game-to-tv tv open salon --ruta /ambi
 
 | Comando | Para qué |
 |---|---|
-| `game-to-tv start [--port 3000] [--host-ip IP] [--jugadores N] [--galeria DIR] [--abrir TELE]` | Arranca el servidor |
+| `game-to-tv start [--port 3000] [--host-ip IP] [--jugadores 6] [--galeria DIR] [--abrir TELE]` | Arranca el servidor (6 huecos de jugador por defecto, de 2 a 8) |
 | `game-to-tv doctor` | Revisa Node, puerto, IP, cortafuegos de Windows, ares-cli y teles (no cambia nada) |
 | `game-to-tv tv scan` | Busca teles (LG por SSDP) |
 | `game-to-tv tv add NOMBRE IP [--driver webos\|browser]` · `tv list` · `tv remove NOMBRE` | Gestiona las teles |
 | `game-to-tv tv pair NOMBRE` | Empareja (aviso en la tele) |
-| `game-to-tv tv install NOMBRE [--modo tele\|pc] [--server-url URL] [--puerto 8090] [--solo-ipk]` · `tv ipk` | Crea e instala la app (LG: modo tele por defecto, con el servidor dentro) |
+| `game-to-tv tv install NOMBRE [--modo tele\|pc] [--server-url URL] [--puerto 8090] [--jugadores 6] [--solo-ipk]` · `tv ipk` | Crea e instala la app (LG: modo tele por defecto, con el servidor dentro) |
 | `game-to-tv tv open NOMBRE [--ruta /ambiente]` | Abre los juegos en la tele |
 | `game-to-tv tv status NOMBRE [--logs]` | ¿Responde el servidor de dentro de la tele? Versión, Node, galería y registro |
 | `game-to-tv tv shot NOMBRE [archivo.jpg]` | Captura de pantalla de la tele |
@@ -158,7 +162,8 @@ controlar tu tele. Variables de entorno útiles: `PORT`, `HOST_IP`,
 Cada juego es una carpeta en `src/games/<id>/` con un `manifest.json`, la
 lógica del servidor (`index.js`) y las vistas de la tele (`tv.js`) y del móvil
 (`phone.js`). El menú, la conexión, los jugadores y la reconexión ya los pone
-el hub. Guía paso a paso con un juego completo de ejemplo («Reflejos»):
+el hub. Guía paso a paso con un juego completo de ejemplo («Reflejos», de 2 a
+6 jugadores):
 **[docs/crear-un-juego.md](docs/crear-un-juego.md)**.
 
 ## Más documentación
@@ -176,7 +181,7 @@ el hub. Guía paso a paso con un juego completo de ejemplo («Reflejos»):
 
 ```bash
 npm install
-npm test               # servidor, juegos, drivers y servicio de la tele (todo falso); sin red ni tele real
+npm test               # servidor, juegos (con 2, 3, 4 y 6 móviles falsos), drivers y servicio de la tele; sin red ni tele real
 npm run check          # navegador en ES2019 (Chromium 87) y servidor de la tele compatible con Node 12
 npm run test:node12    # todas las pruebas con Node 12, como el de la tele (lo descarga con npx)
 npm run test:browser   # pruebas con Chromium sin pantalla (si Playwright está instalado)
@@ -197,8 +202,9 @@ with LG's `ares-cli` in Developer Mode), launches it, checks the TV-hosted
 server, sends toasts and remote buttons, takes screenshots and measures
 real FPS through Chrome DevTools. A generic «browser» driver covers any screen
 with a web browser; Fire TV, Tizen and Android TV are on the roadmap.
-Includes «Dibuja y adivina» (Pictionary for two), Pong and a tiny example
-game. UI and docs are in Spanish. Quick start: `npx game-to-tv start`, then
+Rooms hold up to 6 players by default. Includes «Dibuja y adivina»
+(Pictionary: cooperative for two, free-for-all with a rotating drawer for 3-6),
+Pong (doubles for 3-4, foosball-style paddles) and a tiny example game (2-6). UI and docs are in Spanish. Quick start: `npx game-to-tv start`, then
 `game-to-tv doctor` if anything fails to connect.
 
 ## Licencia

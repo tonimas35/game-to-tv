@@ -3,6 +3,59 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
+## 0.3.0 - 2026-10-13
+
+### Añadido
+
+- **Grupos de hasta 6 jugadores.** La sala tiene 6 huecos por defecto en modo
+  pc y en modo tele (`--jugadores N`, de 2 a 8; `tv install --jugadores N`,
+  `players` en `tv-service.json`, `G2T_JUGADORES`).
+- **Dibuja y adivina de 2 a 6.** Con 2, el modo en equipo de siempre. De 3 a 6,
+  «todos contra todos»: el dibujante rota y los demás adivinan a la vez en el
+  móvil.
+  - Puntos por orden de acierto: `round((100 + 3 × segundos) × 1 / 0,8 / 0,65 /
+    0,5 / 0,4) + bonus de dificultad`. El dibujante gana `200 / acertantes
+    posibles` por cada acierto, más el bonus con el primero.
+  - La ronda acaba cuando aciertan todos o se acaba el tiempo. Cada jugador
+    dibuja 2 veces con 3-4 jugadores y 1 con 5-6 (`DIBUJA_VUELTAS`).
+  - Sin destripes: la palabra y el texto de un acierto no llegan a la tele ni a
+    otros móviles («Ana ha acertado»). «¡Casi!» es privado y los errores salen
+    en la tele con nombre y color. Tras acertar, el móvil dice «¡Acertaste!
+    Espera a los demás» y no deja intentarlo más.
+  - Las palabras secretas de cada uno pueden salirle a cualquier otro
+    dibujante; su autor no adivina esa ronda.
+  - Si quien dibuja se va del todo, se desvela la palabra y sigue el siguiente.
+  - Final con clasificación con medallas y la galería con quién dibujó cada
+    dibujo.
+- **Pong de 2 a 4.** Con 3 o 4, por parejas: dos palas por lado como en el
+  futbolín (portería y delantera), cada una de un jugador. Con 3, quien juega
+  solo tiene una pala de portería más larga. Puntos por equipo, a 7. La tele
+  muestra los equipos y el nombre de cada pala; el móvil, cuál es la tuya.
+- **Reflejos de 2 a 6**, con la tele preparada para 6 marcadores.
+- Menú de la tele: rejilla de jugadores con nombre y color (de 1 a 6), y en
+  cada tarjeta el rango de jugadores y, si no encaja, el motivo. En el móvil,
+  los jugadores de la sala con su color y el motivo en los juegos que no se
+  pueden elegir.
+- Hub: `onPlayerLeft(i)` para que un juego siga cuando alguien se va del todo
+  (`ev` `left`), y avisos en español a la tele y a todos los móviles al elegir
+  un juego que no encaja (`ev` `need2`/`toomany` con `text`, `min`, `max`, `n`).
+- `docs/crear-un-juego.md`: sección «De 2 a 6 jugadores».
+- Pruebas: `pong.test.js`, `grupo.test.js` y `dibuja-grupo.test.js` (3, 4 y 6
+  móviles falsos), y `browser-grupo.js` (sala de 6, Pong a 4 y Dibuja a 4 a
+  1920x1080, 1280x720 y en una tele webOS emulada).
+
+### Cambiado
+
+- Los mensajes del Pong y de Dibuja llevan campos nuevos (ver
+  `docs/arquitectura.md`); con 2 jugadores todo funciona como antes.
+- La prueba de navegador de siempre fija la sala de 2 (`--jugadores 2`).
+
+### Arreglado
+
+- Al compactar huecos, la tele podía decir que el juego lo había elegido otro
+  jugador.
+- Una comprobación de `reflejos.test.js` fallaba a veces por una carrera.
+
 ## 0.2.0 - 2026-10-13
 
 ### Añadido

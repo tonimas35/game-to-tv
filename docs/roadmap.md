@@ -19,7 +19,16 @@ Ideas ordenadas más o menos por prioridad. ¿Te apetece alguna? Mira
 
 - Trivial por equipos (preguntas en el móvil, marcador en la tele).
 - «¿Quién es más probable que…?» (votaciones).
-- Juegos para más de 2 jugadores aprovechando `--jugadores N`.
+- **Dibuja y adivina por equipos** (2 contra 2 o 3 contra 3): en 0.3 hay
+  «todos contra todos» de 3 a 6. Por equipos haría falta repartir los equipos
+  (en el menú o al azar), que solo adivine el equipo del que dibuja (o robo de
+  puntos del otro), marcador de equipo y una tele que distinga los equipos sin
+  desvelar nada al rival. No encajaba limpio en el mismo juego sin complicar el
+  todos contra todos: queda pendiente.
+- Dibuja y adivina: elegir 1 o 2 vueltas desde el menú de la tele (ahora: 2
+  con 3-4 jugadores y 1 con 5-6; `DIBUJA_VUELTAS` lo fuerza).
+- Pong: elegir los equipos (ahora: jugadores 1 y 3 contra 2 y 4) y rotar quién
+  juega solo con 3.
 - Palabras propias de «Dibuja y adivina» desde un archivo
   (`~/.game-to-tv/palabras.txt`), además de las «palabras secretas» del menú.
 - Juegos externos: cargar juegos de una carpeta del usuario

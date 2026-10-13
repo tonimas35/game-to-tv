@@ -2,7 +2,8 @@
 
 Esta guía construye, paso a paso, **«Reflejos»**: la tele muestra «Preparados…»,
 y tras una espera al azar sale **«¡YA!»**. El primer móvil que toca gana el
-punto; quien toca antes de tiempo queda fuera de esa ronda. Al mejor de 5.
+punto; quien toca antes de tiempo queda fuera de esa ronda. Al mejor de 5,
+de 2 a 6 jugadores.
 
 El juego completo está en [`src/games/ejemplo-reflejos/`](../src/games/ejemplo-reflejos/)
 y tiene sus pruebas en [`test/reflejos.test.js`](../test/reflejos.test.js).
@@ -13,8 +14,11 @@ Cópialo como punto de partida.
 No tienes que programar nada de esto:
 
 - El menú de la tele y del móvil (tu juego aparece solo, con su tarjeta).
-- El QR, la entrada de jugadores con su nombre y color, y la **reconexión**
-  (si un móvil se apaga, su sitio se guarda 30 s).
+- El QR, la entrada de jugadores (hasta 6 por defecto) con su nombre y color,
+  y la **reconexión** (si un móvil se apaga, su sitio se guarda 30 s).
+- Que nadie empiece tu juego con más o menos jugadores de los que admite: la
+  tarjeta sale en gris con el motivo y, si alguien lo elige igualmente, la tele
+  y los móviles lo explican («Pong» es de 2 a 4 jugadores y sois 6).
 - Elegir juego con el mando o desde el móvil, y volver al menú (botón **Atrás**
   del mando o «Menú» en el móvil, con confirmación).
 - Un bucle a **60 Hz con paso fijo** en el servidor.
@@ -45,8 +49,8 @@ src/games/ejemplo-reflejos/
   "description": "La tele dice «¡YA!» y gana el punto quien antes toque su móvil. ¡Sin adelantarse! Al mejor de 5.",
   "phoneDescription": "Toca en cuanto la tele diga «¡YA!»",
   "minPlayers": 2,
-  "maxPlayers": 4,
-  "tags": ["Al mejor de 5", "2 a 4", "Ejemplo"],
+  "maxPlayers": 6,
+  "tags": ["Al mejor de 5", "Ejemplo"],
   "icon": "icon.svg",
   "accent": "#ffd23e",
   "order": 90
@@ -58,13 +62,14 @@ src/games/ejemplo-reflejos/
 | `id` | Igual que el nombre de la carpeta: minúsculas, números y guiones. |
 | `title`, `description` | La tarjeta de la tele. |
 | `phoneDescription` | Texto corto del botón en el móvil (si falta, se usa `description`). |
-| `minPlayers`, `maxPlayers` | El hub no deja empezar con menos o más jugadores. |
-| `tags` | Etiquetas de la tarjeta. |
+| `minPlayers`, `maxPlayers` | El hub no deja empezar con menos o más jugadores. La tarjeta muestra el rango («2 a 6 jugadores») y, si no encaja, el motivo. |
+| `tags` | Etiquetas de la tarjeta (cortas: caben 2 o 3; el rango de jugadores ya lo pone el menú). |
 | `icon` | Archivo de la carpeta que se dibuja en la tarjeta. |
 | `accent` | Color del borde de la tarjeta cuando tiene el foco. |
 | `order` | Posición en el menú (menor = antes). |
 
-Con más de 2 jugadores arranca el servidor con `game-to-tv start --jugadores 4`.
+La sala tiene **6 huecos** por defecto (`game-to-tv start --jugadores N`, de 2
+a 8). Cómo se hace un juego para varios: [sección 5](#5-de-2-a-6-jugadores).
 
 ## 2. El servidor: `index.js`
 
@@ -112,6 +117,7 @@ function create(api, opts) {
       else if (msg.t === 'r.again' && S.phase === 'end') newMatch();
     },
     onPlayerJoined: function (i) { api.sendSlot(i, buildMeta()); },   // también al reconectar
+    onPlayerLeft: function (i) { /* se ha ido del todo: ver la sección 5 */ return true; },
     syncTv: function (ws) { api.sendWs(ws, buildMeta()); }            // una tele que se conecta a mitad
   };
 }
@@ -135,11 +141,11 @@ Ideas clave:
 
 | | |
 |---|---|
-| `api.slots` | Número de huecos de jugador de la sala (2 por defecto). |
-| `api.players()` | Huecos ocupados, p. ej. `[0, 1, 2]`. |
+| `api.slots` | Número de huecos de jugador de la sala (6 por defecto). |
+| `api.players()` | Huecos ocupados, p. ej. `[0, 1, 2]`. **Puede tener huecos**: `[0, 2]` (ver la sección 5). |
 | `api.name(i)` | Nombre del jugador del hueco `i`. |
 | `api.isConnected(i)` · `api.allConnected()` | ¿Está conectado? ¿Lo están todos? |
-| `api.COLORS[i]` | Color del jugador (cian, magenta, amarillo, verde…). |
+| `api.COLORS[i]` | Color del jugador del hueco `i` (cian, magenta, amarillo, verde, naranja, violeta, blanco, menta: 8 distintos). |
 | `api.broadcast(obj)` | A la tele y a todos los móviles. |
 | `api.sendTvs(obj)` · `api.sendPhones(obj)` · `api.sendSlot(i, obj)` | Solo a la tele, a los móviles o a un jugador (p. ej. la palabra secreta en Dibuja). |
 | `api.sendWs(ws, obj)` | A una conexión concreta (en `syncTv`). |
@@ -148,7 +154,7 @@ Ideas clave:
 | `api.log(texto)` | Escribe en la consola del servidor. |
 
 Funciones opcionales del objeto del juego: `onPlayerDisconnected(i)`,
-`onPlayerJoined(i, reconnect)`, `syncTv(ws)`, `flush()`.
+`onPlayerJoined(i, reconnect)`, `onPlayerLeft(i)`, `syncTv(ws)`, `flush()`.
 
 ### Cosas del menú (opcional)
 
@@ -254,21 +260,101 @@ El objeto `host` del móvil: `send`, `slot`, `myName`, `myColor`, `colors`,
 `show(el, sí/no)` (con la clase `hidden`), `setText`, `vibrate`,
 `confirmMenu`, y `app` (el contenedor, para capas propias como la de «Pausa»).
 
-## 5. Probarlo
+## 5. De 2 a 6 jugadores
+
+La sala tiene 6 huecos y los jugadores entran y salen cuando quieren. Tu juego
+dice en el manifiesto para cuántos es y se adapta a los que haya al empezar.
+«Reflejos» es el ejemplo (de 2 a 6); «Pong» (2 a 4, por parejas con 3 o 4) y
+«Dibuja y adivina» (2 en equipo, de 3 a 6 todos contra todos) son los casos
+grandes.
+
+**1. Declararlo.** `"minPlayers": 2, "maxPlayers": 6` en el manifiesto. El hub
+se encarga del resto: el menú muestra «2 a 6 jugadores», pone la tarjeta en
+gris con el motivo si no encaja, y si alguien la elige igualmente manda a la
+tele y a todos los móviles `{ t: 'ev', k: 'need2' | 'toomany', text, min, max, n, … }`
+con un texto ya listo para mostrar.
+
+**2. Quién juega: `api.players()`, no `0…slots-1`.** Los huecos pueden tener
+saltos (Ana en el 1, Carla en el 3 porque Berto se fue). Recorre siempre la
+lista de ocupados y guarda los datos por hueco:
+
+```js
+function newMatch() {
+  S.scores = new Array(api.slots).fill(0);              // por hueco (0…slots-1)
+  // …
+}
+function buildMeta() {
+  return {
+    t: 'rmeta',
+    players: api.players().map(function (i) { return i + 1; }),   // en los mensajes, desde 1
+    scores: S.scores.slice(),
+    // …
+  };
+}
+```
+
+Si tu juego admite **menos** jugadores que huecos hay ocupados por encima de su
+máximo (el Pong, hasta 4, con alguien en el hueco 6), el hub **compacta** los
+huecos antes de empezar: los jugadores bajan a los huecos libres y su móvil
+recibe un `joined` nuevo (con su nuevo color). Si no hace falta, no mueve a
+nadie: no des por hecho que los jugadores están en `0…n-1`.
+
+**3. Decidir con los que hay al empezar.** Lee `api.players()` en `start()` (y
+al volver a jugar), no en cada tick. Así, quien entra a mitad de partida mira
+y juega en la siguiente. Dibuja elige ahí su modo (2: en equipo; 3 a 6: todos
+contra todos) y el Pong sus palas.
+
+**4. Pausa solo por los que juegan.** `api.allConnected()` mira a toda la sala;
+si alguien solo está mirando, mejor `api.isConnected(i)` sobre tus jugadores.
+
+**5. Alguien se va del todo: `onPlayerLeft(i)`.** Cuando un jugador pulsa
+«Salir» o no vuelve en 30 s, el hub llama a `onPlayerLeft(i)` si quedan al
+menos `minPlayers`. Devuelve `false` (o no la definas) para volver al menú,
+como antes; devuelve cualquier otra cosa para seguir. La tele y los móviles
+reciben `{ t: 'ev', k: 'left', name }`. En «Reflejos»:
+
+```js
+onPlayerLeft: function (i) {
+  S.early = S.early.filter(function (s) { return s !== i; });
+  S.scores[i] = 0;
+  if (S.last && S.last.slot === i) S.last = null;
+  dirty = true;
+  return true;            // la partida sigue con los demás
+}
+```
+
+Dibuja quita los turnos que le quedaban (si dibujaba, desvela la palabra y
+pasa al siguiente); el Pong no la define (sin un jugador no hay equipo).
+
+**6. La tele con 6.** El escenario mide 1920 px: 6 marcadores de 400 px no
+caben. «Reflejos» estrecha las cajas cuando hay más de 4 (`.rx-scores.many`,
+6 × 296 px) y ajusta los nombres con `host.fit()`. Nombres de hasta 12
+caracteres: usa siempre la clase `fit` + `host.fit(el, máx, mín)` en lo que
+lleve nombres, y el color de cada uno con `host.colors()[hueco - 1]`.
+
+**7. El móvil.** `host.slot()` es tu hueco (desde 1), `host.nameOf(hueco)` el
+nombre de otro, `host.myColor()` el tuyo (también en la variable CSS `--c`).
+`host.otherName()` junta los nombres de todos los demás («Ana, Berto y Carla»).
+
+**8. Probarlo con muchos.** `test/grupo.test.js` juega «Reflejos» con 6 móviles
+falsos (`H_.phone(WS, nombre, cid)`) en pocas líneas: cópialo.
+
+## 6. Probarlo
 
 ```bash
-game-to-tv start --jugadores 3
+game-to-tv start
 ```
 
 Abre `http://localhost:3000/` en una ventana grande (la «tele») y
-`http://localhost:3000/m` en dos o tres pestañas (los «móviles»). Las páginas se
+`http://localhost:3000/m` en dos o más pestañas (los «móviles»; cada pestaña
+es un jugador distinto). Las páginas se
 leen del disco en cada petición: si cambias `tv.js` o `phone.js`, basta con
 recargar. Si cambias `index.js`, reinicia el servidor.
 
 Trucos: `?debug=1` en la tele muestra los FPS; la variable `REFLEJOS_DEBUG_SPEED=8`
 acelera las esperas.
 
-## 6. Escribir las pruebas
+## 7. Escribir las pruebas
 
 [`test/reflejos.test.js`](../test/reflejos.test.js) hace dos cosas, y te
 sirven de plantilla:
@@ -276,7 +362,8 @@ sirven de plantilla:
 1. **Prueba unitaria** con una `api` falsa y `random` fijo: simula ticks y
    toques, y comprueba fases, puntos y final.
 2. **Prueba de integración**: arranca el servidor de verdad, conecta una tele y
-   tres móviles falsos por WebSocket (`test/helpers`) y juega una partida.
+   tres móviles falsos por WebSocket (`test/helpers`) y juega una partida. Con
+   6 móviles, en [`test/grupo.test.js`](../test/grupo.test.js).
 
 ```bash
 npm test               # todas las pruebas
@@ -285,9 +372,11 @@ npm run check          # tu tv.js y phone.js deben ser ES2019, y tu index.js com
 npm run test:node12    # las pruebas con Node 12, como en la tele
 ```
 
-## 7. Lista de comprobación
+## 8. Lista de comprobación
 
 - [ ] `manifest.json` con `id` igual a la carpeta, `minPlayers`/`maxPlayers` correctos.
+- [ ] Jugadores con `api.players()` (con saltos), elegidos al empezar; `onPlayerLeft`
+      si la partida puede seguir sin alguien; la tele probada con el máximo.
 - [ ] El servidor decide todo; los móviles solo envían intenciones.
 - [ ] Un mensaje de estado completo, reenviado cada segundo, y `syncTv` /
       `onPlayerJoined` para los que se reconectan.

@@ -66,8 +66,12 @@ del PC en el router.
 
 - Todos los aparatos deben estar en la **misma red** (cuidado con las redes de
   invitados y con los «aislamientos de clientes» de algunos routers).
-- **«Ya hay dos jugadores»**: el sitio de quien se fue se guarda 30 s; espera o
-  pulsa «Salir» en el otro móvil. Para más jugadores: `--jugadores 4`.
+- **«La sala está llena (6 jugadores)»**: el sitio de quien se fue se guarda
+  30 s; espera o pulsa «Salir» en otro móvil. La sala es de 6 por defecto;
+  hasta 8 con `--jugadores 8` (en modo tele, `tv install salon --jugadores 8`).
+- **Una tarjeta del menú sale en gris**: el juego no encaja con los que sois
+  (la tarjeta dice por qué, p. ej. «De 2 a 4 jugadores · sois 6»). Si alguien
+  sobra, que pulse «Salir» en su móvil.
 - **El puerto está ocupado**: otro programa (o otro `game-to-tv`) lo usa.
   `game-to-tv start --port 3001`.
 

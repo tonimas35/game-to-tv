@@ -82,6 +82,8 @@ en dos sitios:
 - **Apagado**: cada 30 s mira si hay alguna pantalla, jugador o suscripción
   `heartbeat`; tras 15 min sin nada (`--apagado MIN`), cierra el servidor y
   completa la actividad para que webOS pueda terminar el proceso.
+- **Jugadores**: 6 huecos por defecto (`players` en `tv-service.json`,
+  `G2T_JUGADORES`; `tv install --jugadores N`).
 - **Galería**: prueba carpetas hasta encontrar una donde escribir (`$HOME`,
   `/media/developer/temp`, la del servicio, `os.tmpdir()`). Si ninguna sirve,
   no guarda PNG, pero la galería del final de la partida se ve igual.
@@ -97,21 +99,52 @@ en dos sitios:
 
 ## El hub (`src/server/hub.js`)
 
-- **Huecos de jugador** (2 por defecto, `--jugadores N` hasta 8). Cada móvil
-  guarda un `cid` en `sessionStorage`; si se reconecta con el mismo `cid`
+- **Huecos de jugador** (6 por defecto, `--jugadores N` de 2 a 8; en modo tele,
+  `players` en `tv-service.json`). Cada uno con su color (8 distintos). Cada
+  móvil guarda un `cid` en `sessionStorage`; si se reconecta con el mismo `cid`
   recupera su hueco. Un hueco desconectado se guarda `SLOT_HOLD_MS` (30 s).
+  Los huecos pueden quedar con saltos (alguien sale): los juegos usan
+  `api.players()`.
 - **Elegir juego**: comprueba `minPlayers`/`maxPlayers` del manifiesto y que
-  todos estén conectados. Si un juego admite menos jugadores que huecos hay (el
-  Pong con 4 huecos), los huecos se **compactan** antes de empezar.
+  todos estén conectados. Si no, manda a la tele y a **todos** los móviles
+  `{ t: 'ev', k: 'need2' | 'toomany', game, title, min, max, n, by, name, text }`
+  (`text` es la explicación en español; `k`, `min`, `max` y `title` son los de
+  siempre). Si hay alguien en un hueco por encima del máximo del juego (el Pong,
+  hasta 4, con alguien en el 6), los huecos se **compactan** antes de empezar.
+- **Alguien se va del todo** («Salir» o no vuelve en `SLOT_HOLD_MS`) durante una
+  partida: si quedan al menos `minPlayers` y el juego define `onPlayerLeft(i)`
+  sin devolver `false`, la partida sigue (`{ t: 'ev', k: 'left', slot, name }`);
+  si no, vuelta al menú como antes.
 - **Mensajes**: los del hub (`hello`, `join`, `leave`, `pick`, `menu`, `ping`)
   los gestiona el hub; los que un juego declara en `lobby.messages` van a su
   manejador de menú; el resto, al juego activo con `who` = hueco (0…) o `-1`
   para la tele.
-- **Estado del hub** (`{t:'hub'}`): pantalla actual, jugadores (nombre, color,
-  conectado, segundos de reserva, `badges` de los juegos), quién eligió el
-  juego. Se reenvía al cambiar y como mucho una vez por segundo.
+- **Estado del hub** (`{t:'hub'}`): pantalla actual, número de huecos
+  (`slots`), jugadores (nombre, color, conectado, segundos de reserva, `badges`
+  de los juegos), quién eligió el juego. Se reenvía al cambiar y como mucho una
+  vez por segundo.
 
 Protocolo completo: comentario al principio de `src/server/hub.js`.
+
+### Mensajes de los juegos para grupos (0.3)
+
+Todo lo de antes sigue igual con 2 jugadores; se **añaden** campos:
+
+- **Pong** (`src/games/pong/index.js`): `pmeta` lleva `mode` (`clasico` |
+  `dobles`), `paddles` (`[{ slot, side, x, h, role }]`) y `teams`. En el estado
+  `s`, `p` es la posición de **cada pala** por índice de pala (0 portería
+  izquierda, 1 portería derecha, 2 delantera izquierda, 3 delantera derecha), y
+  `p` (movimiento inmediato) usa `i` = índice de pala. `ev` `hit` lleva `slot`
+  (jugador), `side` y `paddle`; `score` y `win`, `slot` = `side` (1 izquierda, 2
+  derecha). Con 2 jugadores el índice de pala coincide con el de antes.
+- **Dibuja y adivina** (`src/games/dibuja/index.js`): `dmeta` lleva `mode`
+  (`coop` | `ffa`), `players`, `vueltas`; en `ffa`, además `scores` (por hueco),
+  `guessers`, `correct` (`[{ slot, order, points }]`, sin texto), `author` y, al
+  final, `ranking`. En `ffa`: `d.g` erróneo va a todos con `slot`; `casi` y `ok`
+  solo a quien lo escribió (`mine: true`, y `ok` sin texto); `d.got` avisa a
+  todos de un acierto; `d.reveal` lleva `results`, `drawerPoints`, `scores` y
+  `reason` (`all` | `time` | `left`). `d.opts` marca las palabras secretas con
+  `from` (su autor).
 
 ## Los clientes
 
