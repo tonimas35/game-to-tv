@@ -75,6 +75,10 @@ async function unit() {
   check(S.scores[0] === 3, 'Tras el final no se puntúa más');
   g.onMessage(1, { t: 'r.again' });
   check(S.phase === 'ready' && S.round === 1 && S.scores.every(function (v) { return v === 0; }), '«Otra partida» reinicia el marcador');
+  // Somebody leaves for good: the game goes on without them
+  g.onMessage(2, { t: 'r.tap' });
+  check(S.early.indexOf(2) >= 0, 'J3 se adelanta…');
+  check(g.onPlayerLeft(2) !== false && S.early.indexOf(2) < 0 && S.phase === 'ready', '…y se va: la partida sigue sin él (onPlayerLeft)');
 }
 
 async function integration() {
@@ -97,12 +101,6 @@ async function integration() {
     const d = await H_.phone(WS, 'Dani', 'c-d'); clients.push(d);
     check(!!d.find('full') && d.find('full').slots === 3, 'Un cuarto móvil recibe «lleno»');
 
-    // Pong is for 2 players
-    const m0 = a.mark();
-    a.send({ t: 'pick', game: 'pong' });
-    const tooMany = await a.wait(function (m) { return m.t === 'ev' && m.k === 'toomany'; }, 1000, 'toomany', m0);
-    check(!!tooMany && tooMany.max === 2 && tv.hub.screen === 'menu', 'Con 3 jugadores no se puede elegir el Pong (máx. 2)');
-
     // Reflejos with 3
     const tm = tv.mark();
     b.send({ t: 'pick', game: 'ejemplo-reflejos' });
@@ -121,7 +119,7 @@ async function integration() {
     check(points === 3, 'Carla gana 3 rondas tocando la primera');
     const end = await tv.wait(function (m) { return m.t === 'rmeta' && m.phase === 'end'; }, 2000, 'fin');
     check(!!end && end.winner === 3 && end.scores[2] === 3, 'Fin de partida: gana Carla');
-    check(!!a.find('rmeta') && a.find('rmeta').phase === 'end', 'Los móviles reciben el estado final');
+    check(!!(await a.wait(function (m) { return m.t === 'rmeta' && m.phase === 'end'; }, 2000, 'fin en el móvil')), 'Los móviles reciben el estado final');
 
     // Back to the menu; Berto leaves -> Ana (slot 1) and Carla (slot 3) remain
     tv.send({ t: 'menu' });
@@ -129,11 +127,13 @@ async function integration() {
     b.send({ t: 'leave' });
     await tv.wait(function (m) { return m.t === 'hub' && m.players[1] === null; }, 2000, 'berto sale');
     const cm = c.mark();
+    const tm2 = tv.mark();
     a.send({ t: 'pick', game: 'pong' });
-    const moved = await c.wait(function (m) { return m.t === 'joined' && m.slot === 2; }, 2000, 'compactar', cm);
-    check(!!moved && moved.reconnect === true, 'Para el Pong, Carla pasa del hueco 3 al 2 (los huecos se compactan)');
-    const pongHub = await tv.wait(function (m) { return m.t === 'hub' && m.screen === 'pong'; }, 2000, 'pong');
-    check(!!pongHub && pongHub.players[1] && pongHub.players[1].name === 'Carla' && pongHub.players[2] === null, 'El Pong empieza con Ana y Carla');
+    const pongHub = await tv.wait(function (m) { return m.t === 'hub' && m.screen === 'pong'; }, 2000, 'pong', tm2);
+    const pm = await tv.wait(function (m) { return m.t === 'pmeta' && m.paddles; }, 2000, 'pmeta', tm2);
+    check(!!pongHub && pongHub.players[2] && pongHub.players[2].name === 'Carla' && !c.since(cm, 'joined').length,
+      'El Pong (2 a 4) empieza con Ana (1) y Carla (3) sin mover a nadie de hueco');
+    check(!!pm && pm.mode === 'clasico' && pm.paddles[0].slot === 1 && pm.paddles[1].slot === 3, 'Pong clásico: Ana a la izquierda, Carla a la derecha');
     check(!/Error/.test(srv.out), 'Sin errores en el registro del servidor');
   } catch (e) {
     check.fail('Excepción: ' + (e && e.stack || e));

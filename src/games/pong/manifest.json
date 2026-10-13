@@ -1,11 +1,11 @@
 {
   "id": "pong",
   "title": "Pong",
-  "description": "El clásico de toda la vida: tu móvil es la pala. Gana quien llegue antes a 7.",
+  "description": "El clásico: tu móvil es la pala. Con 3 o 4, por parejas y dos palas por lado, como en el futbolín. A 7.",
   "phoneDescription": "El clásico: tu móvil es la pala",
   "minPlayers": 2,
-  "maxPlayers": 2,
-  "tags": ["Cara a cara", "Rápido"],
+  "maxPlayers": 4,
+  "tags": ["A 7", "Por parejas"],
   "icon": "icon.svg",
   "accent": "#ff3df2",
   "order": 20

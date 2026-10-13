@@ -2,6 +2,8 @@
  * Pong: phone view. The touch pad maps the finger's absolute position to the
  * paddle (0 top, 1 bottom). Low latency: sent immediately on touchstart and,
  * while moving, at most once per animation frame.
+ * Doubles (3-4 players): a small field above the pad shows every paddle in
+ * its player's colour and marks yours («Tu pala: delantera, a la izquierda»).
  */
 (function () {
   'use strict';
@@ -16,6 +18,7 @@
     '  <button class="mini ghost menuBtn" type="button">Menú</button>' +
     '</div>' +
     '<div id="pStatus">Preparados…</div>' +
+    '<div id="pMine" class="hidden"><div id="pField"></div><div id="pMineTxt"></div></div>' +
     '<div id="pad">' +
     '  <div id="thumb"></div>' +
     '  <div class="padhint">Desliza el dedo arriba y abajo</div>' +
@@ -36,33 +39,91 @@
   function slot() { return host.slot(); }
   function isActive() { var h = host.hub(); return !!(h && h.screen === 'pong'); }
 
-  function scoreHtml(sc) {
+  // Paddles from pmeta: { slot, side, x, h, role } (slot and side start at 1)
+  function pads() { return (pmeta && pmeta.paddles) || []; }
+  function myPad() {
+    var ps = pads();
+    for (var i = 0; i < ps.length; i++) if (ps[i].slot === slot()) return ps[i];
+    return null;
+  }
+  // Side 1 (left) or 2 (right) of this player; in the classic game, by slot
+  function mySide() { var p = myPad(); return p ? p.side : (slot() === 1 ? 1 : 2); }
+  function teamColor(side) {
     var c = host.colors();
-    return '<span style="color:' + c[0] + '">' + sc[0] + '</span> – <span style="color:' + c[1] + '">' + sc[1] + '</span>';
+    var ps = pads().filter(function (p) { return p.side === side; });
+    return ps.length ? c[ps[0].slot - 1] : c[side - 1];
+  }
+  function teamNames(side, exceptMe) {
+    var ps = pads().filter(function (p) { return p.side === side && !(exceptMe && p.slot === slot()); });
+    return G2T.joinNames(ps.map(function (p) { return host.nameOf(p.slot); }));
+  }
+  function doubles() { return pads().length > 2; }
+
+  function scoreHtml(sc) {
+    return '<span style="color:' + teamColor(1) + '">' + sc[0] + '</span> – <span style="color:' + teamColor(2) + '">' + sc[1] + '</span>';
+  }
+
+  // The little field: every paddle at its place, mine bigger and outlined
+  function renderField() {
+    var box = $('pMine');
+    var me = myPad();
+    show(box, doubles() || !me);
+    if (!doubles() && me) return;
+    var ps = pads();
+    var key = JSON.stringify(ps) + slot();
+    if (box.getAttribute('data-key') !== key) {
+      box.setAttribute('data-key', key);
+      var html = '<i class="mid"></i>';
+      ps.forEach(function (p) {
+        var c = host.colors()[p.slot - 1];
+        html += '<b class="' + (p.slot === slot() ? 'me' : '') + '" style="left:' + (p.x / 1920 * 100).toFixed(1) + '%;height:' + Math.round(p.h / 1080 * 100) + '%;background:' + c + '"></b>';
+      });
+      $('pField').innerHTML = html;
+    }
+    var txt;
+    if (!me) txt = 'Estás mirando: entrarás en la próxima partida';
+    else {
+      var where = me.side === 1 ? 'a la izquierda' : 'a la derecha';
+      var mate = teamNames(me.side, true);
+      txt = 'Tu pala: ' + (me.role === 'delantera' ? 'la delantera' : (me.role === 'solo' ? 'la de portería (más larga: juegas solo)' : 'la de portería')) + ', ' + where + (mate ? ' · con ' + mate : '');
+    }
+    setText($('pMineTxt'), txt);
   }
 
   function renderPong() {
     if (!pmeta || !isActive()) return;
     var sc = pmeta.score || [0, 0];
     $('pScore').innerHTML = scoreHtml(sc);
-    var on = host.otherName();
+    renderField();
+    var side = mySide();
+    var rivals = pads().length ? teamNames(3 - side) : host.otherName();
+    var waiting = pads().filter(function (p) { var hp = host.hub() && host.hub().players[p.slot - 1]; return hp && !hp.connected; })
+      .map(function (p) { return host.nameOf(p.slot); });
     var st = '';
     switch (pmeta.phase) {
       case 'countdown': st = ((sc[0] + sc[1]) > 0 ? 'Seguimos en ' : 'Empieza en ') + pmeta.countdown + '…'; break;
-      case 'playing': st = '¡A jugar! Juegas a la ' + (slot() === 1 ? 'izquierda' : 'derecha'); break;
-      case 'scored': st = pmeta.lastScorer === slot() ? '¡Punto para ti!' : 'Punto para ' + on; break;
-      case 'paused': st = 'Pausa: esperando a ' + on + '…'; break;
+      case 'playing': st = doubles() ? '¡A jugar! Vais ' + (side === 1 ? 'a la izquierda' : 'a la derecha') : '¡A jugar! Juegas a la ' + (side === 1 ? 'izquierda' : 'derecha'); break;
+      case 'scored':
+        if (doubles()) st = pmeta.lastScorer === side ? '¡Punto para vosotros!' : 'Punto para ' + rivals;
+        else st = pmeta.lastScorer === side ? '¡Punto para ti!' : 'Punto para ' + rivals;
+        break;
+      case 'paused': st = 'Pausa: esperando a ' + (waiting.length ? G2T.joinNames(waiting) : rivals) + '…'; break;
       case 'gameover': st = 'Fin de la partida'; break;
     }
     setText($('pStatus'), st);
     var over = pmeta.phase === 'gameover';
     show($('pongOver'), over);
     if (over) {
-      var won = pmeta.winner === slot();
-      setText($('poTitle'), won ? '¡Has ganado!' : 'Has perdido');
+      var won = pmeta.winner === side;
+      if (doubles()) {
+        setText($('poTitle'), won ? '¡Habéis ganado!' : 'Habéis perdido');
+        setText($('poSub'), won ? ('Contra ' + rivals) : ('Ganan ' + rivals + '. ¿Otra?'));
+      } else {
+        setText($('poTitle'), won ? '¡Has ganado!' : 'Has perdido');
+        setText($('poSub'), won ? ('Le has ganado a ' + rivals) : ('Gana ' + rivals + '. ¿Otra?'));
+      }
       $('poTitle').style.color = won ? host.myColor() : '#ffffff';
       $('poScore').innerHTML = scoreHtml(sc);
-      setText($('poSub'), won ? ('Le has ganado a ' + on) : ('Gana ' + on + '. ¿Otra?'));
       if (!$('rematch').getAttribute('data-sent')) { $('rematch').disabled = false; setText($('rematch'), '¡Revancha!'); }
     } else {
       $('rematch').removeAttribute('data-sent');
@@ -168,7 +229,8 @@
     render: function () { renderPong(); setTimeout(placeThumb, 0); },
     onMessage: function (msg) {
       if (msg.t === 'pmeta') { pmeta = msg; renderPong(); return; }
-      if (msg.t === 'ev' && (msg.k === 'hit' || msg.k === 'score') && msg.slot === slot()) flashPad();
+      if (msg.t === 'ev' && msg.k === 'hit' && msg.slot === slot()) flashPad();
+      if (msg.t === 'ev' && msg.k === 'score' && (msg.side || msg.slot) === mySide()) flashPad();
     }
   });
 })();

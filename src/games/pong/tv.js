@@ -7,6 +7,9 @@
  * - Paddles use the LATEST received position ('s' and 'p' messages), with no
  *   interpolation delay. The ball is extrapolated with its velocity.
  * - The canvas backing store is capped (see public/lib/canvas.js).
+ * - 2 players: the classic. 3-4: doubles (pmeta.paddles): each paddle in its
+ *   player's colour, scores in the team colour (its goal player's colour),
+ *   team names and a label under every paddle, all in the static layer.
  */
 (function () {
   'use strict';
@@ -26,19 +29,37 @@
   var pview = { scale: 1, ox: 0, oy: 0, dpr: 1 };
   var pongField = { w: 1920, h: 1080, paddleH: 180, paddleW: 24, paddleMargin: 70, ballR: 14 };
   var pmeta = { phase: 'countdown', score: [0, 0], countdown: 0, winner: 0, toWin: 7, lastScorer: 0 };
+  // Paddles (from pmeta): { slot (1..), side (1|2), x, h, role }. Before the first pmeta: the classic two
+  function classicPads() {
+    return [
+      { slot: 1, side: 1, x: pongField.paddleMargin, h: pongField.paddleH, role: 'portería' },
+      { slot: 2, side: 2, x: LW - pongField.paddleMargin, h: pongField.paddleH, role: 'portería' }
+    ];
+  }
+  var pads = classicPads();
   var pongLast = null;            // last 's' state from the server
   var pongBuf = [];               // last states (to interpolate the ball)
   var INTERP_DELAY = 20;          // ms: ~1 server tick
-  var paddleY = [540, 540];       // last known position of each paddle
+  var paddleY = [540, 540, 540, 540]; // last known position of each paddle (by paddle index)
   var clockOffset = null;         // (server clock) - now(), estimated
   var MAX_EXTRAPOLATE_MS = 50;
   var lastCountdown = 0, phaseChangedAt = now(), countdownChangedAt = now(), goAt = -10000;
-  var trail = [], trailResetId = -1, particles = [], pongFlashes = [0, 0], scoreFlash = [0, 0], shake = 0;
+  var trail = [], trailResetId = -1, particles = [], pongFlashes = [0, 0, 0, 0], scoreFlash = [0, 0], shake = 0;
   var lastBall = { x: LW / 2, y: LH / 2 };
   var bgLayer = null, bgKey = '';
   var lastStaticDraw = 0;
 
   function playerName(i) { return host.playerName(i); }
+  function padColor(k) { var p = pads[k]; return COLORS()[(p ? p.slot : k + 1) - 1] || '#ffffff'; }
+  function doubles() { return pads.length > 2; }
+  // Team = side 1 (left) or 2 (right). Its colour is its goal player's colour
+  function sidePads(side) { return pads.filter(function (p) { return p.side === side; }); }
+  function teamColor(side) { var p = sidePads(side)[0]; return p ? COLORS()[p.slot - 1] : COLORS()[side - 1]; }
+  function teamName(side) {
+    var ps = sidePads(side);
+    if (!ps.length) return playerName(side - 1);
+    return G2T.joinNames(ps.map(function (p) { return playerName(p.slot - 1); }));
+  }
 
   function resizePong(w, h) {
     var d = host.capDpr(w);
@@ -58,8 +79,10 @@
     pongBuf = [];
     trail = [];
     particles = [];
-    paddleY = [540, 540];
+    paddleY = [540, 540, 540, 540];
     pmeta = { phase: 'countdown', score: [0, 0], countdown: 0, winner: 0, toWin: 7, lastScorer: 0 };
+    pads = classicPads();
+    bgLayer = null;
   }
   function onPongState(s) {
     var o = s.ts - now();
@@ -68,14 +91,17 @@
     pongLast = s;
     pongBuf.push(s);
     if (pongBuf.length > 30) pongBuf.shift();
-    paddleY[0] = s.p[0];
-    paddleY[1] = s.p[1];
+    for (var i = 0; i < s.p.length && i < 4; i++) paddleY[i] = s.p[i];
     host.debug.states++;
   }
   function onPongPaddle(m) {
-    if (m.i === 0 || m.i === 1) paddleY[m.i] = m.y;
+    if (m.i >= 0 && m.i < 4) paddleY[m.i] = m.y;
   }
   function onPongMeta(m) {
+    if (m.paddles && m.paddles.length && JSON.stringify(m.paddles) !== JSON.stringify(pads)) {
+      pads = m.paddles;
+      bgLayer = null;
+    }
     if (m.phase !== pmeta.phase) {
       phaseChangedAt = now();
       lastStaticDraw = 0;
@@ -134,8 +160,30 @@
   }
 
   // Static layer: rebuilt only when the size or the names change
+  // Text made of coloured pieces, centred on x: [[text, colour], ...]
+  function textParts(g, parts, x, y, size) {
+    g.font = 'bold ' + size + 'px ' + FONT;
+    var total = 0, i;
+    for (i = 0; i < parts.length; i++) total += g.measureText(parts[i][0]).width;
+    var cx = x - total / 2;
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    for (i = 0; i < parts.length; i++) {
+      g.fillStyle = parts[i][1];
+      g.fillText(parts[i][0], cx, y);
+      cx += g.measureText(parts[i][0]).width;
+    }
+  }
+  function teamParts(side, alpha) {
+    var ps = sidePads(side), out = [];
+    ps.forEach(function (p, n) {
+      if (n > 0) out.push([' y ', 'rgba(255,255,255,' + (alpha * 0.8) + ')']);
+      out.push([playerName(p.slot - 1), hexA(COLORS()[p.slot - 1], alpha)]);
+    });
+    return out;
+  }
   function ensureBg() {
-    var key = pc.width + 'x' + pc.height + '|' + playerName(0) + '|' + playerName(1);
+    var key = pc.width + 'x' + pc.height + '|' + JSON.stringify(pads) + '|' + pads.map(function (p) { return playerName(p.slot - 1); }).join('|');
     if (bgLayer && key === bgKey) return;
     bgKey = key;
     var c = document.createElement('canvas');
@@ -162,10 +210,30 @@
     g.fillStyle = 'rgba(255,255,255,0.12)';
     g.fillRect(0, 0, LW, 4);
     g.fillRect(0, LH - 4, LW, 4);
-    for (var i = 0; i < 2; i++) {
-      var nx = i === 0 ? LW / 2 - 230 : LW / 2 + 230;
-      var ns = fitText(playerName(i), 480, 36, 'bold', g);
-      text(playerName(i), nx, 270, ns, hexA(COLORS()[i], 0.75), { weight: 'bold' }, g);
+    if (!doubles()) {
+      for (var i = 0; i < 2; i++) {
+        var nx = i === 0 ? LW / 2 - 230 : LW / 2 + 230;
+        var nm = playerName(pads[i] ? pads[i].slot - 1 : i);
+        var ns = fitText(nm, 480, 36, 'bold', g);
+        text(nm, nx, 270, ns, hexA(padColor(i), 0.75), { weight: 'bold' }, g);
+      }
+    } else {
+      // Team names (each name in its player's colour) and the forward «rods»
+      for (var side = 1; side <= 2; side++) {
+        var tx = side === 1 ? LW / 2 - 230 : LW / 2 + 230;
+        var tn = teamName(side);
+        textParts(g, teamParts(side, 0.8), tx, 270, fitText(tn, 600, 36, 'bold', g));
+      }
+      g.fillStyle = 'rgba(255,255,255,0.06)';
+      pads.forEach(function (p) { if (p.role === 'delantera') g.fillRect(p.x - 2, 0, 4, LH); });
+      // Who is who: a name under every paddle
+      pads.forEach(function (p) {
+        var label = playerName(p.slot - 1);
+        var size = fitText(label, 300, 26, 'bold', g);
+        var align = p.x < 200 ? 'left' : (p.x > LW - 200 ? 'right' : 'center');
+        var lx = align === 'left' ? 16 : (align === 'right' ? LW - 16 : p.x);
+        text(label, lx, LH - 30, size, hexA(COLORS()[p.slot - 1], 0.85), { weight: 'bold', align: align }, g);
+      });
     }
     bgLayer = c;
   }
@@ -194,11 +262,19 @@
       if (y < r) y = r + (r - y);
       else if (y > LH - r) y = (LH - r) - (y - (LH - r));
       // Do not let the extrapolation go through a paddle that will return it
-      var half = pongField.paddleH / 2 + r;
-      var f0 = pongField.paddleMargin + pongField.paddleW / 2 + r;
-      var f1 = LW - pongField.paddleMargin - pongField.paddleW / 2 - r;
-      if (s.b[2] < 0 && x < f0 && s.b[0] >= f0 && Math.abs(y - paddleY[0]) <= half) x = f0;
-      if (s.b[2] > 0 && x > f1 && s.b[0] <= f1 && Math.abs(y - paddleY[1]) <= half) x = f1;
+      // (only paddles that defend in the direction the ball travels)
+      for (var k = 0; k < pads.length; k++) {
+        var pd = pads[k];
+        var half = pd.h / 2 + r;
+        if (Math.abs(y - paddleY[k]) > half) continue;
+        if (pd.side === 1 && s.b[2] < 0) {
+          var f0 = pd.x + pongField.paddleW / 2 + r;
+          if (x < f0 && s.b[0] >= f0) x = f0;
+        } else if (pd.side === 2 && s.b[2] > 0) {
+          var f1 = pd.x - pongField.paddleW / 2 - r;
+          if (x > f1 && s.b[0] <= f1) x = f1;
+        }
+      }
     }
     return { bx: clamp(x, -50, LW + 50), by: clamp(y, r, LH - r), r: s.r, ph: s.ph };
   }
@@ -245,14 +321,15 @@
     for (var i = 0; i < 2; i++) {
       var x = i === 0 ? LW / 2 - 230 : LW / 2 + 230;
       var f = scoreFlash[i];
-      text(String(s[i]), x, 140, 190 + 50 * f, COLORS()[i], { glow: 30 + 40 * f, weight: '900' });
+      text(String(s[i]), x, 140, 190 + 50 * f, teamColor(i + 1), { glow: 30 + 40 * f, weight: '900' });
     }
   }
   function drawPaddle(i, cy) {
-    var x = i === 0 ? pongField.paddleMargin : LW - pongField.paddleMargin;
-    var w = pongField.paddleW, h = pongField.paddleH;
+    var pd = pads[i];
+    var x = pd.x;
+    var w = pongField.paddleW, h = pd.h;
     var f = pongFlashes[i];
-    var col = COLORS()[i];
+    var col = padColor(i);
     if (!FX) {
       // «Cheap» glow: a wider, semi-transparent shape behind
       ctx.globalAlpha = 0.18 + 0.25 * f;
@@ -303,7 +380,7 @@
     var n = pmeta.countdown || 0;
     if (n <= 0) return;
     var frac = clamp((t - countdownChangedAt) / 1000, 0, 1);
-    var color = n === 3 ? COLORS()[0] : (n === 2 ? '#ffffff' : COLORS()[1]);
+    var color = n === 3 ? teamColor(1) : (n === 2 ? '#ffffff' : teamColor(2));
     text(String(n), LW / 2, LH / 2 + 20, 300 + 80 * (1 - frac), color, { glow: 60, weight: '900' });
     var sub = (pmeta.score[0] + pmeta.score[1] === 0) ? '¡Preparados!' : 'Seguimos…';
     text(sub, LW / 2, LH / 2 + 230, 48, 'rgba(255,255,255,0.8)', { weight: 'normal' });
@@ -318,18 +395,22 @@
   function drawScored() {
     var s = pmeta.lastScorer;
     if (!s) return;
-    text('¡Punto para ' + playerName(s - 1) + '!', LW / 2, LH / 2 + 160, 56, COLORS()[s - 1], { glow: 25 });
+    var msg = '¡Punto para ' + teamName(s) + '!';
+    text(msg, LW / 2, LH / 2 + 160, fitText(msg, 1500, 56), teamColor(s), { glow: 25 });
   }
   // Static screens: opaque background (no full-screen semi-transparent layers)
   function drawPaused() {
     text('PAUSA', LW / 2, 350, 150, '#ffffff', { glow: 40, glowColor: '#a080ff', weight: '900' });
     var p = host.hub().players || [];
     var y = 490;
-    for (var i = 0; i < 2; i++) {
-      if (p[i] && !p[i].connected) {
+    var shown = 0;
+    for (var k = 0; k < pads.length; k++) {
+      var i = pads[k].slot - 1;
+      if (p[i] && !p[i].connected && shown < 2) {
         text('Esperando a ' + p[i].name + '…', LW / 2, y, 46, COLORS()[i], { glow: 14 });
         text('Reconexión: ' + (p[i].holdLeft || 0) + ' s', LW / 2, y + 60, 36, 'rgba(255,255,255,0.7)', { weight: 'normal' });
         y += 140;
+        shown++;
       }
     }
     text('Vuelve a abrir la página en el móvil para seguir', LW / 2, y + 10, 32, 'rgba(255,255,255,0.55)', { weight: 'normal' });
@@ -337,19 +418,25 @@
   }
   function drawGameOver(t) {
     var w = pmeta.winner || 1;
-    var c = COLORS()[w - 1];
+    var c = teamColor(w);
     var pulse = 1 + 0.04 * Math.sin(t / 220);
     ctx.save();
     ctx.translate(LW / 2, 330);
     ctx.scale(pulse, pulse);
-    var name = playerName(w - 1).toUpperCase();
-    var size = fitText('¡GANA ' + name + '!', 1600, 150, '900');
-    text('¡GANA ' + name + '!', 0, 0, size, c, { glow: 60, weight: '900' });
+    var name = teamName(w).toUpperCase();
+    var title = (sidePads(w).length > 1 ? '¡GANAN ' : '¡GANA ') + name + '!';
+    var size = fitText(title, 1600, 150, '900');
+    text(title, 0, 0, size, c, { glow: 60, weight: '900' });
     ctx.restore();
     var s = pmeta.score || [0, 0];
     text(s[0] + '  –  ' + s[1], LW / 2, 540, 120, '#ffffff', { glow: 20, glowColor: '#a080ff', weight: '900' });
-    text(playerName(0), LW / 2 - 380, 540, fitText(playerName(0), 360, 40), COLORS()[0], { weight: 'bold' });
-    text(playerName(1), LW / 2 + 380, 540, fitText(playerName(1), 360, 40), COLORS()[1], { weight: 'bold' });
+    if (!doubles()) {
+      text(teamName(1), LW / 2 - 380, 540, fitText(teamName(1), 360, 40), teamColor(1), { weight: 'bold' });
+      text(teamName(2), LW / 2 + 380, 540, fitText(teamName(2), 360, 40), teamColor(2), { weight: 'bold' });
+    } else {
+      text(teamName(1), LW / 2 - 330, 540, fitText(teamName(1), 460, 40), teamColor(1), { weight: 'bold', align: 'right' });
+      text(teamName(2), LW / 2 + 330, 540, fitText(teamName(2), 460, 40), teamColor(2), { weight: 'bold', align: 'left' });
+    }
     text('¿Revancha?', LW / 2, 730, 90, '#ffffff', { glow: 30, glowColor: '#a080ff', weight: '900' });
     text('Pulsad «¡Revancha!» o «Menú» en el móvil', LW / 2, 830, 38, 'rgba(255,255,255,0.7)', { weight: 'normal' });
   }
@@ -367,9 +454,9 @@
       if (ph === 'paused') drawPaused(); else drawGameOver(t);
       return;
     }
-    for (var i = 0; i < 2; i++) {
+    for (var i = 0; i < 4; i++) {
       pongFlashes[i] = Math.max(0, pongFlashes[i] - dt * 5);
-      scoreFlash[i] = Math.max(0, scoreFlash[i] - dt * 2);
+      if (i < 2) scoreFlash[i] = Math.max(0, scoreFlash[i] - dt * 2);
     }
     shake = Math.max(0, shake - dt * 3);
     updateParticles(dt);
@@ -381,8 +468,7 @@
     ctx.setTransform(sc, 0, 0, sc, (pview.ox + sx) * pview.dpr, (pview.oy + sy) * pview.dpr);
     drawScores();
     var st = sampleBall();
-    drawPaddle(0, paddleY[0]);
-    drawPaddle(1, paddleY[1]);
+    for (var k = 0; k < pads.length; k++) drawPaddle(k, paddleY[k]);
     if (st) {
       lastBall.x = st.bx;
       lastBall.y = st.by;
@@ -424,13 +510,19 @@
     },
     onEvent: function (ev) {
       switch (ev.k) {
-        case 'hit': sfx.hit(ev.slot); pongFlashes[ev.slot - 1] = 1; burst(lastBall.x, lastBall.y, COLORS()[ev.slot - 1], 14); break;
+        case 'hit': {
+          var k = ev.paddle != null ? ev.paddle : ev.slot - 1;
+          sfx.hit(ev.side || ev.slot);
+          pongFlashes[k] = 1;
+          burst(lastBall.x, lastBall.y, padColor(k), 14);
+          break;
+        }
         case 'wall': sfx.wall(); break;
         case 'score':
           sfx.score();
           scoreFlash[ev.slot - 1] = 1;
           shake = 1;
-          burst(ev.slot === 1 ? LW - 10 : 10, lastBall.y, COLORS()[ev.slot - 1], 30);
+          burst(ev.slot === 1 ? LW - 10 : 10, lastBall.y, teamColor(ev.slot), 30);
           break;
         case 'go': host.sfx.go(); break;
         case 'win': setTimeout(host.sfx.win, 300); break;

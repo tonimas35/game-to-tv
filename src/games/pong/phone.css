@@ -10,3 +10,10 @@
 #thumb { position: absolute; left: 8%; right: 8%; top: 0; height: 0; will-change: transform; pointer-events: none; }
 #thumb::before { content: ''; position: absolute; left: 0; right: 0; top: -22px; height: 44px; border-radius: 22px; background: var(--c); opacity: 0.9; }
 .padhint { position: absolute; left: 0; right: 0; bottom: 16px; text-align: center; color: var(--muted); font-size: 15px; pointer-events: none; }
+/* Doubles: which paddle is mine (a small field with every paddle) */
+#pMine { flex: 0 0 auto; margin: 0 0 10px; }
+#pField { position: relative; height: 46px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); overflow: hidden; }
+#pField .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255,255,255,0.18); }
+#pField b { position: absolute; top: 50%; width: 6px; margin-left: -3px; border-radius: 3px; transform: translateY(-50%); opacity: 0.55; }
+#pField b.me { width: 10px; margin-left: -5px; opacity: 1; box-shadow: 0 0 0 3px #fff; }
+#pMineTxt { margin-top: 6px; text-align: center; font-size: 15px; font-weight: 800; color: var(--c); }
