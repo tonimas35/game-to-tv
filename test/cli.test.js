@@ -127,7 +127,8 @@ async function serverRoutes() {
     const tv = await H_.httpGet(BASE, '/');
     const ids = (tv.body.match(/window\.G2T_BOOT = (\{.*?\});<\/script>/) || [])[1];
     const boot = ids ? JSON.parse(ids) : { games: [] };
-    check(boot.games.map(function (g) { return g.id; }).join(',') === 'dibuja,pong,ejemplo-reflejos', 'La tele recibe la lista de juegos (ordenada por «order»)');
+    check(boot.games.map(function (g) { return g.id; }).join(',') === 'dibuja,pong,infiltrado,ejemplo-reflejos', 'La tele recibe la lista de juegos (ordenada por «order»)');
+    check(boot.games[2].howTo && boot.games[2].howTo.length >= 6 && boot.games[2].minPlayers === 3 && boot.games[2].maxPlayers === 6, '«El Infiltrado» (3 a 6) lleva su «Cómo se juega» para el móvil');
     check(tv.body.indexOf('<script src="/games/pong/tv.js"></script>') > tv.body.indexOf('<script src="/lib/core.js"></script>') &&
       tv.body.indexOf('window.G2T_BOOT') < tv.body.indexOf('/lib/core.js') && /href="\/games\/dibuja\/tv\.css"/.test(tv.body), 'El shell de la tele carga core.js y luego tv.js/tv.css de cada juego');
     const m = await H_.httpGet(BASE, '/m');
@@ -140,7 +141,7 @@ async function serverRoutes() {
     check((await H_.httpGet(BASE, '/lib/core.js')).status === 200 && (await H_.httpGet(BASE, '/lib/../tv.html')).status !== 200, '/lib/ solo sirve sus archivos');
     check((await H_.httpGet(BASE, '/games/dibuja/icon.svg')).type.indexOf('image/svg+xml') === 0, 'Iconos de los juegos');
     const info = JSON.parse((await H_.httpGet(BASE, '/info')).body);
-    check(info.app === 'game-to-tv' && info.juegos.length === 3 && info.movil === 'http://192.168.1.50:' + PORT + '/m', '/info identifica a game-to-tv');
+    check(info.app === 'game-to-tv' && info.juegos.length === 4 && info.movil === 'http://192.168.1.50:' + PORT + '/m', '/info identifica a game-to-tv');
     const amb = await H_.httpGet(BASE, '/ambiente');
     check(amb.status === 200 && /Modo ambiente/.test(amb.body), '/ambiente');
     const list = JSON.parse((await H_.httpGet(BASE, '/ambiente/lista.json')).body);
@@ -148,7 +149,7 @@ async function serverRoutes() {
     const foto = await H_.httpGet(BASE, '/ambiente/foto/playa.png');
     check(foto.status === 200 && foto.type === 'image/png', 'Sirve las fotos del modo ambiente');
     check((await H_.httpGet(BASE, '/ambiente/foto/..%2Fconfig.json')).status === 404 && (await H_.httpGet(BASE, '/ambiente/foto/notas.txt')).status === 404, 'El modo ambiente no deja salir de su carpeta ni sirve otros archivos');
-    check(/Juegos:\s+Dibuja y adivina, Pong, Reflejos/.test(srv.out), 'start lista los juegos cargados');
+    check(/Juegos:\s+Dibuja y adivina, Pong, El Infiltrado, Reflejos/.test(srv.out), 'start lista los juegos cargados');
     // Port already in use -> clear Spanish error
     const r = await H_.runCli(['start', '--port', String(PORT), '--sin-qr'], { GAME_TO_TV_HOME: HOME });
     check(r.code === 1 && /ya está en uso/.test(r.out), 'start con el puerto ocupado: mensaje claro');
@@ -160,7 +161,7 @@ async function serverRoutes() {
 function registryTests() {
   console.log('\n[Registro de juegos]');
   const g = loadGames();
-  check(g.list.length === 3 && g.byId.dibuja && g.byId.pong && g.byId['ejemplo-reflejos'], 'Se cargan los 3 juegos de src/games');
+  check(g.list.length === 4 && g.byId.dibuja && g.byId.pong && g.byId.infiltrado && g.byId['ejemplo-reflejos'], 'Se cargan los 4 juegos de src/games');
   check(validateManifest({ id: 'x', title: 'X', description: 'd', minPlayers: 2, maxPlayers: 1 }, 'x').length === 1, 'maxPlayers < minPlayers es un error');
   check(validateManifest({ id: 'Malo', title: 'X', description: 'd', minPlayers: 1, maxPlayers: 2 }, 'otro').length === 2, 'id con mayúsculas o distinto de la carpeta es un error');
   // A broken game folder is skipped with a message, the rest still load

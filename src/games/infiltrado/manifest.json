@@ -1,0 +1,22 @@
+{
+  "id": "infiltrado",
+  "title": "El Infiltrado",
+  "description": "Todos saben el lugar secreto… menos uno. Preguntaos por turnos y pillad al infiltrado antes de que lo adivine.",
+  "phoneDescription": "Todos saben el lugar secreto menos uno: ¡desenmascaradlo!",
+  "howTo": [
+    "Cada uno ve en su móvil el lugar secreto y su papel. Uno no: es el infiltrado.",
+    "Mira tu carta a escondidas (mantén pulsado o «Ver») y vuelve a taparla.",
+    "Por turnos, quien pregunta elige en el móvil a quién; esa persona responde en voz alta y pregunta después.",
+    "Preguntad sin decir el lugar: si sois muy claros, el infiltrado lo adivinará.",
+    "Cada uno puede acusar una vez por ronda: hace falta que todos los demás voten «Sí».",
+    "El infiltrado puede decir «¡Sé el lugar!» cuando quiera: si acierta, gana la ronda.",
+    "Si se acaba el tiempo, votad todos a la vez; si pilláis al infiltrado, aún puede adivinar el lugar.",
+    "Infiltrado: 2 puntos si se salva, 4 si acierta el lugar. Los demás: 1 si lo pillan (2 quien lo acusó)."
+  ],
+  "minPlayers": 3,
+  "maxPlayers": 6,
+  "tags": ["Deducción", "Por rondas"],
+  "icon": "icon.svg",
+  "accent": "#e8b04a",
+  "order": 30
+}

@@ -58,6 +58,10 @@ const OVERFLOW_CHECK = function () {
     for (var k = 0; k < el.childNodes.length; k++) if (el.childNodes[k].nodeType === 3 && el.childNodes[k].textContent.trim()) hasText = true;
     if (!hasText) continue;
     var r = el.getBoundingClientRect();
+    // Menu cards that peek in or are scrolled out of the row (.cardsWrap clips them;
+    // with 4 games the row scrolls to the focused card, checked below)
+    var card = el.closest ? el.closest('.card') : null;
+    if (card) { var cr = card.getBoundingClientRect(); if (cr.left < sr.left - 1 || cr.right > sr.right + 1) continue; }
     var s = sr.width / 1920;
     var label = (el.id || el.className || el.tagName) + ': «' + el.textContent.trim().slice(0, 40) + '»';
     if (el.scrollWidth > el.clientWidth + 2 && cs.overflow !== 'visible') bad.push('recortado ' + label);
@@ -130,7 +134,17 @@ async function main() {
     // El mando de la tele mueve el foco
     await tv.keyboard.press('ArrowRight');
     check(await tv.evaluate(function () { return document.getElementById('card-pong').className.indexOf('focus') >= 0; }), 'Flecha derecha enfoca «Pong» en la tele');
+    // With 4 games the row scrolls: the last card comes fully into view when it has the focus
+    for (let k = 0; k < 3; k++) await tv.keyboard.press('ArrowRight');
+    await sleep(400);
+    const lastIn = await tv.evaluate(function () {
+      var cs = document.querySelectorAll('.card'), c = cs[cs.length - 1], r = c.getBoundingClientRect(), sr = document.getElementById('stage').getBoundingClientRect();
+      return c.className.indexOf('focus') >= 0 && r.left >= sr.left && r.right <= sr.right;
+    });
+    check(lastIn, 'Con 4 juegos, la fila se desplaza y la última tarjeta enfocada se ve entera');
+    for (let k = 0; k < 3; k++) await tv.keyboard.press('ArrowLeft');
     await tv.keyboard.press('ArrowLeft');
+    await sleep(300);
 
     // ---------------- Dibuja y adivina desde el móvil ----------------
     await ph[0].click('#gameList .game[data-game="dibuja"]');

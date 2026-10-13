@@ -65,6 +65,10 @@ const OVERFLOW_CHECK = function () {
     for (var k = 0; k < el.childNodes.length; k++) if (el.childNodes[k].nodeType === 3 && el.childNodes[k].textContent.trim()) hasText = true;
     if (!hasText) continue;
     var r = el.getBoundingClientRect();
+    // Menu cards that peek in or are scrolled out of the row (.cardsWrap clips them;
+    // with 4 games the row scrolls to the focused card)
+    var card = el.closest ? el.closest('.card') : null;
+    if (card) { var cr = card.getBoundingClientRect(); if (cr.left < sr.left - 1 || cr.right > sr.right + 1) continue; }
     var label = (el.id || el.className || el.tagName) + ': «' + el.textContent.trim().slice(0, 40) + '»';
     if (el.scrollWidth > el.clientWidth + 2 && cs.overflow !== 'visible') bad.push('recortado ' + label);
     if (r.left < sr.left - 1 || r.right > sr.right + 1 || r.top < sr.top - 1 || r.bottom > sr.bottom + 1) bad.push('fuera de pantalla ' + label);
@@ -146,7 +150,7 @@ async function main() {
       return { vis: document.querySelectorAll('.pchip.vis').length, qr: document.getElementById('qrBox').style.display !== 'none', off: document.querySelectorAll('.card.off').length,
         why: document.querySelector('#card-dibuja .why').textContent };
     });
-    check(lobby1.vis === 2 && lobby1.qr && lobby1.off === 3 && lobby1.why === 'Falta 1 jugador', 'Con 1 jugador: su ficha + 1 hueco libre, QR y «Falta 1 jugador» en las tarjetas');
+    check(lobby1.vis === 2 && lobby1.qr && lobby1.off === 4 && lobby1.why === 'Falta 1 jugador', 'Con 1 jugador: su ficha + 1 hueco libre, QR y «Falta 1 jugador» en las tarjetas');
     await shot(tv, 'tv-sala-1.png');
     await overflowAll('Sala con 1');
     await ph[1].fill('#name', 'Berto');

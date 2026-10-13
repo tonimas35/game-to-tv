@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="170" viewBox="0 0 300 170">
+  <rect x="10" y="10" width="280" height="150" rx="14" fill="#05060f" stroke="rgba(255,255,255,0.2)" stroke-width="3"/>
+  <path d="M70 52 h46 l10 -12 h48 v100 h-104 z" fill="#d4b06b"/>
+  <rect x="70" y="52" width="104" height="88" rx="6" fill="#e8cd92"/>
+  <text x="122" y="104" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="900" fill="#b3261e" transform="rotate(-10 122 100)" letter-spacing="1">CONFIDENCIAL</text>
+  <circle cx="214" cy="78" r="22" fill="#a98bff"/>
+  <path d="M184 128 q30 -44 60 0 z" fill="#a98bff"/>
+  <path d="M190 72 h48 v10 h-48 z" fill="#05060f"/>
+  <circle cx="204" cy="77" r="5" fill="#e8b04a"/><circle cx="224" cy="77" r="5" fill="#e8b04a"/>
+  <text x="243" y="56" font-family="Arial, sans-serif" font-size="36" font-weight="900" fill="#e8b04a">?</text>
+</svg>
