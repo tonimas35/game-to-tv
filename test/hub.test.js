@@ -459,7 +459,7 @@ async function main() {
     clients.forEach(function (c) { try { c.ws.terminate(); } catch (e) { /* noop */ } });
     await srvState.stop();
     void createdPngs;
-    fs.rmSync(HOME, { recursive: true, force: true });
+    H_.rmrf(HOME);
     console.log('\nServidor detenido. (' + Math.round((Date.now() - startedAt) / 1000) + ' s)');
     if (check.counts().failed) console.log('\n--- Registro del servidor ---\n' + srvState.out.split('\n').slice(-40).join('\n'));
   }

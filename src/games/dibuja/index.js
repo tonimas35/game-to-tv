@@ -322,6 +322,9 @@ function create(api) {
   // ---------------------------------------------------------------- PNG
   function savePng(entry) {
     const dir = api.GALERIA_DIR;
+    // No folder (tele mode on a TV without a writable place): the drawings
+    // are still shown in the end-of-match gallery, they are just not saved.
+    if (!dir) return;
     const strokes = entry.strokes.slice();
     // Se dibuja en un worker_thread: el bucle del juego nunca se bloquea.
     // Cualquier fallo se registra y ya está: guardar nunca rompe la partida.

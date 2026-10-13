@@ -155,6 +155,7 @@
 <script src="/lib/keys.js"></script>
 <script src="/lib/sound.js"></script>
 <script src="/lib/keepalive.js"></script>
+<script src="/lib/tvservice.js"></script>
 <!--@games-->
 </head>
 <body>
@@ -465,7 +466,7 @@
     if (!on) return;
     if (!wsUrl) {
       setText($('connTitle'), 'Falta la dirección del servidor');
-      setText($('connHost'), 'Abre http://IP-DEL-PC:3000/ o añade ?server=IP:3000');
+      setText($('connHost'), 'Abre la dirección del servidor (http://IP:PUERTO/) o añade ?server=IP:PUERTO');
     } else {
       setText($('connTitle'), 'Conectando con el servidor…');
       setText($('connHost'), serverHost);

@@ -193,7 +193,7 @@ function matchTests() {
   } catch (e) {
     check.fail('Excepción: ' + (e && e.stack || e));
   } finally {
-    fs.rmSync(TMP, { recursive: true, force: true });
+    H_.rmrf(TMP);
   }
   check.done();
 })();

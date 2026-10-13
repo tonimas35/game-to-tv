@@ -119,6 +119,6 @@ listFiles().forEach(function (file) {
   }
 });
 
-fs.rmSync(tmpDir, { recursive: true, force: true });
+try { if (fs.rmSync) fs.rmSync(tmpDir, { recursive: true, force: true }); else fs.rmdirSync(tmpDir, { recursive: true }); } catch (e) { /* noop */ }
 if (failures) { console.log('\n' + failures + ' problema(s) encontrado(s)'); process.exit(1); }
 console.log('\nTodo el JavaScript del navegador es válido (ES2019) y no usa recursos externos.');

@@ -33,14 +33,15 @@
   <div class="glow"></div><div class="glow b"></div>
   <div class="msg">
     <h1>Modo ambiente</h1>
-    <p>Pon tus fotos en la carpeta <code id="dir">~/.game-to-tv/ambiente</code> del PC y aparecerán aquí.</p>
+    <p>Pon tus fotos en la carpeta <code id="dir">~/.game-to-tv/ambiente</code> del equipo donde corre el servidor y aparecerán aquí.</p>
   </div>
 </div>
 <div id="clock"><div id="time">--:--</div><div id="date"></div></div>
+<script src="/lib/tvservice.js"></script>
 <script>
 (function () {
   'use strict';
-  // Ambient mode: slideshow of the pictures of a folder on the PC, with a clock.
+  // Ambient mode: slideshow of the pictures of a folder on the server (PC or TV), with a clock.
   var list = [], idx = -1, cur = 0, tz = 'Europe/Madrid', interval = 20, timer = null;
   function $(id) { return document.getElementById(id); }
 

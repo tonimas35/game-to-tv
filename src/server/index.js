@@ -5,7 +5,9 @@
  *   /                 TV shell (menu + games)          public/tv.html
  *   /m                phone shell (QR target)          public/m.html
  *   /qr.svg           QR pointing at http://<LAN IP>:<port>/m
- *   /info             JSON with the URLs (debugging; the webOS launcher polls /qr.svg)
+ *   /info             JSON with the URLs, mode ('pc' | 'tele') and version (debugging,
+ *                     `game-to-tv tv status`, `doctor`; the webOS launcher polls /qr.svg)
+ *   /logs             (tele mode only) last lines of the server log, as text
  *   /lib/*            shared browser helpers           public/lib/
  *   /games/<id>/*     client views of each game        src/games/<id>/{tv,phone}.{js,css}, icon.*
  *   /galeria          saved drawings (PNG)
@@ -15,6 +17,12 @@
  *
  * Every page and script is read from disk on each request (Cache-Control:
  * no-store), so editing public/ or a game's tv.js only needs a reload.
+ *
+ * Two modes, same code:
+ *   pc    `game-to-tv start` on a PC (the default)
+ *   tele  inside the LG TV, started by the webOS JS service (src/tv-service/).
+ *         This file and everything it requires must run on Node 12: see
+ *         scripts/check-node12.js (`npm run check`).
  */
 const http = require('http');
 const fs = require('fs');
@@ -29,6 +37,8 @@ const ambient = require('./ambient');
 const config = require('../config');
 
 const ROOT = path.join(__dirname, '..', '..');
+// In the TV bundle this is the service's own package.json (same version)
+const VERSION = (function () { try { return require('../../package.json').version; } catch (e) { return '0.0.0'; } })();
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const PAGES = { '/': 'tv.html', '/index.html': 'tv.html', '/m': 'm.html', '/m/': 'm.html', '/m.html': 'm.html' };
 const REDIRECTS = { '/tv': '/', '/tv/': '/', '/tv.html': '/', '/mando': '/m', '/mando/': '/m', '/mando.html': '/m' };
@@ -77,6 +87,13 @@ function serveVideo(req, res, file) {
 
 function serveGallery(res, pathname, dir) {
   if (pathname === '/galeria' || pathname === '/galeria/') {
+    if (!dir) {
+      // tele mode without any writable folder: drawings are only shown at the end of each match
+      return send(res, 200, 'text/html; charset=utf-8',
+        '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+        '<title>Galería · Juegos del Salón</title><style>body{margin:0;padding:16px;background:#0b0d1f;color:#fff;font-family:system-ui,sans-serif}</style></head><body>' +
+        '<h1>Galería de dibujos</h1><p>Este servidor no tiene dónde guardar los dibujos. Se ven al final de cada partida en la tele.</p></body></html>');
+    }
     fs.readdir(dir, function (err, files) {
       const pngs = (err ? [] : files).filter(function (f) { return /\.png$/i.test(f); }).sort().reverse();
       const items = pngs.map(function (f) {
@@ -93,6 +110,7 @@ function serveGallery(res, pathname, dir) {
     });
     return;
   }
+  if (!dir) return notFound(res);
   let name = '';
   try { name = decodeURIComponent(pathname.slice('/galeria/'.length)); } catch (e) { return notFound(res); }
   if (!/^[A-Za-z0-9_.-]+\.png$/.test(name) || name.indexOf('..') >= 0) return notFound(res);
@@ -104,15 +122,20 @@ function serveGallery(res, pathname, dir) {
 
 /**
  * Creates (but does not start) the server.
- * options: port, hostIp, galleryDir, ambientDir, timezone, slotHoldMs,
- *          maxPlayers, gamesDirs, log
+ * options: port, hostIp, galleryDir (null in tele mode = do not save PNGs),
+ *          ambientDir, timezone, slotHoldMs, maxPlayers, gamesDirs, log,
+ *          config, mode ('pc' | 'tele'), version,
+ *          tele: { service, info() -> extra /info data, logs() -> text }
  */
 function createServer(options) {
   options = options || {};
   const cfg = options.config || safeLoadConfig();
+  const mode = options.mode === 'tele' ? 'tele' : 'pc';
+  const tele = mode === 'tele' ? (options.tele || {}) : null;
+  const version = options.version || VERSION;
   const port = options.port != null ? Number(options.port) : (parseInt(process.env.PORT, 10) || cfg.port || 3000);
   const hostIp = detectLanIp(options.hostIp);
-  const galleryDir = options.galleryDir || config.galleryDir(cfg);
+  const galleryDir = options.galleryDir === null ? null : (options.galleryDir || config.galleryDir(cfg));
   const ambientDir = options.ambientDir || config.ambientDir(cfg);
   const timezone = options.timezone || process.env.TZ_AMBIENTE || cfg.timezone || 'Europe/Madrid';
   const log = options.log || function (s) { console.log(s); };
@@ -153,7 +176,8 @@ function createServer(options) {
   function renderShell(file, kind, cb) {
     fs.readFile(path.join(PUBLIC_DIR, file), 'utf8', function (err, html) {
       if (err) return cb(err);
-      const boot = { games: manifests, slots: hub.slots, colors: hub.COLORS };
+      const boot = { games: manifests, slots: hub.slots, colors: hub.COLORS, mode: mode, version: version };
+      if (tele && tele.service) boot.tele = { service: tele.service };
       let tags = '';
       games.list.forEach(function (g) {
         if (g.client[kind + 'Css']) tags += '<link rel="stylesheet" href="/games/' + g.id + '/' + kind + '.css">\n';
@@ -199,11 +223,21 @@ function createServer(options) {
     }
     if (pathname === '/keepalive.mp4') return serveVideo(req, res, path.join(PUBLIC_DIR, 'keepalive.mp4'));
     if (pathname === '/info') {
-      return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        app: 'game-to-tv', ip: hostIp, port: server.address() ? server.address().port : port,
+      const info = {
+        app: 'game-to-tv', mode: mode, version: version, ip: hostIp, port: server.address() ? server.address().port : port,
         tv: urls.tv, movil: urls.phone, qr: urls.qr, galeria: galleryDir, ambiente: urls.ambient,
-        juegos: games.list.map(function (g) { return g.id; })
-      }));
+        juegos: games.list.map(function (g) { return g.id; }),
+        actividad: hub.counts()
+      };
+      if (tele) {
+        let extra = {};
+        try { extra = tele.info ? tele.info() : {}; } catch (e) { extra = { error: e.message }; }
+        info.tele = Object.assign({ service: tele.service || null }, extra);
+      }
+      return send(res, 200, 'application/json; charset=utf-8', JSON.stringify(info));
+    }
+    if (pathname === '/logs' && tele && tele.logs) {
+      return send(res, 200, 'text/plain; charset=utf-8', String(tele.logs()));
     }
     let m = /^\/lib\/([a-z0-9-]+\.(?:js|css))$/.exec(pathname);
     if (m) return serveFile(res, path.join(PUBLIC_DIR, 'lib', m[1]));
@@ -237,6 +271,10 @@ function createServer(options) {
   heartbeat.unref();
 
   return {
+    mode: mode,
+    version: version,
+    port: function () { return server.address() ? server.address().port : port; },
+    activity: function () { return hub.counts(); },
     urls: urls,
     hostIp: hostIp,
     galleryDir: galleryDir,
@@ -276,4 +314,4 @@ function safeLoadConfig() {
   try { return config.load(); } catch (e) { return Object.assign({}, config.DEFAULTS); }
 }
 
-module.exports = { createServer: createServer };
+module.exports = { createServer: createServer, VERSION: VERSION };

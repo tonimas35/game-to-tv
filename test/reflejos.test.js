@@ -140,7 +140,7 @@ async function integration() {
   } finally {
     clients.forEach(function (cl) { try { cl.ws.terminate(); } catch (e) { /* noop */ } });
     await srv.stop();
-    require('fs').rmSync(HOME, { recursive: true, force: true });
+    H_.rmrf(HOME);
   }
 }
 

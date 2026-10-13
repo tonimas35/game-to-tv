@@ -422,7 +422,13 @@ function createHub(opts) {
       clearTimeout(loopTimer);
       if (hub.game) { try { hub.game.stop(); } catch (e) { /* noop */ } }
     },
-    state: function () { return { screen: hub.screen, players: buildHub().players }; }
+    state: function () { return { screen: hub.screen, players: buildHub().players }; },
+    // For the TV service's idle shutdown and /info: TV pages and players right now
+    counts: function () {
+      let connected = 0;
+      for (let i = 0; i < SLOTS; i++) if (isConnected(players[i])) connected++;
+      return { tvs: tvs.size, players: occupied().length, connected: connected, screen: hub.screen };
+    }
   };
 }
 

@@ -39,6 +39,14 @@ async function waitUntil(fn, timeout, label) {
   return null;
 }
 
+// fs.rmSync does not exist on Node 12 (the tests also run there: see test/tele.test.js)
+function rmrf(dir) {
+  try {
+    if (fs.rmSync) fs.rmSync(dir, { recursive: true, force: true });
+    else fs.rmdirSync(dir, { recursive: true });
+  } catch (e) { /* noop */ }
+}
+
 function tmpHome(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix || 'g2t-test-'));
 }
@@ -133,6 +141,6 @@ async function phone(wsUrl, name, cid) {
 }
 
 module.exports = {
-  ROOT: ROOT, BIN: BIN, checker: checker, sleep: sleep, waitUntil: waitUntil, tmpHome: tmpHome,
+  ROOT: ROOT, BIN: BIN, checker: checker, sleep: sleep, waitUntil: waitUntil, tmpHome: tmpHome, rmrf: rmrf,
   runCli: runCli, startServer: startServer, httpGet: httpGet, makeClient: makeClient, phone: phone
 };

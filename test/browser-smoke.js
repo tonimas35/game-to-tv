@@ -410,7 +410,7 @@ async function main() {
   } finally {
     await browser.close().catch(function () {});
     await srv.stop();
-    fs.rmSync(HOME, { recursive: true, force: true });
+    H_.rmrf(HOME);
   }
   console.log('\nResultado (navegador): ' + passed + ' OK, ' + failed + ' fallos');
   process.exit(failed ? 1 : 0);
