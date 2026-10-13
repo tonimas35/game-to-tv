@@ -1,10 +1,14 @@
 # Próximos juegos
 
-Ideas aprobadas para añadir a game-to-tv, con lo que ya está decidido. Cada
-juego se hace con nombre, textos y gráficos propios: las **mecánicas** de juego
-no tienen dueño, pero los nombres comerciales, personajes e ilustraciones sí.
+Ideas aprobadas para añadir a game-to-tv, con lo que ya está decidido (y su
+estado). Cada juego se hace con nombre, textos y gráficos propios: las
+**mecánicas** de juego no tienen dueño, pero los nombres comerciales,
+personajes e ilustraciones sí.
 
 ## El Infiltrado
+
+**✅ Disponible desde 0.4.0** (`src/games/infiltrado/`, pruebas en
+`test/infiltrado.test.js` y `test/browser-infiltrado.js`).
 
 > Inspirado en la mecánica de juegos de deducción social tipo «spy». Nombre,
 > lugares y textos propios.
@@ -36,6 +40,8 @@ no tienen dueño, pero los nombres comerciales, personajes e ilustraciones sí.
   a la tele antes de la revelación (pruebas «sin chivatazos», como en Dibuja).
 
 ## Encuentra al asesino
+
+**🔜 Pendiente.**
 
 > Juego de deducción tipo «¿quién, con qué y dónde?», con nombre, personajes,
 > tablero e ilustraciones propios.

@@ -67,6 +67,7 @@ src/games/ejemplo-reflejos/
 | `icon` | Archivo de la carpeta que se dibuja en la tarjeta. |
 | `accent` | Color del borde de la tarjeta cuando tiene el foco. |
 | `order` | Posición en el menú (menor = antes). |
+| `howTo` | Opcional: lista de frases «Cómo se juega» (llega a la tele y al móvil en `G2T.gameById(id).howTo`; «El Infiltrado» la enseña con su botón «?»). |
 
 La sala tiene **6 huecos** por defecto (`game-to-tv start --jugadores N`, de 2
 a 8). Cómo se hace un juego para varios: [sección 5](#5-de-2-a-6-jugadores).
@@ -335,6 +336,16 @@ lleve nombres, y el color de cada uno con `host.colors()[hueco - 1]`.
 **7. El móvil.** `host.slot()` es tu hueco (desde 1), `host.nameOf(hueco)` el
 nombre de otro, `host.myColor()` el tuyo (también en la variable CSS `--c`).
 `host.otherName()` junta los nombres de todos los demás («Ana, Berto y Carla»).
+
+Si quedan menos de `minPlayers`, el hub vuelve al menú y manda
+`{ t: 'ev', k: 'menu', reason, text }` con el motivo ya escrito («Ana se ha ido
+y «El Infiltrado» necesita al menos 3 jugadores…»).
+
+**Información secreta.** Si tu juego reparte secretos (la palabra de Dibuja, la
+carta de «El Infiltrado»), mándalos solo con `api.sendSlot` y procura que el
+resto de mensajes sea igual para todos: «El Infiltrado» manda el mismo `imeta`
+a la tele y a todos los móviles y una carta con los mismos campos y tamaño a
+cada uno, y sus pruebas lo comprueban ronda a ronda.
 
 **8. Probarlo con muchos.** `test/grupo.test.js` juega «Reflejos» con 6 móviles
 falsos (`H_.phone(WS, nombre, cid)`) en pocas líneas: cópialo.

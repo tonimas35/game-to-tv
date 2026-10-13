@@ -3,6 +3,63 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
+## 0.4.0 - 2026-10-13
+
+### Añadido
+
+- **El Infiltrado** (3 a 6 jugadores), un juego de deducción: todos reciben en
+  el móvil el lugar secreto y un papel distinto dentro de él… menos uno, el
+  infiltrado, que solo ve «Eres el infiltrado».
+  - **Carta tapada** en el móvil, con pinta de expediente: se ve mientras se
+    mantiene pulsada (o 3 s con «Ver») y «Ocultar» la tapa al momento. Tapada
+    es idéntica para todos; el «¡Sé el lugar!» del infiltrado está dentro.
+  - **Turnos**: la tele dice «Le toca preguntar a Ana»; Ana elige en el móvil a
+    quién pregunta (nunca a quien le acaba de preguntar) y la tele muestra
+    «Ana pregunta a Berto» y las 6 últimas preguntas.
+  - **Reloj** de 6 min con 3-4 jugadores y 8 con 5-6, o 4/6/8/10 min elegidos
+    en el menú por cualquiera; en rojo los últimos 30 s; pausa si alguien se
+    desconecta.
+  - **Acusaciones**: una por jugador y ronda; votan Sí/No todos menos el
+    acusado (30 s) y hace falta unanimidad. Si no prospera, la tele solo dice
+    el recuento («3 a favor, 1 en contra»). El reloj se para mientras.
+  - **«¡Sé el lugar!»**: el infiltrado elige en la lista completa y la ronda
+    acaba al momento. La tele muestra siempre la rejilla de lugares posibles;
+    en el móvil se pueden tachar como notas.
+  - **Tiempo agotado**: votación final de todos (45 s, nadie a sí mismo); gana
+    la mayoría y el empate salva al infiltrado. Si lo pillan, aún tiene 30 s
+    para adivinar el lugar y llevarse la ronda.
+  - **Puntos**: infiltrado +2 si se salva o adivina al final, +4 si acierta con
+    «¡Sé el lugar!»; si lo pillan o falla, los demás +1 (y +2 quien lo acusó).
+  - Tantas rondas como jugadores (cada uno empieza preguntando una vez; quien
+    abre la partida rota). Revelación con la carta que da la vuelta (solo
+    `transform`, a 60 FPS en una tele webOS emulada), los papeles de todos y
+    los puntos; clasificación con medallas, «Jugar otra vez» y «Menú».
+  - 40 lugares propios con 6 papeles cada uno, y hasta 5 **lugares propios**
+    por jugador desde el menú (con o sin papeles; si no, papeles genéricos).
+    Nunca le toca a su autor ser el infiltrado en su propio lugar.
+  - **Sin chivatazos**: el lugar y los papeles nunca llegan a la tele antes de
+    la revelación, ni el lugar al móvil del infiltrado; cada papel solo a su
+    jugador; las cartas tienen los mismos campos y el mismo tamaño para todos
+    y el resto de mensajes es idéntico para la tele y todos los móviles, así
+    que nada distingue al infiltrado; los votos son anónimos (ni siquiera
+    vuelven a quien votó) y el registro del servidor no los menciona.
+  - Si el infiltrado se va del todo, la ronda acaba sin puntos («El infiltrado
+    ha abandonado») y se sigue; si se va otro, sale de los turnos y las
+    votaciones. Con menos de 3, vuelta al menú con el motivo.
+  - «?» en el móvil: cómo se juega, en 8 líneas (campo `howTo` del manifiesto).
+- Pruebas: `test/infiltrado.test.js` (reglas, y partidas con 3, 4 y 6 móviles
+  falsos que revisan en cada ronda que no haya chivatazos) y
+  `test/browser-infiltrado.js` (4 iPhone emulados a 1920x1080, 1280x720 y en
+  una tele webOS emulada, con FPS). `npm run test:browser` la incluye.
+
+### Cambiado
+
+- Hub: al volver al menú porque se ha ido alguien y no quedan bastantes
+  jugadores, el `ev` `menu` lleva `text` con el motivo y la tele y los móviles
+  lo muestran.
+- Los manifiestos pueden llevar `howTo` (lista de frases «Cómo se juega»), que
+  llega a la tele y a los móviles con el resto de datos del juego.
+
 ## 0.3.0 - 2026-10-13
 
 ### Añadido

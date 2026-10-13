@@ -35,6 +35,7 @@ juegos en la tele (instalar una app, abrirla, mandar avisos, hacer capturas…).
 | Juego | Jugadores | De qué va |
 |---|---|---|
 | **Dibuja y adivina** | 2 a 6 | Pictionary: uno dibuja en el móvil y los demás adivinan mirando la tele. Con 2, en equipo (8 rondas y un título final). De 3 a 6, todos contra todos: el dibujante rota, todos adivinan a la vez y quien antes acierta, más puntos; clasificación con medallas. Pistas, palabras secretas para los demás y galería de dibujos en PNG. |
+| **El Infiltrado** | 3 a 6 | Deducción: todos ven en el móvil el lugar secreto y su papel… menos el infiltrado. Por turnos os hacéis preguntas en voz alta (la tele dice a quién le toca); cada uno puede acusar una vez por ronda (hace falta que todos digan «Sí») y el infiltrado puede arriesgarse con «¡Sé el lugar!». Si se acaba el tiempo, votación final. Carta tapada en el móvil, 40 lugares más los vuestros, y clasificación. |
 | **Pong** | 2 a 4 | El clásico, con el móvil como pala, a 60 FPS en la tele. Con 3 o 4, por parejas: dos palas por lado, como en el futbolín. |
 | **Reflejos** | 2 a 6 | El juego de ejemplo: la tele dice «¡YA!» y gana el punto quien antes toque su móvil. Al mejor de 5. |
 
@@ -181,7 +182,7 @@ el hub. Guía paso a paso con un juego completo de ejemplo («Reflejos», de 2 a
 
 ```bash
 npm install
-npm test               # servidor, juegos (con 2, 3, 4 y 6 móviles falsos), drivers y servicio de la tele; sin red ni tele real
+npm test               # servidor, juegos (con 2, 3, 4 y 6 móviles falsos, «sin chivatazos» incluido), drivers y servicio de la tele; sin red ni tele real
 npm run check          # navegador en ES2019 (Chromium 87) y servidor de la tele compatible con Node 12
 npm run test:node12    # todas las pruebas con Node 12, como el de la tele (lo descarga con npx)
 npm run test:browser   # pruebas con Chromium sin pantalla (si Playwright está instalado)
@@ -204,7 +205,9 @@ real FPS through Chrome DevTools. A generic «browser» driver covers any screen
 with a web browser; Fire TV, Tizen and Android TV are on the roadmap.
 Rooms hold up to 6 players by default. Includes «Dibuja y adivina»
 (Pictionary: cooperative for two, free-for-all with a rotating drawer for 3-6),
-Pong (doubles for 3-4, foosball-style paddles) and a tiny example game (2-6). UI and docs are in Spanish. Quick start: `npx game-to-tv start`, then
+Pong (doubles for 3-4, foosball-style paddles), «El Infiltrado» (a social
+deduction game for 3-6: everybody but the spy gets the secret location on
+their phone) and a tiny example game (2-6). UI and docs are in Spanish. Quick start: `npx game-to-tv start`, then
 `game-to-tv doctor` if anything fails to connect.
 
 ## Licencia

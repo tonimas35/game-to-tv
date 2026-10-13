@@ -146,6 +146,35 @@ Todo lo de antes sigue igual con 2 jugadores; se **añaden** campos:
   `reason` (`all` | `time` | `left`). `d.opts` marca las palabras secretas con
   `from` (su autor).
 
+### El Infiltrado (0.4)
+
+`src/games/infiltrado/index.js` (protocolo completo en su comentario):
+
+- **`imeta`**: el estado público, **un único mensaje idéntico** para la tele y
+  todos los móviles (`phase`, `round`, `asker`, `askedBy`, `history`, `clock`,
+  `places` —la lista pública de lugares, ordenada, sin marcar el bueno—,
+  `accUsed`, `acc`/`vote` con quién ha votado pero nunca qué, `accResult` con el
+  recuento, `caught` en la última oportunidad y `result`/`ranking` solo en la
+  revelación y al final).
+- **`i.card`**: lo único privado, a cada jugador y en el mismo instante:
+  `{ round, match, location, role, spy, pad }`. La del infiltrado lleva
+  `location: null, role: null, spy: true`; `pad` (espacios) iguala el tamaño
+  en bytes de todas las cartas de la ronda. Un móvil que se reconecta recibe
+  la misma cadena otra vez.
+- Mensajes de los móviles: `i.ask`, `i.accuse`, `i.vote`, `i.final`, `i.guess`
+  (índice en `places`), `i.next`, `i.again`; en el menú, `i.places` (lugares
+  propios, por jugador) e `i.cfg` (duración de la ronda, de la sala: se avisa a
+  todos los móviles).
+- El servidor no escribe en el registro quién es el infiltrado ni el lugar
+  hasta la revelación (`/logs` se puede abrir en modo tele).
+- `test/infiltrado.test.js` comprueba en cada ronda que la tele y todos los
+  móviles (menos la carta) reciben exactamente los mismos mensajes, que las
+  cartas tienen los mismos campos y tamaño, y que el lugar y los papeles no
+  aparecen donde no deben.
+
+Hub: al volver al menú porque se ha ido alguien y no quedan bastantes
+jugadores, `{ t: 'ev', k: 'menu', reason, text }` lleva el motivo en español.
+
 ## Los clientes
 
 `public/lib/` (ES2019, sin dependencias):
