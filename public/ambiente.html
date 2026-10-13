@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modo ambiente · Juegos del Salón</title>
+<style>
+  :root { --muted: rgba(255, 255, 255, 0.7); }
+  html, body { margin: 0; width: 100%; height: 100%; background: #05060f; color: #fff; overflow: hidden; cursor: none;
+    font-family: 'LG Smart UI', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+  .slide { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 1.6s ease; }
+  .slide.on { opacity: 1; }
+  #clock { position: absolute; right: 4vw; bottom: 5vh; text-align: right; text-shadow: 0 2px 12px rgba(0,0,0,0.8); }
+  #time { font-size: 9vw; font-weight: 300; line-height: 1; letter-spacing: 0.02em; }
+  #date { font-size: 2.2vw; color: var(--muted); margin-top: 0.6vh; }
+  #empty { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: none;
+    background: #070915; }
+  #empty.on { display: block; }
+  #empty .glow { position: absolute; left: 50%; top: 40%; width: 60vw; height: 60vw; margin: -30vw 0 0 -30vw; border-radius: 50%;
+    background: #1a1d52; opacity: 0.55; animation: drift 30s ease-in-out infinite alternate; }
+  #empty .glow.b { background: #3a124a; left: 30%; top: 70%; animation-duration: 41s; }
+  @keyframes drift { from { transform: translate(-6vw, -4vh) scale(1); } to { transform: translate(6vw, 4vh) scale(1.15); } }
+  #empty .msg { position: absolute; left: 6vw; top: 8vh; max-width: 60vw; }
+  #empty h1 { margin: 0; font-size: 3.2vw; font-weight: 800; }
+  #empty p { margin: 1.2vh 0 0; font-size: 1.6vw; color: var(--muted); line-height: 1.4; }
+  #empty code { font-family: 'Courier New', monospace; color: #fff; }
+</style>
+</head>
+<body>
+<img class="slide" id="s0" alt="">
+<img class="slide" id="s1" alt="">
+<div id="empty">
+  <div class="glow"></div><div class="glow b"></div>
+  <div class="msg">
+    <h1>Modo ambiente</h1>
+    <p>Pon tus fotos en la carpeta <code id="dir">~/.game-to-tv/ambiente</code> del PC y aparecerán aquí.</p>
+  </div>
+</div>
+<div id="clock"><div id="time">--:--</div><div id="date"></div></div>
+<script>
+(function () {
+  'use strict';
+  // Ambient mode: slideshow of the pictures of a folder on the PC, with a clock.
+  var list = [], idx = -1, cur = 0, tz = 'Europe/Madrid', interval = 20, timer = null;
+  function $(id) { return document.getElementById(id); }
+
+  function fmt(opts) {
+    try { return new Intl.DateTimeFormat('es-ES', Object.assign({ timeZone: tz }, opts)); } catch (e) { return new Intl.DateTimeFormat('es-ES', opts); }
+  }
+  var fTime = null, fDate = null;
+  function tick() {
+    if (!fTime) { fTime = fmt({ hour: '2-digit', minute: '2-digit', hour12: false }); fDate = fmt({ weekday: 'long', day: 'numeric', month: 'long' }); }
+    var d = new Date();
+    $('time').textContent = fTime.format(d);
+    var s = fDate.format(d);
+    $('date').textContent = s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  function next() {
+    if (!list.length) return;
+    idx = (idx + 1) % list.length;
+    var img = $('s' + (1 - cur));
+    img.onload = function () {
+      img.classList.add('on');
+      $('s' + cur).classList.remove('on');
+      cur = 1 - cur;
+    };
+    img.onerror = function () { /* skip broken pictures */ };
+    img.src = list[idx];
+  }
+
+  function load() {
+    var x = new XMLHttpRequest();
+    x.open('GET', '/ambiente/lista.json?t=' + Date.now());
+    x.onload = function () {
+      try {
+        var r = JSON.parse(x.responseText);
+        var changed = String(r.fotos) !== String(list);
+        list = r.fotos || [];
+        if (r.zonaHoraria && r.zonaHoraria !== tz) { tz = r.zonaHoraria; fTime = null; }
+        interval = r.intervalo || 20;
+        $('dir').textContent = r.carpeta || $('dir').textContent;
+        if (!list.length) $('empty').classList.add('on'); else $('empty').classList.remove('on');
+        if (changed) {
+          idx = -1;
+          next();
+          clearInterval(timer);
+          timer = setInterval(next, interval * 1000);
+        }
+      } catch (e) { /* noop */ }
+    };
+    x.send();
+  }
+
+  tick();
+  setInterval(tick, 1000);
+  load();
+  setInterval(load, 5 * 60 * 1000);
+  // Back / Escape returns to the games
+  window.addEventListener('keydown', function (e) {
+    if (e.keyCode === 461 || e.keyCode === 27 || e.keyCode === 13) location.href = '/';
+  });
+})();
+</script>
+</body>
+</html>

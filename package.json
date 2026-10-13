@@ -1,0 +1,47 @@
+{
+  "name": "game-to-tv",
+  "version": "0.1.0",
+  "description": "Juegos de grupo para el salón: la tele es la pantalla y los móviles son los mandos (escanea un QR, sin instalar nada).",
+  "keywords": [
+    "party-games",
+    "tv",
+    "webos",
+    "lg",
+    "smart-tv",
+    "multiplayer",
+    "websocket",
+    "qr"
+  ],
+  "license": "MIT",
+  "bin": {
+    "game-to-tv": "bin/game-to-tv.js"
+  },
+  "main": "src/server/index.js",
+  "files": [
+    "bin/",
+    "src/",
+    "public/",
+    "apps/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/game-to-tv.js start",
+    "test": "node test/run.js",
+    "check": "node scripts/check-browser-js.js",
+    "test:browser": "node test/browser-smoke.js",
+    "icons": "node scripts/make-icons.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pngjs": "7.0.0",
+    "qrcode": "1.5.4",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "acorn": "8.18.0"
+  }
+}

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#070915">
+<title>Juegos del Salón · Móvil</title>
+<style>
+  :root {
+    --c: #8a7dff;
+    --c-soft: rgba(138, 125, 255, 0.18);
+    --bg: #070915;
+    --panel: #141833;
+    --panel2: #1d2246;
+    --fg: #ffffff;
+    --muted: rgba(255, 255, 255, 0.62);
+    --ok: #3ee07a;
+    --warn: #ffb23e;
+    --bad: #ff5a6a;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Roboto, Arial, sans-serif;
+    overflow: hidden; overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-text-size-adjust: 100%;
+    touch-action: none;
+  }
+  body { position: fixed; top: 0; right: 0; bottom: 0; left: 0; }
+  #app {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+    padding: calc(var(--sat) + 10px) calc(var(--sar) + 12px) calc(var(--sab) + 10px) calc(var(--sal) + 12px);
+    display: flex; flex-direction: column;
+  }
+  .hidden { display: none !important; }
+  .screen { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .center { justify-content: center; align-items: center; text-align: center; }
+  .scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+  .fit { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .logo {
+    margin: 0; font-size: 44px; line-height: 1.05; font-weight: 900; letter-spacing: 1px;
+    background: linear-gradient(90deg, #22e6ff, #a07dff, #ff3df2);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { margin: 6px 0 18px; color: var(--muted); font-size: 17px; }
+  form.join { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
+  label { text-align: left; font-size: 15px; color: var(--muted); }
+  input {
+    width: 100%; font-size: 20px; padding: 14px 16px; border-radius: 14px;
+    border: 2px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; outline: none;
+    -webkit-user-select: text; user-select: text; touch-action: manipulation; -webkit-appearance: none; appearance: none;
+  }
+  input:focus { border-color: var(--c); }
+  button {
+    font: inherit; font-size: 20px; font-weight: 800; padding: 14px; border: 0; border-radius: 16px;
+    color: #070915; background: linear-gradient(90deg, #22e6ff, #ff3df2);
+    touch-action: manipulation; -webkit-appearance: none; appearance: none; cursor: pointer;
+  }
+  button:active { transform: scale(0.97); }
+  button[disabled] { opacity: 0.4; }
+  .ghost { background: rgba(255,255,255,0.1); color: #fff; }
+  .mini { font-size: 15px; font-weight: 700; padding: 8px 14px; border-radius: 12px; }
+  .msg { min-height: 1.4em; color: #ffb3b3; font-size: 15px; margin: 0; }
+  .counter { font-size: 13px; color: var(--muted); text-align: right; margin-top: -6px; }
+
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 0 0 auto; min-height: 42px; }
+  .chip {
+    display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; min-width: 0;
+    background: var(--c-soft); border: 2px solid var(--c); color: var(--c); font-weight: 800; font-size: 16px;
+    max-width: 48%; white-space: nowrap; overflow: hidden;
+  }
+  .chip span:last-child { overflow: hidden; text-overflow: ellipsis; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: 0 0 auto; }
+  .info { font-size: 15px; font-weight: 800; color: var(--muted); white-space: nowrap; }
+
+  /* Menu */
+  .status { margin: 12px 0 6px; font-size: 18px; font-weight: 700; text-align: center; }
+  .h { margin: 14px 2px 10px; font-size: 15px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+  .game {
+    display: block; width: 100%; text-align: left; margin-bottom: 12px; padding: 18px 18px; border-radius: 20px;
+    background: var(--panel); color: #fff; border: 2px solid rgba(255,255,255,0.1);
+  }
+  .game b { display: block; font-size: 26px; }
+  .game span { display: block; font-size: 15px; font-weight: 500; color: var(--muted); margin-top: 4px; }
+  .small { font-size: 14px; color: var(--muted); margin: 6px 0 12px; }
+  .foot { margin: 18px 0 8px; text-align: center; }
+
+  /* Overlays */
+  .over {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 5;
+    background: rgba(7, 9, 21, 0.94); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: calc(var(--sat) + 20px) 24px calc(var(--sab) + 20px); text-align: center;
+  }
+  .over .t1 { font-size: 40px; font-weight: 900; }
+  .over .t2 { font-size: 19px; color: var(--muted); }
+  .bigbtn { width: 100%; max-width: 360px; font-size: 28px; padding: 24px 20px; border-radius: 24px; }
+  .bigbtn.c { background: var(--c); }
+  #modal { z-index: 20; background: rgba(0,0,0,0.7); }
+  #modal .box { width: 100%; max-width: 360px; background: var(--panel); border-radius: 22px; padding: 22px; }
+  #modal p { font-size: 20px; font-weight: 700; margin: 0 0 18px; }
+  #modal .row { display: flex; gap: 10px; }
+  #modal .row button { flex: 1; }
+  #banner, #toast {
+    position: absolute; left: 50%; top: calc(var(--sat) + 8px); transform: translateX(-50%); z-index: 30;
+    font-weight: 800; font-size: 15px; padding: 8px 16px; border-radius: 999px; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis;
+  }
+  #banner { background: #ffcc33; color: #1a1400; }
+  #toast { background: #fff; color: #070915; top: calc(var(--sat) + 52px); }
+</style>
+<!--@boot-->
+<script src="/lib/core.js"></script>
+<script src="/lib/socket.js"></script>
+<!--@games-->
+</head>
+<body>
+<div id="app">
+  <!-- Join -->
+  <section id="scrJoin" class="screen center">
+    <h1 class="logo">Juegos del Salón</h1>
+    <p class="sub">Tu móvil es el mando</p>
+    <form id="joinForm" class="join" autocomplete="off" novalidate>
+      <label for="name">Tu nombre</label>
+      <input id="name" type="text" maxlength="12" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="go" placeholder="Escribe tu nombre">
+      <div class="counter"><span id="nameCount">0</span>/12</div>
+      <button id="joinBtn" type="submit">Unirse</button>
+    </form>
+    <p id="joinMsg" class="msg"></p>
+  </section>
+
+  <section id="scrFull" class="screen center hidden">
+    <h1 class="logo">Juegos del Salón</h1>
+    <h2 style="margin:10px 0 0;font-size:30px" id="fullTitle">Ya hay dos jugadores</h2>
+    <p class="sub">Espera a que alguien salga y vuelve a intentarlo.</p>
+    <button id="retryBtn" type="button" style="width:100%;max-width:340px">Reintentar</button>
+  </section>
+
+  <!-- Hub menu -->
+  <section id="scrMenu" class="screen scroll hidden">
+    <div class="bar">
+      <div class="chip"><span class="dot"></span><span id="mName" class="meName">Jugador</span></div>
+      <button class="mini ghost" id="leaveBtn" type="button">Salir</button>
+    </div>
+    <p class="status" id="mStatus">Esperando a tu pareja…</p>
+    <h2 class="h">Elegid juego</h2>
+    <div id="gameList"></div>
+    <div id="menuPanels"></div>
+    <div class="foot"><span class="small">También podéis elegir con el mando de la tele</span></div>
+  </section>
+
+  <!-- Game screens are added here by each game's phone.js -->
+
+  <div id="modal" class="over hidden">
+    <div class="box">
+      <p id="modalText">¿Seguro?</p>
+      <div class="row">
+        <button class="ghost" id="modalNo" type="button">Cancelar</button>
+        <button id="modalYes" type="button">Sí</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="banner" class="hidden">Reconectando…</div>
+  <div id="toast" class="hidden"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var G2T = window.G2T;
+  var $ = G2T.$, setText = G2T.setText, esc = G2T.esc, now = G2T.now;
+  var ST = G2T.store, LS = ST.local, SS = ST.session;
+  var COLORS = (G2T.boot.colors || ['#22e6ff', '#ff3df2']).slice();
+  var SLOTS = G2T.boot.slots || 2;
+
+  function show(el, on) { if (on) el.classList.remove('hidden'); else el.classList.add('hidden'); }
+
+  var cid = ST.get(SS, 'jds.cid');
+  if (!cid) { cid = G2T.randomId(); ST.set(SS, 'jds.cid', cid); }
+  function cutName(s) { return Array.from(String(s || '').replace(/[\u0000-\u001f<>]/g, '')).slice(0, 12).join(''); }
+
+  // ==================================================================
+  // No scrolling or zooming (except inside .scroll areas)
+  // ==================================================================
+  function inScroll(el) {
+    while (el && el !== document.body) {
+      if (el.classList && el.classList.contains('scroll') && el.scrollHeight > el.clientHeight) return true;
+      el = el.parentNode;
+    }
+    return false;
+  }
+  document.addEventListener('touchmove', function (e) { if (!inScroll(e.target)) e.preventDefault(); }, { passive: false });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+  document.addEventListener('dblclick', function (e) { e.preventDefault(); });
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  // ==================================================================
+  // State
+  // ==================================================================
+  var wantJoin = false, joined = false, slot = 0, myName = '', myColor = '#8a7dff';
+  var hub = null;            // last 'hub' message
+  var lastScreen = '';
+
+  var nameInput = $('name');
+  var savedName = ST.get(LS, 'jds.name');
+  if (savedName) nameInput.value = cutName(savedName);
+  function updateCount() { setText($('nameCount'), Array.from(nameInput.value).length); }
+  nameInput.addEventListener('input', function () {
+    var v = cutName(nameInput.value);
+    if (v !== nameInput.value) nameInput.value = v;
+    updateCount();
+  });
+  updateCount();
+
+  function setColor(c) {
+    myColor = c;
+    var n = parseInt(c.slice(1), 16);
+    var soft = 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',0.18)';
+    document.documentElement.style.setProperty('--c', c);
+    document.documentElement.style.setProperty('--c-soft', soft);
+  }
+  function others() {
+    var out = [];
+    if (!hub || !hub.players) return out;
+    for (var i = 0; i < hub.players.length; i++) if (hub.players[i] && i !== slot - 1) out.push(hub.players[i]);
+    return out;
+  }
+  function otherName() {
+    var o = others();
+    return o.length ? G2T.joinNames(o.map(function (p) { return p.name; })) : 'tu pareja';
+  }
+  function nameOf(s) {
+    var p = hub && hub.players ? hub.players[s - 1] : null;
+    return p ? p.name : ('Jugador ' + s);
+  }
+
+  // ==================================================================
+  // Toasts and confirmation
+  // ==================================================================
+  var toastTimer = null;
+  function toast(t, ms) {
+    var el = $('toast');
+    setText(el, t);
+    show(el, true);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { show(el, false); }, ms || 2600);
+  }
+  var modalCb = null;
+  function askConfirm(text, yesLabel, cb) {
+    setText($('modalText'), text);
+    setText($('modalYes'), yesLabel || 'Sí');
+    modalCb = cb;
+    show($('modal'), true);
+  }
+  $('modalNo').addEventListener('click', function () { show($('modal'), false); modalCb = null; });
+  $('modalYes').addEventListener('click', function () {
+    show($('modal'), false);
+    var cb = modalCb;
+    modalCb = null;
+    if (cb) cb();
+  });
+
+  // ==================================================================
+  // WebSocket with automatic reconnection
+  // ==================================================================
+  var sock = G2T.socket({
+    url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws',
+    minRetry: 400,
+    jitter: 200,
+    staleMs: 4000,
+    shouldReconnect: function () { return wantJoin; },
+    onopen: function () { if (wantJoin) sock.send({ t: 'join', name: myName, cid: cid }); },
+    onmessage: function (msg) { onMessage(msg); },
+    onclose: function () {
+      joined = false;
+      if (wantJoin) show($('banner'), true);
+    }
+  });
+  function sendMsg(obj) { return sock.send(obj); }
+  function wakeUp() {
+    if (!wantJoin) return;
+    if (!sock.isOpen()) sock.kick();
+    requestWakeLock();
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') wakeUp(); });
+  window.addEventListener('pageshow', wakeUp);
+  window.addEventListener('online', wakeUp);
+  window.addEventListener('focus', wakeUp);
+  var wakeLock = null;
+  function requestWakeLock() {
+    try {
+      if (wakeLock || !navigator.wakeLock || document.visibilityState !== 'visible') return;
+      navigator.wakeLock.request('screen').then(function (l) {
+        wakeLock = l;
+        l.addEventListener('release', function () { wakeLock = null; });
+      }).catch(function () { /* noop */ });
+    } catch (e) { /* noop */ }
+  }
+
+  // ==================================================================
+  // Server messages
+  // ==================================================================
+  function activeView() { return hub && hub.screen && hub.screen !== 'menu' ? G2T.phone.get(hub.screen) : null; }
+
+  function onMessage(msg) {
+    switch (msg.t) {
+      case 'joined':
+        joined = true;
+        slot = msg.slot;
+        myName = msg.name;
+        setColor(msg.color || COLORS[slot - 1]);
+        ST.set(SS, 'jds.active', '1');
+        show($('banner'), false);
+        G2T.phone.each(function (v) { if (v.onJoined) v.onJoined(); });
+        requestWakeLock();
+        render();
+        return;
+      case 'full':
+        wantJoin = false;
+        joined = false;
+        ST.remove(SS, 'jds.active');
+        show($('banner'), false);
+        setText($('fullTitle'), (msg.slots || SLOTS) === 2 ? 'Ya hay dos jugadores' : 'La sala está llena (' + (msg.slots || SLOTS) + ' jugadores)');
+        showScreen('full');
+        sock.close();
+        return;
+      case 'hub':
+        hub = msg;
+        render();
+        return;
+      case 'ev':
+        if (msg.k === 'need2') toast('Falta tu pareja');
+        if (msg.k === 'toomany') toast('«' + msg.title + '» es para ' + msg.max + ' jugadores como mucho');
+        if (msg.k === 'menu' && msg.reason) toast('Volvemos al menú');
+        break;
+    }
+    // Menu panels of the games (e.g. secret words) see every message first
+    var handled = false;
+    G2T.phone.each(function (v) {
+      if (!handled && v.menuPanel && v.menuPanel.onMessage && v.menuPanel.onMessage(msg)) handled = true;
+    });
+    if (handled) return;
+    var view = activeView();
+    if (view && view.onMessage) view.onMessage(msg);
+  }
+
+  // ==================================================================
+  // Screens
+  // ==================================================================
+  var sections = {};
+  function showScreen(name) {
+    show($('scrJoin'), name === 'join');
+    show($('scrFull'), name === 'full');
+    show($('scrMenu'), name === 'menu');
+    G2T.phone.each(function (v) {
+      show(sections[v.id], name === v.id);
+      if (name !== v.id && v.onHide) v.onHide();
+    });
+  }
+
+  function render() {
+    if (!joined || !hub) return;
+    var scr = hub.screen || 'menu';
+    if (scr !== lastScreen) {
+      if (scr !== 'menu' && lastScreen === 'menu' && hub.pick) {
+        toast(hub.pick.by === slot ? ('Has elegido «' + hub.pick.title + '»') : (hub.pick.name + ' ha elegido «' + hub.pick.title + '»'));
+      }
+      G2T.phone.each(function (v) { if (v.id !== scr && v.reset) v.reset(); });
+      lastScreen = scr;
+      try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) { /* noop */ }
+    }
+    showScreen(scr);
+    Array.prototype.forEach.call(document.querySelectorAll('.meName'), function (el) { setText(el, myName); });
+    if (scr === 'menu') renderMenu();
+    else {
+      var v = activeView();
+      if (v && v.render) v.render();
+    }
+  }
+
+  // ------------------------------------------------------------------ Menu
+  function buildMenu() {
+    var html = '';
+    G2T.games.forEach(function (g) {
+      html += '<button class="game" data-game="' + esc(g.id) + '" type="button" style="border-color:' + G2T.hexA(g.accent || '#ffffff', 0.5) + '">' +
+        '<b>' + esc(g.title) + '</b><span>' + esc(g.phoneDescription || g.description) + '</span></button>';
+    });
+    $('gameList').innerHTML = html;
+    Array.prototype.forEach.call(document.querySelectorAll('#gameList .game'), function (b) {
+      b.addEventListener('click', pickGame);
+    });
+  }
+  function renderMenu() {
+    var ready = hub.ready;
+    var o = others();
+    var n = o.length + 1;
+    var away = o.filter(function (p) { return !p.connected; });
+    var st;
+    if (ready) st = 'Jugáis tú y ' + otherName() + '. ¡Elegid juego!';
+    else if (away.length) st = 'Esperando a que vuelva ' + away[0].name + '…';
+    else st = 'Esperando a tu pareja… (que escanee el QR de la tele)';
+    setText($('mStatus'), st);
+    Array.prototype.forEach.call(document.querySelectorAll('#gameList .game'), function (b) {
+      var g = G2T.gameById(b.getAttribute('data-game'));
+      b.disabled = !ready || n < g.minPlayers || n > g.maxPlayers;
+    });
+    G2T.phone.each(function (v) { if (v.menuPanel && v.menuPanel.render) v.menuPanel.render(); });
+  }
+  function pickGame(e) {
+    var g = e.currentTarget.getAttribute('data-game');
+    if (!hub || !hub.ready) { toast('Falta tu pareja'); return; }
+    sendMsg({ t: 'pick', game: g });
+  }
+
+  // ==================================================================
+  // Host API given to every game view (see docs/crear-un-juego.md)
+  // ==================================================================
+  var host = {
+    app: $('app'),
+    send: sendMsg,
+    slot: function () { return slot; },
+    myName: function () { return myName; },
+    myColor: function () { return myColor; },
+    colors: function () { return COLORS; },
+    hub: function () { return hub; },
+    isJoined: function () { return joined; },
+    otherName: otherName,
+    nameOf: nameOf,
+    toast: toast,
+    askConfirm: askConfirm,
+    show: show,
+    setText: setText,
+    // «Menú» button inside a game (asks for confirmation)
+    confirmMenu: function () {
+      askConfirm('¿Volver al menú? La partida se terminará para los dos.', 'Sí, al menú', function () { sendMsg({ t: 'menu' }); });
+    },
+    vibrate: function (p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* noop */ } }
+  };
+
+  // ==================================================================
+  // Join / leave
+  // ==================================================================
+  function startJoin() {
+    var name = cutName(nameInput.value).trim();
+    if (!name) {
+      setText($('joinMsg'), 'Escribe tu nombre para unirte.');
+      nameInput.focus();
+      return;
+    }
+    setText($('joinMsg'), '');
+    myName = name;
+    ST.set(LS, 'jds.name', name);
+    try { nameInput.blur(); } catch (e) { /* noop */ }
+    wantJoin = true;
+    setText($('mStatus'), 'Conectando…');
+    setText($('mName'), name);
+    showScreen('menu');
+    if (sock.isOpen()) sendMsg({ t: 'join', name: myName, cid: cid });
+    else sock.kick();
+    requestWakeLock();
+  }
+  $('joinForm').addEventListener('submit', function (e) { e.preventDefault(); startJoin(); });
+  $('retryBtn').addEventListener('click', function () { showScreen('join'); startJoin(); });
+  $('leaveBtn').addEventListener('click', function () {
+    askConfirm('¿Salir? Dejarás tu sitio libre para otra persona.', 'Sí, salir', function () {
+      sendMsg({ t: 'leave' });
+      wantJoin = false;
+      joined = false;
+      slot = 0;
+      hub = null;
+      lastScreen = '';
+      ST.remove(SS, 'jds.active');
+      cid = G2T.randomId();
+      ST.set(SS, 'jds.cid', cid);
+      show($('banner'), false);
+      setTimeout(function () { sock.close(); }, 100);
+      showScreen('join');
+    });
+  });
+
+  // ==================================================================
+  // Boot: build the menu and mount every game view
+  // ==================================================================
+  buildMenu();
+  G2T.phone.each(function (v) {
+    var sec = document.createElement('section');
+    sec.id = 'scr-' + v.id;
+    sec.className = 'screen hidden';
+    $('app').insertBefore(sec, $('modal'));
+    sections[v.id] = sec;
+    try {
+      v.mount(sec, host, G2T.gameById(v.id) || {});
+      if (v.menuPanel && v.menuPanel.mount) {
+        var panel = document.createElement('div');
+        $('menuPanels').appendChild(panel);
+        v.menuPanel.mount(panel, host);
+      }
+    } catch (e) { if (window.console) console.error(e); }
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.menuBtn'), function (b) {
+    b.addEventListener('click', host.confirmMenu);
+  });
+
+  if (ST.get(SS, 'jds.active') === '1' && savedName) startJoin();
+  else showScreen('join');
+  // For automated tests
+  window.__phone = { hub: function () { return hub; }, slot: function () { return slot; } };
+})();
+</script>
+</body>
+</html>

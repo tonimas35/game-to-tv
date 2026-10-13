@@ -1,0 +1,12 @@
+{
+  "id": "pong",
+  "title": "Pong",
+  "description": "El clásico de toda la vida: tu móvil es la pala. Gana quien llegue antes a 7.",
+  "phoneDescription": "El clásico: tu móvil es la pala",
+  "minPlayers": 2,
+  "maxPlayers": 2,
+  "tags": ["Cara a cara", "Rápido"],
+  "icon": "icon.svg",
+  "accent": "#ff3df2",
+  "order": 20
+}

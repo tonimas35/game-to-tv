@@ -1,0 +1,12 @@
+/* Pong: phone view (the touch pad) */
+#pScore { font-size: 28px; font-weight: 900; white-space: nowrap; }
+#pStatus { flex: 0 0 auto; text-align: center; font-size: 19px; font-weight: 700; min-height: 1.5em; margin: 10px 0; }
+#pad {
+  position: relative; flex: 1; min-height: 0; border-radius: 28px; border: 3px solid var(--c);
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 2px, transparent 2px 44px), linear-gradient(180deg, var(--c-soft), rgba(0,0,0,0.25) 50%, var(--c-soft));
+  overflow: hidden; touch-action: none;
+}
+#pad.flash { background-color: rgba(255,255,255,0.12); }
+#thumb { position: absolute; left: 8%; right: 8%; top: 0; height: 0; will-change: transform; pointer-events: none; }
+#thumb::before { content: ''; position: absolute; left: 0; right: 0; top: -22px; height: 44px; border-radius: 22px; background: var(--c); opacity: 0.9; }
+.padhint { position: absolute; left: 0; right: 0; bottom: 16px; text-align: center; color: var(--muted); font-size: 15px; pointer-events: none; }

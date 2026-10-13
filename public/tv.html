@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juegos del Salón · Tele</title>
+<style>
+  :root {
+    --c1: #22e6ff;
+    --c2: #ff3df2;
+    --bg: #070915;
+    --panel: #12162e;
+    --panel2: #1a1f40;
+    --line: rgba(255, 255, 255, 0.12);
+    --muted: rgba(255, 255, 255, 0.62);
+    --ok: #3ee07a;
+    --warn: #ffb23e;
+    --bad: #ff4d5e;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: #fff;
+    overflow: hidden;
+    cursor: none;
+    -webkit-user-select: none;
+    user-select: none;
+    font-family: 'LG Smart UI', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  }
+  #stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    transform-origin: 0 0;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .view, .ov { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: none; }
+  .view.on, .ov.on { display: block; }
+  .fit { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mono { font-family: 'Courier New', 'DejaVu Sans Mono', monospace; }
+
+  /* ---------------- Menu ---------------- */
+  #vMenu { background: #0a0c1f; }
+  .fx #vMenu { background: radial-gradient(ellipse at 50% 35%, #161b46 0%, #0a0c1f 55%, #05060f 100%); }
+  .brand {
+    position: absolute; left: 0; right: 0; top: 46px; margin: 0;
+    text-align: center; font-size: 108px; font-weight: 900; letter-spacing: 2px; line-height: 1.1;
+    background: linear-gradient(90deg, var(--c1), #a07dff 50%, var(--c2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .tagline { position: absolute; left: 160px; right: 160px; top: 186px; margin: 0; text-align: center; font-size: 36px; color: var(--muted); }
+  .tagline.ready { color: #fff; }
+  /* The wrapper clips the row when there are many games; 24px of room for the focus zoom */
+  .cardsWrap { position: absolute; left: 0; right: 0; top: 238px; height: 534px; overflow: hidden; }
+  .cards { position: absolute; left: 0; top: 24px; height: 486px; display: flex; transition: transform 0.25s ease; }
+  .card {
+    position: relative; flex: 0 0 auto; width: 680px; height: 470px; margin: 0 40px; box-sizing: border-box;
+    padding: 30px 44px; border-radius: 36px; background: var(--panel);
+    border: 4px solid var(--line); transition: transform 0.18s ease, border-color 0.18s ease, opacity 0.18s;
+  }
+  .card .art { height: 170px; display: flex; align-items: center; justify-content: center; }
+  .card .art img { width: 300px; height: 170px; }
+  .card h2 { margin: 14px 0 10px; font-size: 64px; font-weight: 900; line-height: 1.1; }
+  .card p { margin: 0; font-size: 29px; line-height: 1.32; color: var(--muted); height: 78px; overflow: hidden; }
+  .card .tags { margin-top: 18px; display: flex; }
+  .card .tags span { font-size: 22px; font-weight: 700; padding: 6px 16px; border-radius: 999px; background: rgba(255,255,255,0.08); margin-right: 12px; white-space: nowrap; }
+  .card .ok {
+    position: absolute; right: 30px; top: 30px; font-size: 22px; font-weight: 800; padding: 8px 16px;
+    border-radius: 12px; background: #fff; color: #0a0c1f; opacity: 0;
+  }
+  .card.focus { transform: scale(1.045); border-color: #fff; }
+  .card.focus .ok { opacity: 1; }
+  .card.off { opacity: 0.55; }
+  /* 3 or more games: narrower cards */
+  .cards.many .card { width: 560px; margin: 0 18px; padding: 26px 34px; }
+  .cards.many .card .art { height: 150px; }
+  .cards.many .card .art img { width: 265px; height: 150px; }
+  .cards.many .card h2 { font-size: 56px; }
+  .cards.many .card p { font-size: 25px; height: 99px; }
+  .cards.many .card .tags { margin-top: 14px; }
+  .players { position: absolute; left: 70px; bottom: 44px; display: flex; }
+  .players.center { left: 0; right: 0; justify-content: center; }
+  .pchip {
+    width: 420px; height: 96px; box-sizing: border-box; margin-right: 26px; padding: 0 26px;
+    display: flex; align-items: center; border-radius: 26px; background: var(--panel); border: 3px dashed var(--line);
+  }
+  .players.n3 .pchip { width: 320px; margin-right: 20px; }
+  .players.n4 .pchip { width: 266px; margin-right: 16px; padding: 0 18px; }
+  .pchip .dot { width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto; margin-right: 18px; background: rgba(255,255,255,0.2); }
+  .pchip .txt { min-width: 0; flex: 1; }
+  .pchip b { display: block; font-size: 36px; }
+  .pchip small { display: block; font-size: 22px; color: var(--muted); }
+  .pchip.in { border-style: solid; }
+  .keys { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 22px; color: rgba(255,255,255,0.38); }
+  .qrbox {
+    position: absolute; right: 44px; bottom: 34px; width: 640px; height: 262px; box-sizing: border-box;
+    padding: 20px; border-radius: 28px; background: #fff; color: #0a0c1f; display: flex; align-items: center;
+  }
+  .qrbox img, .qrbox .qrph { width: 222px; height: 222px; flex: 0 0 auto; image-rendering: pixelated; }
+  .qrbox .qrtext { min-width: 0; flex: 1; margin-left: 22px; }
+  .qrbox b { display: block; font-size: 30px; line-height: 1.2; }
+  .qrbox .url { display: block; margin: 14px 0 10px; font-size: 30px; font-weight: 700; color: #3a1d9a; }
+  .qrbox small { display: block; font-size: 22px; color: #555; }
+
+  /* ---------------- Shared classes for game views ---------------- */
+  .ovbg { background: rgba(7, 9, 21, 0.9); }
+  .ovsoft { background: rgba(7, 9, 21, 0.78); }
+  .center { flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .ov.on.center { display: flex; }
+  .big1 { font-size: 46px; font-weight: 800; color: var(--muted); margin: 0; }
+  .big2 { font-size: 64px; font-weight: 800; margin: 10px 0; }
+  .huge { font-size: 170px; font-weight: 900; line-height: 1.12; margin: 8px 0; max-width: 1700px; }
+  .sub { font-size: 40px; color: var(--muted); margin: 14px 0 0; max-width: 1500px; }
+  .okc { color: var(--ok); }
+  .badc { color: var(--bad); }
+  .btn {
+    font-size: 38px; font-weight: 900; padding: 18px 46px; margin: 0 18px; border-radius: 22px;
+    background: var(--panel2); border: 4px solid var(--line); color: #fff; white-space: nowrap;
+  }
+  .btn.focus { background: #fff; color: #0a0c1f; border-color: #fff; }
+  .pulse { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  /* ---------------- Global ---------------- */
+  #fx { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; display: none; }
+  #toast {
+    position: absolute; left: 50%; top: 40px; transform: translateX(-50%); max-width: 1500px; box-sizing: border-box;
+    padding: 22px 46px; border-radius: 999px; background: #fff; color: #0a0c1f; font-size: 40px; font-weight: 800;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none; z-index: 30;
+  }
+  #toast.on { display: block; animation: drop 0.3s ease-out; }
+  @keyframes drop { from { transform: translate(-50%, -30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  #confirm { background: rgba(5, 6, 15, 0.86); z-index: 40; }
+  #confirm .box { position: absolute; left: 460px; top: 300px; width: 1000px; height: 440px; box-sizing: border-box; padding: 54px; border-radius: 36px; background: var(--panel); border: 4px solid var(--line); text-align: center; }
+  #confirm h2 { margin: 0; font-size: 68px; font-weight: 900; }
+  #confirm p { margin: 16px 0 44px; font-size: 34px; color: var(--muted); }
+  #confirm .btns { display: flex; justify-content: center; }
+  #confirm small { display: block; margin-top: 34px; font-size: 24px; color: rgba(255,255,255,0.4); }
+  #conn { background: rgba(5, 6, 15, 0.9); z-index: 50; }
+  #dbg {
+    position: absolute; left: 0; top: 0; z-index: 60; display: none; padding: 6px 12px;
+    background: #000; color: #0f0; font: bold 24px 'Courier New', monospace; white-space: pre;
+  }
+</style>
+<!--@boot-->
+<script src="/lib/core.js"></script>
+<script src="/lib/canvas.js"></script>
+<script src="/lib/socket.js"></script>
+<script src="/lib/keys.js"></script>
+<script src="/lib/sound.js"></script>
+<script src="/lib/keepalive.js"></script>
+<!--@games-->
+</head>
+<body>
+<div id="stage">
+  <!-- ======================= MENU ======================= -->
+  <section id="vMenu" class="view on">
+    <h1 class="brand">Juegos del Salón</h1>
+    <p class="tagline fit" id="menuStatus">Escanead el QR con la cámara del móvil para uniros</p>
+    <div class="cardsWrap"><div class="cards" id="cards"></div></div>
+    <div class="players" id="menuPlayers"></div>
+    <div class="qrbox" id="qrBox">
+      <img id="qrImg" alt="">
+      <div class="qrtext">
+        <b>Escanea con la cámara del móvil</b>
+        <span class="url mono fit" id="qrUrl">…</span>
+        <small>o escríbelo en el navegador</small>
+      </div>
+    </div>
+    <div class="keys">◀ ▶ elegir juego · OK jugar</div>
+  </section>
+
+  <!-- Game views are added here by each game's tv.js -->
+
+  <canvas id="fx"></canvas>
+  <div id="toast"></div>
+  <div class="ov" id="confirm">
+    <div class="box">
+      <h2>¿Volver al menú?</h2>
+      <p>La partida en curso se perderá.</p>
+      <div class="btns">
+        <div class="btn" id="cfYes" data-act="cfYes">Sí, al menú</div>
+        <div class="btn" id="cfNo" data-act="cfNo">No, seguir</div>
+      </div>
+      <small>◀ ▶ y OK · Atrás para cancelar</small>
+    </div>
+  </div>
+  <div class="ov center" id="conn">
+    <p class="big2" id="connTitle">Conectando con el servidor…</p>
+    <p class="sub mono" id="connHost"></p>
+  </div>
+</div>
+<div id="dbg"></div>
+<script>
+(function () {
+  'use strict';
+  var G2T = window.G2T;
+  var $ = G2T.$, now = G2T.now, clamp = G2T.clamp, setText = G2T.setText, fit = G2T.fit, hexA = G2T.hexA;
+  var sfx = G2T.sound.sfx;
+
+  // ==================================================================
+  // Options
+  // ==================================================================
+  var LW = 1920, LH = 1080;
+  var COLORS = (G2T.boot.colors || ['#22e6ff', '#ff3df2']).slice();
+  var SLOTS = G2T.boot.slots || 2;
+  // Performance: the TV GPU is modest, so by default there are NO shadows or
+  // glows (shadowBlur, box-shadow, big gradients). ?fx=1 turns them on;
+  // ?lite=1 is kept for compatibility (same as the default).
+  var FX = G2T.qs('fx') === '1' && G2T.qs('lite') !== '1';
+  var LITE = !FX;
+  var DEBUG = G2T.qs('debug') === '1'; // ?debug=1: FPS and ms since the last message
+  document.documentElement.className += FX ? ' fx' : ' lite';
+
+  var serverHost = G2T.qs('server') || location.host;
+  var httpBase = serverHost ? ((location.protocol === 'https:' ? 'https:' : 'http:') + '//' + serverHost) : '';
+  var wsUrl = serverHost ? ((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + serverHost + '/ws') : '';
+
+  function show(el, on) { if (on) el.classList.add('on'); else el.classList.remove('on'); }
+  function playerName(i) {
+    var p = hubState.players && hubState.players[i];
+    return p ? p.name : ('Jugador ' + (i + 1));
+  }
+
+  // ==================================================================
+  // 1920x1080 stage scaling
+  // ==================================================================
+  var stage = $('stage');
+  var stageScale = 1;
+  var dpr = 1;
+  function layout() {
+    var w = window.innerWidth || document.documentElement.clientWidth || LW;
+    var h = window.innerHeight || document.documentElement.clientHeight || LH;
+    stageScale = Math.min(w / LW, h / LH);
+    dpr = G2T.capDpr(LW * stageScale); // for thumbnails and confetti (relative to the stage)
+    var ox = (w - LW * stageScale) / 2, oy = (h - LH * stageScale) / 2;
+    var tr = 'translate(' + ox + 'px,' + oy + 'px) scale(' + stageScale + ')';
+    stage.style.transform = tr;
+    stage.style.webkitTransform = tr;
+    resizeFx();
+    G2T.tv.each(function (v) { if (v.layout) v.layout(w, h); });
+  }
+
+  // ==================================================================
+  // State and WebSocket
+  // ==================================================================
+  var connected = false;
+  var hubState = { screen: 'menu', players: [], ready: false, pick: null };
+  var dbg = { frames: 0, states: 0, lastMsgAt: 0, t0: now(), fps: 0, sps: 0, worst: 0 };
+
+  var sock = G2T.socket({
+    url: wsUrl,
+    minRetry: 500,
+    onopen: function () {
+      connected = true;
+      sock.send({ t: 'hello', role: 'tv' });
+      G2T.tv.each(function (v) { if (v.onConnect) v.onConnect(); });
+      loadQr();
+      renderConn();
+    },
+    onmessage: function (msg) { dbg.lastMsgAt = now(); onMessage(msg); },
+    onclose: function () { connected = false; renderConn(); }
+  });
+  function sendMsg(obj) { return sock.send(obj); }
+
+  function activeView() { return currentScreen === 'menu' ? null : G2T.tv.get(currentScreen); }
+
+  function onMessage(msg) {
+    switch (msg.t) {
+      case 'info':
+        if (msg.colors) COLORS = msg.colors;
+        setText($('qrUrl'), String(msg.url || '').replace(/^https?:\/\//, ''));
+        fit($('qrUrl'), 30, 18);
+        return;
+      case 'hub': onHub(msg); return;
+      case 'ev': onEvent(msg); return;
+    }
+    var v = activeView();
+    if (v && v.onMessage) v.onMessage(msg);
+  }
+
+  function onEvent(ev) {
+    switch (ev.k) {
+      case 'join': sfx.join(); break;
+      case 'menu': if (ev.reason) toast('Volvemos al menú'); break;
+      case 'need2': toast('Faltan jugadores: escanead el QR'); break;
+      case 'toomany': toast('«' + ev.title + '» es para ' + ev.max + ' jugadores como mucho'); break;
+    }
+    var v = activeView();
+    if (v && v.onEvent) v.onEvent(ev);
+  }
+
+  // ==================================================================
+  // Hub: menu and screen switching
+  // ==================================================================
+  var currentScreen = 'menu';
+  var menuIndex = 0;
+  var cards = [];
+
+  function buildMenu() {
+    var box = $('cards');
+    box.innerHTML = '';
+    if (G2T.games.length > 2) box.classList.add('many');
+    G2T.games.forEach(function (g) {
+      var c = document.createElement('div');
+      c.className = 'card';
+      c.id = 'card-' + g.id;
+      c.setAttribute('data-game', g.id);
+      var tags = '';
+      (g.tags || []).forEach(function (t) { tags += '<span>' + G2T.esc(t) + '</span>'; });
+      c.innerHTML = '<div class="ok">OK para jugar</div>' +
+        '<div class="art">' + (g.icon ? '<img alt="" src="' + G2T.esc(g.icon) + '">' : '') + '</div>' +
+        '<h2 class="fit">' + G2T.esc(g.title) + '</h2><p>' + G2T.esc(g.description) + '</p><div class="tags">' + tags + '</div>';
+      box.appendChild(c);
+      cards.push(c);
+      var many = G2T.games.length > 2;
+      fit(c.querySelector('h2'), many ? 56 : 64, 30);
+    });
+    var chips = $('menuPlayers');
+    chips.className = 'players' + (SLOTS > 2 ? ' n' + Math.min(SLOTS, 4) : '');
+    var html = '';
+    for (var i = 0; i < SLOTS; i++) {
+      html += '<div class="pchip" id="chip' + (i + 1) + '"><span class="dot"></span><div class="txt"><b class="fit">Jugador ' + (i + 1) + '</b><small class="fit">Esperando…</small></div></div>';
+    }
+    chips.innerHTML = html;
+  }
+
+  function gameFits(g) {
+    var n = 0;
+    (hubState.players || []).forEach(function (p) { if (p) n++; });
+    return hubState.ready && n >= g.minPlayers && n <= g.maxPlayers;
+  }
+
+  function onHub(m) {
+    var prevPickAt = hubState.pick ? hubState.pick.at : 0;
+    hubState = m;
+    if (m.screen !== currentScreen) {
+      var from = currentScreen;
+      switchScreen(m.screen);
+      if (m.screen !== 'menu' && m.pick && m.pick.at !== prevPickAt) {
+        sfx.pick();
+        toast(m.pick.by > 0 ? (m.pick.name + ' ha elegido «' + m.pick.title + '»') : ('Elegido con el mando: «' + m.pick.title + '»'));
+      } else if (m.screen === 'menu' && from !== 'menu') {
+        for (var i = 0; i < cards.length; i++) if (cards[i].getAttribute('data-game') === from) menuIndex = i;
+      }
+    }
+    renderMenu();
+    var v = activeView();
+    if (v && v.onHub) v.onHub(m);
+  }
+
+  function switchScreen(s) {
+    var prev = activeView();
+    currentScreen = s;
+    closeConfirm();
+    show($('vMenu'), s === 'menu');
+    if (prev && prev.leave) prev.leave();
+    var v = activeView();
+    if (v && v.enter) v.enter();
+    if (s === 'menu') G2T.keepAlive.stop();
+    else G2T.keepAlive.start({ container: stage, src: httpBase + '/keepalive.mp4' });
+  }
+
+  function renderMenu() {
+    var ps = hubState.players || [];
+    var joined = [], allIn = true;
+    for (var i = 0; i < SLOTS; i++) {
+      var chip = $('chip' + (i + 1));
+      var p = ps[i];
+      var dot = chip.querySelector('.dot');
+      var b = chip.querySelector('b');
+      var sm = chip.querySelector('small');
+      if (p) {
+        joined.push(p.name);
+        chip.classList.add('in');
+        chip.style.borderColor = p.connected ? COLORS[i] : hexA(COLORS[i], 0.45);
+        dot.style.background = COLORS[i];
+        setText(b, p.name);
+        b.style.color = COLORS[i];
+        var extra = (p.badges && p.badges.length) ? ' · ' + p.badges.join(' · ') : '';
+        setText(sm, p.connected ? ('¡Listo!' + extra) : ('Reconectando… ' + (p.holdLeft || 0) + ' s'));
+        fit(sm, 22, 16);
+      } else {
+        allIn = false;
+        chip.classList.remove('in');
+        chip.style.borderColor = '';
+        dot.style.background = '';
+        setText(b, 'Jugador ' + (i + 1));
+        b.style.color = 'rgba(255,255,255,0.5)';
+        setText(sm, 'Esperando…'); sm.style.fontSize = '';
+      }
+    }
+    $('qrBox').style.display = allIn ? 'none' : 'flex';
+    if (allIn) $('menuPlayers').classList.add('center'); else $('menuPlayers').classList.remove('center');
+    var st = $('menuStatus');
+    if (hubState.ready) {
+      setText(st, '¡Listos, ' + G2T.joinNames(joined) + '! Elegid juego con el mando o desde el móvil');
+      st.classList.add('ready');
+    } else if (joined.length >= 2) {
+      setText(st, 'Esperando a que vuelva un jugador…');
+      st.classList.remove('ready');
+    } else {
+      setText(st, 'Escanead el QR con la cámara del móvil para uniros');
+      st.classList.remove('ready');
+    }
+    fit(st, 36, 22);
+    for (var k = 0; k < cards.length; k++) {
+      var g = G2T.gameById(cards[k].getAttribute('data-game'));
+      if (k === menuIndex) {
+        cards[k].classList.add('focus');
+        cards[k].style.borderColor = g.accent || '';
+      } else {
+        cards[k].classList.remove('focus');
+        cards[k].style.borderColor = '';
+      }
+      if (gameFits(g)) cards[k].classList.remove('off'); else cards[k].classList.add('off');
+      if (FX) cards[k].style.boxShadow = k === menuIndex ? '0 0 34px ' + hexA(g.accent || '#ffffff', 0.35) : '';
+    }
+    scrollCards();
+  }
+
+  // With many games the row scrolls so that the focused card is visible
+  function scrollCards() {
+    var box = $('cards');
+    var total = box.scrollWidth;
+    var x = 0;
+    if (total <= LW) x = (LW - total) / 2;
+    else if (cards[menuIndex]) {
+      var c = cards[menuIndex];
+      var center = c.offsetLeft + c.offsetWidth / 2;
+      x = clamp(LW / 2 - center, LW - total, 0);
+    }
+    var tr = 'translateX(' + Math.round(x) + 'px)';
+    if (box.style.transform !== tr) { box.style.transform = tr; box.style.webkitTransform = tr; }
+  }
+
+  var qrLoaded = false;
+  var qrImg = $('qrImg');
+  function loadQr() {
+    if (qrLoaded || !httpBase) return;
+    qrImg.onload = function () { qrLoaded = true; };
+    qrImg.src = httpBase + '/qr.svg?t=' + Date.now();
+  }
+
+  var toastTimer = null;
+  function toast(text, ms) {
+    var t = $('toast');
+    setText(t, text);
+    t.classList.remove('on');
+    void t.offsetWidth;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('on'); }, ms || 3500);
+  }
+
+  function renderConn() {
+    var on = !connected;
+    show($('conn'), on);
+    if (!on) return;
+    if (!wsUrl) {
+      setText($('connTitle'), 'Falta la dirección del servidor');
+      setText($('connHost'), 'Abre http://IP-DEL-PC:3000/ o añade ?server=IP:3000');
+    } else {
+      setText($('connTitle'), 'Conectando con el servidor…');
+      setText($('connHost'), serverHost);
+    }
+  }
+
+  // ==================================================================
+  // TV remote: arrows, OK (13), Back (461) / Escape
+  // ==================================================================
+  var confirmOpen = false, confirmIndex = 1;
+
+  function openConfirm() {
+    confirmOpen = true;
+    confirmIndex = 1;
+    show($('confirm'), true);
+    renderFocus();
+  }
+  function closeConfirm() {
+    confirmOpen = false;
+    show($('confirm'), false);
+  }
+  function renderFocus() {
+    var cf = [$('cfYes'), $('cfNo')];
+    for (var i = 0; i < 2; i++) { if (i === confirmIndex) cf[i].classList.add('focus'); else cf[i].classList.remove('focus'); }
+  }
+  function onBack() {
+    if (confirmOpen) { closeConfirm(); return; }
+    if (currentScreen !== 'menu') openConfirm();
+  }
+  function onKey(e) {
+    if (G2T.keys.isBack(e)) {
+      e.preventDefault();
+      onBack();
+      return;
+    }
+    var dir = G2T.keys.dir(e);
+    var ok = G2T.keys.isOk(e);
+    if (!dir && !ok) return;
+    e.preventDefault();
+    if (ok) tryFullscreen();
+    if (confirmOpen) {
+      if (dir) { confirmIndex = clamp(confirmIndex + dir, 0, 1); renderFocus(); sfx.move(); }
+      else {
+        if (confirmIndex === 0) sendMsg({ t: 'menu' });
+        closeConfirm();
+      }
+      return;
+    }
+    if (currentScreen === 'menu') {
+      if (dir) { menuIndex = clamp(menuIndex + dir, 0, cards.length - 1); renderMenu(); sfx.move(); return; }
+      var g = cards[menuIndex] && G2T.gameById(cards[menuIndex].getAttribute('data-game'));
+      if (!g) return;
+      if (!hubState.ready) { toast('Faltan jugadores: escanead el QR'); return; }
+      sendMsg({ t: 'pick', game: g.id });
+      return;
+    }
+    var v = activeView();
+    if (v && v.onKey) v.onKey(e, dir, ok);
+  }
+  window.addEventListener('keydown', onKey);
+  G2T.keys.captureBack(onBack);
+
+  function tryFullscreen() {
+    try {
+      var el = document.documentElement;
+      var fn = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (fn && !document.fullscreenElement && !document.webkitFullscreenElement) {
+        var p = fn.call(el);
+        if (p && p.catch) p.catch(function () {});
+      }
+    } catch (err) { /* noop */ }
+  }
+
+  // ==================================================================
+  // Confetti (own canvas, only while there are particles)
+  // ==================================================================
+  var fx = $('fx');
+  var fxc = fx.getContext('2d');
+  var confettiParts = [];
+  function resizeFx() {
+    var s = Math.min(1, stageScale * dpr);
+    fx.width = Math.round(LW * s);
+    fx.height = Math.round(LH * s);
+  }
+  function confetti() {
+    var n = LITE ? 60 : 170;
+    var cols = ['#22e6ff', '#ff3df2', '#ffd54f', '#3ee07a', '#ff8a65', '#b388ff', '#ffffff'];
+    for (var i = 0; i < n; i++) {
+      confettiParts.push({
+        x: LW * (0.15 + Math.random() * 0.7), y: -20 - Math.random() * 300,
+        vx: (Math.random() - 0.5) * 500, vy: 200 + Math.random() * 500,
+        r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 12,
+        w: 14 + Math.random() * 14, h: 8 + Math.random() * 8,
+        c: cols[i % cols.length], life: 3 + Math.random() * 1.5
+      });
+    }
+    fx.style.display = 'block';
+  }
+  function updateFx(dt) {
+    if (!confettiParts.length) return;
+    var s = fx.width / LW;
+    fxc.setTransform(1, 0, 0, 1, 0, 0);
+    fxc.clearRect(0, 0, fx.width, fx.height);
+    fxc.setTransform(s, 0, 0, s, 0, 0);
+    for (var i = confettiParts.length - 1; i >= 0; i--) {
+      var p = confettiParts[i];
+      p.vy += 600 * dt;
+      p.vx *= 0.99;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.r += p.vr * dt;
+      p.life -= dt;
+      if (p.life <= 0 || p.y > LH + 40) { confettiParts.splice(i, 1); continue; }
+      fxc.save();
+      fxc.translate(p.x, p.y);
+      fxc.rotate(p.r);
+      fxc.globalAlpha = Math.min(1, p.life);
+      fxc.fillStyle = p.c;
+      fxc.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.r * 1.7)));
+      fxc.restore();
+    }
+    if (!confettiParts.length) {
+      fxc.setTransform(1, 0, 0, 1, 0, 0);
+      fxc.clearRect(0, 0, fx.width, fx.height);
+      fx.style.display = 'none';
+    }
+  }
+
+  // ==================================================================
+  // ?debug=1: FPS and ms since the last server message
+  // ==================================================================
+  if (DEBUG) $('dbg').style.display = 'block';
+  function updateDebug(t, dtMs) {
+    if (!DEBUG) return;
+    dbg.frames++;
+    if (dtMs > dbg.worst) dbg.worst = dtMs;
+    if (t - dbg.t0 >= 500) {
+      var secs = (t - dbg.t0) / 1000;
+      dbg.fps = Math.round(dbg.frames / secs);
+      dbg.sps = Math.round(dbg.states / secs);
+      var v = activeView();
+      $('dbg').textContent = 'FPS ' + dbg.fps + ' (peor ' + Math.round(dbg.worst) + ' ms)' +
+        '  | último msg ' + (dbg.lastMsgAt ? Math.round(t - dbg.lastMsgAt) : '-') + ' ms' +
+        '  | estados/s ' + dbg.sps + '  | ' + currentScreen + (FX ? ' fx' : ' lite') +
+        (v && v.debugInfo ? '  | ' + v.debugInfo() : '') + ' dpr ' + dpr;
+      dbg.frames = 0;
+      dbg.states = 0;
+      dbg.worst = 0;
+      dbg.t0 = t;
+    }
+  }
+
+  // ==================================================================
+  // Host API given to every game view (see docs/crear-un-juego.md)
+  // ==================================================================
+  var host = {
+    LW: LW, LH: LH, FX: FX, LITE: LITE, DEBUG: DEBUG,
+    stage: stage,
+    httpBase: httpBase,
+    debug: dbg,
+    // Full-window layers (e.g. a game canvas) go below the stage
+    addLayer: function (el) { document.body.insertBefore(el, stage); },
+    addView: function (el) { stage.insertBefore(el, $('fx')); },
+    send: sendMsg,
+    colors: function () { return COLORS; },
+    hub: function () { return hubState; },
+    playerName: playerName,
+    stageScale: function () { return stageScale; },
+    dpr: function () { return dpr; },
+    capDpr: G2T.capDpr,
+    show: show,
+    setText: setText,
+    fit: fit,
+    toast: toast,
+    confetti: confetti,
+    sfx: sfx,
+    beep: G2T.sound.beep,
+    qrImage: function () { return qrLoaded ? qrImg : null; },
+    screen: function () { return currentScreen; }
+  };
+
+  // ==================================================================
+  // Render loop
+  // ==================================================================
+  var raf = window.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
+  var lastFrame = now();
+  function frame() {
+    var t = now();
+    var dtMs = t - lastFrame;
+    var dt = Math.min(0.05, dtMs / 1000);
+    lastFrame = t;
+    updateDebug(t, dtMs);
+    try {
+      var v = activeView();
+      if (v && v.frame) v.frame(t, dt);
+      updateFx(dt);
+    } catch (e) { if (window.console) console.error(e); }
+    raf(frame);
+  }
+
+  buildMenu();
+  G2T.tv.each(function (v) {
+    try { v.mount(host, G2T.gameById(v.id) || {}); } catch (e) { if (window.console) console.error(e); }
+  });
+  window.addEventListener('resize', layout);
+  layout();
+  renderMenu();
+  renderConn();
+  sock.connect();
+  raf(frame);
+  // For automated tests
+  window.__tv = {
+    hub: function () { return hubState; },
+    screen: function () { return currentScreen; },
+    view: function (id) { return G2T.tv.get(id); }
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+node_modules/
+npm-debug.log*
+
+# Datos locales: nunca se suben (tienen la client-key de la tele, dibujos, fotos)
+.game-to-tv/
+/config.json
+/galeria/
+/ambiente/
+
+# Salidas de compilación
+/dist/
+*.ipk
+
+# Capturas y pruebas
+/shots/
+*.log
+.DS_Store
+Thumbs.db
