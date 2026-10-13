@@ -53,8 +53,10 @@
     host.setText($('rxEarly'), meta.phase === 'ready' && meta.early.length
       ? meta.early.map(function (s) { return host.playerName(s - 1); }).join(', ') + ': ¡demasiado pronto! Fuera esta ronda'
       : '');
+    host.fit($('rxEarly'), 40, 22);
 
     var html = '';
+    $('rxScores').className = 'rx-scores' + (meta.players.length > 4 ? ' many' : '');
     meta.players.forEach(function (s) {
       var pts = meta.scores[s - 1] || 0;
       var dots = '';
@@ -63,6 +65,8 @@
         G2T.esc(host.playerName(s - 1)) + '</b><div class="rx-dots" style="color:' + colors[s - 1] + '">' + dots + '</div></div>';
     });
     $('rxScores').innerHTML = html;
+    var names = $('rxScores').querySelectorAll('b');
+    for (var i = 0; i < names.length; i++) host.fit(names[i], 40, 24);
   }
 
   G2T.tv.register({

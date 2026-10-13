@@ -10,3 +10,6 @@
 .rx-p { width: 400px; margin: 0 16px; padding: 18px 26px; box-sizing: border-box; border-radius: 26px; background: var(--panel); border: 4px solid var(--line); }
 .rx-p b { display: block; font-size: 40px; }
 .rx-dots { margin-top: 8px; font-size: 44px; letter-spacing: 8px; }
+/* 5 or 6 players: narrower boxes so the row fits in 1920 px (6 x 296 = 1776) */
+.rx-scores.many .rx-p { width: 280px; margin: 0 8px; padding: 16px 20px; }
+.rx-scores.many .rx-dots { font-size: 38px; letter-spacing: 4px; }

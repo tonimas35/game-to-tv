@@ -4,8 +4,8 @@
   "description": "La tele dice «¡YA!» y gana el punto quien antes toque su móvil. ¡Sin adelantarse! Al mejor de 5.",
   "phoneDescription": "Toca en cuanto la tele diga «¡YA!»",
   "minPlayers": 2,
-  "maxPlayers": 4,
-  "tags": ["Al mejor de 5", "2 a 4", "Ejemplo"],
+  "maxPlayers": 6,
+  "tags": ["Al mejor de 5", "Ejemplo"],
   "icon": "icon.svg",
   "accent": "#ffd23e",
   "order": 90

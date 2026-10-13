@@ -4,7 +4,9 @@
  *
  * The TV shows «Preparados…», and after a random delay «¡YA!». The first
  * phone to tap wins the point. Tapping before «¡YA!» disqualifies you for
- * that round. Best of 5: the first to 3 points wins.
+ * that round. Best of 5: the first to 3 points wins. 2 to 6 players: it
+ * works with whoever is in the room (api.players()), and it goes on if
+ * somebody leaves for good (onPlayerLeft).
  *
  * Messages it receives (from phones):
  *   { t: 'r.tap' }       tap
@@ -133,7 +135,16 @@ function create(api, opts) {
       if (msg.t === 'r.tap') tap(who);
       else if (msg.t === 'r.again' && S.phase === 'end') newMatch();
     },
-    onPlayerJoined: function (i) { api.sendSlot(i, buildMeta()); },
+    onPlayerJoined: function (i) { api.sendSlot(i, buildMeta()); dirty = true; },
+    // Somebody left for good (the hub only calls this while 2 or more remain):
+    // drop them and go on. Returning false would send everybody to the menu.
+    onPlayerLeft: function (i) {
+      S.early = S.early.filter(function (s) { return s !== i; });
+      S.scores[i] = 0;
+      if (S.last && S.last.slot === i) S.last = null;
+      dirty = true;
+      return true;
+    },
     syncTv: function (ws) { api.sendWs(ws, buildMeta()); },
     _state: S
   };

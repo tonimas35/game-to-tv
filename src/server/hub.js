@@ -184,8 +184,12 @@ function createHub(opts) {
     const g = games.byId[id];
     if (!g) return;
     if (hub.game) { try { hub.game.stop(); } catch (e) { log('Error parando juego: ' + e.message); } }
+    // The name first: compacting may move the player who picked to another slot
+    const byCid = by > 0 && players[by - 1] ? players[by - 1].cid : null;
+    const byName = by > 0 ? nameOf(by - 1) : 'la tele';
     if (occupied().some(function (i) { return i >= g.manifest.maxPlayers; })) compactSlots();
-    hub.pick = { game: id, title: g.manifest.title, by: by, name: by > 0 ? nameOf(by - 1) : 'la tele', at: Date.now() };
+    if (byCid) for (let i = 0; i < SLOTS; i++) if (players[i] && players[i].cid === byCid) by = i + 1;
+    hub.pick = { game: id, title: g.manifest.title, by: by, name: byName, at: Date.now() };
     hub.screen = id;
     hub.gameId = id;
     hub.game = g.module.create(apiFor(id));
