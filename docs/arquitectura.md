@@ -1,0 +1,109 @@
+# Arquitectura
+
+```
+                 ┌──────────────────────── PC (Node.js ≥ 18) ────────────────────────┐
+                 │  game-to-tv start                                                  │
+  Móviles ──────▶│  HTTP + WebSocket en UN puerto (3000)                              │
+  (/m + QR)      │   ├─ src/server/index.js   rutas, shells, QR, galería, ambiente    │
+                 │   ├─ src/server/hub.js     huecos, reconexión, menú, bucle 60 Hz   │
+  Tele ─────────▶│   └─ src/games/<id>/       un juego = una carpeta                  │
+  (/ = shell)    │                                                                    │
+                 │  game-to-tv tv …  ──▶ src/drivers/<driver>/  (LG webOS, navegador) │
+                 └────────────────────────────────────────────────────────────────────┘
+```
+
+## Piezas
+
+| Carpeta | Qué hay |
+|---|---|
+| `bin/game-to-tv.js` | Entrada del CLI. |
+| `src/cli/` | Comandos: `start`, `doctor` (con el análisis del cortafuegos), `tv …`. Analizador de argumentos mínimo, sin dependencias. |
+| `src/config.js` | `~/.game-to-tv/config.json` (teles, clave de emparejamiento, carpetas). Se escribe con permisos `0600`. `GAME_TO_TV_HOME` la mueve. |
+| `src/server/` | `index.js` (HTTP, WebSocket, rutas), `hub.js` (jugadores y juegos), `net.js` (IP de la red local), `ambient.js` (modo ambiente). |
+| `src/games/` | `index.js` (registro de juegos) y una carpeta por juego. |
+| `public/` | `tv.html` y `m.html` (los *shells*), `ambiente.html`, `keepalive.mp4` y `lib/` (ayudas compartidas del navegador). |
+| `src/drivers/` | Interfaz y registro de drivers, y uno por tipo de tele. |
+| `apps/webos-launcher/` | Plantilla de la app lanzadora para LG. |
+| `scripts/` | `check-browser-js.js` (ES2019) y `make-icons.js`. |
+| `test/` | Pruebas sin dependencias de test (scripts de Node con `check()`). |
+
+## El servidor
+
+- **Un solo puerto** para todo (páginas, QR, WebSocket en `/ws`): solo hay que
+  abrir ese puerto en el cortafuegos.
+- **Archivos leídos en cada petición** y `Cache-Control: no-store`: editar una
+  vista solo requiere recargar la página (y la tele nunca se queda con una
+  versión vieja en caché).
+- **Shells con inyección**: al servir `/` y `/m`, el servidor sustituye
+  `<!--@boot-->` por la lista de juegos (`window.G2T_BOOT`) y `<!--@games-->`
+  por los `<script>`/`<link>` de cada juego. Así las vistas ya están cargadas
+  cuando llega el primer mensaje (sin carreras al reconectar a mitad de
+  partida) y el shell no conoce ningún juego concreto.
+- **Bucle a 60 Hz con paso fijo** (`hub.js`): llama a `tick(1/60)` del juego
+  activo y luego a `flush()` para enviar el estado. WebSocket sin compresión
+  (`perMessageDeflate: false`) por latencia; `TCP_NODELAY` lo pone `ws`.
+- **Detección de IP**: puntúa las interfaces (192.168.x > 10.x > 172.16-31.x;
+  penaliza VPN, Docker, WSL, Hyper‑V, 169.254…). `--host-ip`/`HOST_IP` manda.
+
+## El hub (`src/server/hub.js`)
+
+- **Huecos de jugador** (2 por defecto, `--jugadores N` hasta 8). Cada móvil
+  guarda un `cid` en `sessionStorage`; si se reconecta con el mismo `cid`
+  recupera su hueco. Un hueco desconectado se guarda `SLOT_HOLD_MS` (30 s).
+- **Elegir juego**: comprueba `minPlayers`/`maxPlayers` del manifiesto y que
+  todos estén conectados. Si un juego admite menos jugadores que huecos hay (el
+  Pong con 4 huecos), los huecos se **compactan** antes de empezar.
+- **Mensajes**: los del hub (`hello`, `join`, `leave`, `pick`, `menu`, `ping`)
+  los gestiona el hub; los que un juego declara en `lobby.messages` van a su
+  manejador de menú; el resto, al juego activo con `who` = hueco (0…) o `-1`
+  para la tele.
+- **Estado del hub** (`{t:'hub'}`): pantalla actual, jugadores (nombre, color,
+  conectado, segundos de reserva, `badges` de los juegos), quién eligió el
+  juego. Se reenvía al cambiar y como mucho una vez por segundo.
+
+Protocolo completo: comentario al principio de `src/server/hub.js`.
+
+## Los clientes
+
+`public/lib/` (ES2019, sin dependencias):
+
+| Archivo | Para qué |
+|---|---|
+| `core.js` | Espacio `G2T`, utilidades de DOM, almacenamiento con respaldo en memoria, registro de vistas (`G2T.tv`, `G2T.phone`). |
+| `canvas.js` | `G2T.capDpr()`: límite del tamaño real de los canvas (1280 px de ancho en webOS, `?res=N`). |
+| `socket.js` | WebSocket con reconexión (espera exponencial hasta 5 s) y vigilancia de conexiones «zombis» (móviles que se duermen). |
+| `keys.js` | Mando de la tele: flechas, OK (13), **Atrás (461)** y captura del `history.back()` de webOS. |
+| `sound.js` | Sonidos sintetizados con WebAudio (nunca rompen nada si el audio está bloqueado). |
+| `keepalive.js` | Evitar el salvapantallas de webOS (servicio luna si hay `PalmServiceBridge`, vídeo diminuto en bucle y un píxel que cambia). |
+
+La **tele** (`tv.html`) dibuja un escenario fijo de 1920x1080 y lo escala a la
+pantalla; cada juego añade su vista. El **móvil** (`m.html`) gestiona la
+entrada, el menú, los avisos y la confirmación; cada juego añade su pantalla y,
+si quiere, un panel en el menú.
+
+## Drivers
+
+Un driver sabe poner los juegos en un tipo de pantalla: descubrirla,
+emparejarse, instalar una app, abrirla, controlarla, hacer capturas y medir el
+rendimiento. Cada uno declara sus `capabilities` y el CLI explica en español
+lo que no puede hacer. Detalles: [drivers.md](drivers.md).
+
+## Decisiones (y por qué)
+
+- **Sin framework** ni en el servidor ni en el navegador: la tele es lenta y
+  vieja (Chromium 87); cuanto menos código, mejor. Dependencias: `ws`,
+  `qrcode`, `pngjs`.
+- **ES2019 en el navegador**, comprobado con `npm run check` (acorn + lista de
+  APIs prohibidas). Nada de CDNs: todo funciona sin Internet.
+- **Los juegos son carpetas** (manifiesto + servidor + vistas) en lugar de un
+  sistema de plugins con npm: copiar una carpeta es la forma más fácil de
+  empezar un juego.
+- **App lanzadora en vez del navegador de la tele** en LG: el navegador se
+  atascaba en páginas que fallaban al cargar; la app sondea `/qr.svg` y
+  después navega al servidor.
+- **Empaquetado `.ipk` en JavaScript puro**: se puede crear la app sin
+  instalar nada de LG. Para instalarla sí hace falta `ares-cli`.
+- **Configuración fuera del repositorio** (`~/.game-to-tv/`): la clave de
+  emparejamiento permite controlar la tele y nunca debe subirse.
+- **Los PNG de la galería se dibujan en un `worker_thread`**: guardar nunca
+  frena el juego.
