@@ -6,8 +6,14 @@ Un pequeño servidor de Node.js corre en un PC de casa y unos *drivers* se
 encargan de poner los juegos en la tele (instalar una app, abrirla, mandar
 avisos, hacer capturas…).
 
-<!-- Capturas: añadir aquí imágenes de docs/img/ (menú, Dibuja y adivina, Pong) -->
-> 📸 *Capturas pendientes: menú de la tele, «Dibuja y adivina» y Pong.*
+![Menú de Juegos del Salón en la tele](docs/img/menu.jpg)
+
+<p>
+  <img src="docs/img/dibuja-tele.jpg" alt="Dibuja y adivina en la tele" width="66%">
+  <img src="docs/img/dibuja-movil.jpg" alt="El móvil de quien dibuja" width="22%">
+</p>
+
+![Pong en la tele](docs/img/pong.jpg)
 
 ```
   Móvil 1 ──┐                          ┌── Tele (app lanzadora o navegador)
