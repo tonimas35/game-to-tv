@@ -70,13 +70,18 @@
   .card p { margin: 0; font-size: 29px; line-height: 1.32; color: var(--muted); height: 78px; overflow: hidden; }
   .card .tags { margin-top: 18px; display: flex; }
   .card .tags span { font-size: 22px; font-weight: 700; padding: 6px 16px; border-radius: 999px; background: rgba(255,255,255,0.08); margin-right: 12px; white-space: nowrap; }
+  .card .tags span.range { background: rgba(255,255,255,0.92); color: #0a0c1f; font-weight: 900; }
+  .card .why { display: none; margin-top: 18px; height: 38px; line-height: 38px; font-size: 26px; font-weight: 900; color: var(--warn); }
   .card .ok {
     position: absolute; right: 30px; top: 30px; font-size: 22px; font-weight: 800; padding: 8px 16px;
     border-radius: 12px; background: #fff; color: #0a0c1f; opacity: 0;
   }
   .card.focus { transform: scale(1.045); border-color: #fff; }
   .card.focus .ok { opacity: 1; }
-  .card.off { opacity: 0.55; }
+  /* The game does not fit the players in the room: dimmed, with the reason (not dimmed) instead of the tags */
+  .card.off > .art, .card.off > h2, .card.off > p { opacity: 0.45; }
+  .card.off .tags { display: none; }
+  .card.off .why { display: block; }
   /* 3 or more games: narrower cards */
   .cards.many .card { width: 560px; margin: 0 18px; padding: 26px 34px; }
   .cards.many .card .art { height: 150px; }
@@ -84,19 +89,26 @@
   .cards.many .card h2 { font-size: 56px; }
   .cards.many .card p { font-size: 25px; height: 99px; }
   .cards.many .card .tags { margin-top: 14px; }
-  .players { position: absolute; left: 70px; bottom: 44px; display: flex; }
-  .players.center { left: 0; right: 0; justify-content: center; }
-  .pchip {
-    width: 420px; height: 96px; box-sizing: border-box; margin-right: 26px; padding: 0 26px;
-    display: flex; align-items: center; border-radius: 26px; background: var(--panel); border: 3px dashed var(--line);
+  /* Players: a grid of chips (1 row up to 3, then 3 or 4 columns) left of the QR; centred when the room is full */
+  .players {
+    position: absolute; left: 60px; width: 1146px; bottom: 34px; height: 262px;
+    display: flex; flex-wrap: wrap; align-content: center; justify-content: flex-start;
   }
-  .players.n3 .pchip { width: 320px; margin-right: 20px; }
-  .players.n4 .pchip { width: 266px; margin-right: 16px; padding: 0 18px; }
-  .pchip .dot { width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto; margin-right: 18px; background: rgba(255,255,255,0.2); }
+  .players.center { left: 0; width: 1920px; justify-content: center; }
+  .pchip {
+    width: 362px; height: 104px; box-sizing: border-box; margin: 6px 10px; padding: 0 22px;
+    display: none; align-items: center; border-radius: 26px; background: var(--panel); border: 3px dashed var(--line);
+  }
+  .pchip.vis { display: flex; }
+  .players.center .pchip { width: 420px; margin: 6px 14px; }
+  .players.c4 .pchip, .players.c4.center .pchip { width: 266px; margin: 6px 8px; padding: 0 16px; }
+  .pchip .dot { width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto; margin-right: 16px; background: rgba(255,255,255,0.2); }
+  .pchip .num { flex: 0 0 auto; margin-left: 10px; font-size: 22px; font-weight: 900; color: rgba(255,255,255,0.35); }
   .pchip .txt { min-width: 0; flex: 1; }
-  .pchip b { display: block; font-size: 36px; }
-  .pchip small { display: block; font-size: 22px; color: var(--muted); }
+  .pchip b { display: block; font-size: 36px; line-height: 1.2; }
+  .pchip small { display: block; font-size: 22px; line-height: 1.3; color: var(--muted); }
   .pchip.in { border-style: solid; }
+  .pchip.free b { color: rgba(255,255,255,0.5); }
   .keys { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 22px; color: rgba(255,255,255,0.38); }
   .qrbox {
     position: absolute; right: 44px; bottom: 34px; width: 640px; height: 262px; box-sizing: border-box;
@@ -290,8 +302,9 @@
     switch (ev.k) {
       case 'join': sfx.join(); break;
       case 'menu': if (ev.reason) toast('Volvemos al menú'); break;
-      case 'need2': toast('Faltan jugadores: escanead el QR'); break;
-      case 'toomany': toast('«' + ev.title + '» es para ' + ev.max + ' jugadores como mucho'); break;
+      case 'need2': toast(ev.text || 'Faltan jugadores: escanead el QR', 5000); sfx.wrong(); break;
+      case 'toomany': toast(ev.text || ('«' + ev.title + '» es para ' + ev.max + ' jugadores como mucho'), 5000); sfx.wrong(); break;
+      case 'left': if (ev.name) toast(ev.name + ' se ha ido; la partida sigue'); break;
     }
     var v = activeView();
     if (v && v.onEvent) v.onEvent(ev);
@@ -313,30 +326,25 @@
       c.className = 'card';
       c.id = 'card-' + g.id;
       c.setAttribute('data-game', g.id);
-      var tags = '';
+      var tags = '<span class="range">' + G2T.esc(G2T.playerRange(g)) + '</span>';
       (g.tags || []).forEach(function (t) { tags += '<span>' + G2T.esc(t) + '</span>'; });
       c.innerHTML = '<div class="ok">OK para jugar</div>' +
         '<div class="art">' + (g.icon ? '<img alt="" src="' + G2T.esc(g.icon) + '">' : '') + '</div>' +
-        '<h2 class="fit">' + G2T.esc(g.title) + '</h2><p>' + G2T.esc(g.description) + '</p><div class="tags">' + tags + '</div>';
+        '<h2 class="fit">' + G2T.esc(g.title) + '</h2><p>' + G2T.esc(g.description) + '</p><div class="tags">' + tags + '</div>' +
+        '<div class="why fit"></div>';
       box.appendChild(c);
       cards.push(c);
       var many = G2T.games.length > 2;
       fit(c.querySelector('h2'), many ? 56 : 64, 30);
     });
-    var chips = $('menuPlayers');
-    chips.className = 'players' + (SLOTS > 2 ? ' n' + Math.min(SLOTS, 4) : '');
     var html = '';
     for (var i = 0; i < SLOTS; i++) {
-      html += '<div class="pchip" id="chip' + (i + 1) + '"><span class="dot"></span><div class="txt"><b class="fit">Jugador ' + (i + 1) + '</b><small class="fit">Esperando…</small></div></div>';
+      html += '<div class="pchip" id="chip' + (i + 1) + '"><span class="dot"></span><div class="txt"><b class="fit">Jugador ' + (i + 1) + '</b><small class="fit">Esperando…</small></div><span class="num">' + (i + 1) + '</span></div>';
     }
-    chips.innerHTML = html;
+    $('menuPlayers').innerHTML = html;
   }
 
-  function gameFits(g) {
-    var n = 0;
-    (hubState.players || []).forEach(function (p) { if (p) n++; });
-    return hubState.ready && n >= g.minPlayers && n <= g.maxPlayers;
-  }
+  function gameFits(g) { return !G2T.whyNot(g, hubState); }
 
   function onHub(m) {
     var prevPickAt = hubState.pick ? hubState.pick.at : 0;
@@ -368,9 +376,11 @@
     else G2T.keepAlive.start({ container: stage, src: httpBase + '/keepalive.mp4' });
   }
 
+  // Chips: every player in the room, plus ONE «free» chip while there is room
+  // (with 6 slots, four empty chips would only be noise)
   function renderMenu() {
     var ps = hubState.players || [];
-    var joined = [], allIn = true;
+    var joined = [], away = [], freeShown = false, visible = 0;
     for (var i = 0; i < SLOTS; i++) {
       var chip = $('chip' + (i + 1));
       var p = ps[i];
@@ -379,32 +389,44 @@
       var sm = chip.querySelector('small');
       if (p) {
         joined.push(p.name);
-        chip.classList.add('in');
+        if (!p.connected) away.push(p.name);
+        chip.className = 'pchip vis in';
         chip.style.borderColor = p.connected ? COLORS[i] : hexA(COLORS[i], 0.45);
         dot.style.background = COLORS[i];
         setText(b, p.name);
         b.style.color = COLORS[i];
+        fit(b, 36, 24);
         var extra = (p.badges && p.badges.length) ? ' · ' + p.badges.join(' · ') : '';
         setText(sm, p.connected ? ('¡Listo!' + extra) : ('Reconectando… ' + (p.holdLeft || 0) + ' s'));
-        fit(sm, 22, 16);
+        fit(sm, 22, 15);
+        visible++;
       } else {
-        allIn = false;
-        chip.classList.remove('in');
+        chip.className = 'pchip free' + (freeShown ? '' : ' vis');
+        if (!freeShown) visible++;
+        freeShown = true;
         chip.style.borderColor = '';
         dot.style.background = '';
-        setText(b, 'Jugador ' + (i + 1));
-        b.style.color = 'rgba(255,255,255,0.5)';
-        setText(sm, 'Esperando…'); sm.style.fontSize = '';
+        setText(b, 'Hueco libre');
+        b.style.color = '';
+        b.style.fontSize = '';
+        setText(sm, 'Escanead el QR para entrar'); sm.style.fontSize = '';
       }
     }
+    var allIn = !freeShown;
+    var box = $('menuPlayers');
+    box.className = 'players' + (visible > 6 ? ' c4' : '') + (allIn ? ' center' : '');
     $('qrBox').style.display = allIn ? 'none' : 'flex';
-    if (allIn) $('menuPlayers').classList.add('center'); else $('menuPlayers').classList.remove('center');
     var st = $('menuStatus');
     if (hubState.ready) {
-      setText(st, '¡Listos, ' + G2T.joinNames(joined) + '! Elegid juego con el mando o desde el móvil');
+      setText(st, joined.length <= 3
+        ? '¡Listos, ' + G2T.joinNames(joined) + '! Elegid juego con el mando o desde el móvil'
+        : '¡Sois ' + joined.length + '! Elegid juego con el mando o desde el móvil');
       st.classList.add('ready');
-    } else if (joined.length >= 2) {
-      setText(st, 'Esperando a que vuelva un jugador…');
+    } else if (away.length) {
+      setText(st, 'Esperando a que vuelva ' + G2T.joinNames(away) + '…');
+      st.classList.remove('ready');
+    } else if (joined.length === 1) {
+      setText(st, '¡Hola, ' + joined[0] + '! Falta al menos otro jugador: escanead el QR');
       st.classList.remove('ready');
     } else {
       setText(st, 'Escanead el QR con la cámara del móvil para uniros');
@@ -413,6 +435,10 @@
     fit(st, 36, 22);
     for (var k = 0; k < cards.length; k++) {
       var g = G2T.gameById(cards[k].getAttribute('data-game'));
+      var why = G2T.whyNot(g, hubState);
+      var whyEl = cards[k].querySelector('.why');
+      setText(whyEl, why || '');
+      if (why) fit(whyEl, 26, 18);
       if (k === menuIndex) {
         cards[k].classList.add('focus');
         cards[k].style.borderColor = g.accent || '';
@@ -420,7 +446,7 @@
         cards[k].classList.remove('focus');
         cards[k].style.borderColor = '';
       }
-      if (gameFits(g)) cards[k].classList.remove('off'); else cards[k].classList.add('off');
+      if (!why) cards[k].classList.remove('off'); else cards[k].classList.add('off');
       if (FX) cards[k].style.boxShadow = k === menuIndex ? '0 0 34px ' + hexA(g.accent || '#ffffff', 0.35) : '';
     }
     scrollCards();
@@ -456,6 +482,7 @@
     t.classList.remove('on');
     void t.offsetWidth;
     t.classList.add('on');
+    fit(t, 40, 24);
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { t.classList.remove('on'); }, ms || 3500);
   }
@@ -519,7 +546,7 @@
       if (dir) { menuIndex = clamp(menuIndex + dir, 0, cards.length - 1); renderMenu(); sfx.move(); return; }
       var g = cards[menuIndex] && G2T.gameById(cards[menuIndex].getAttribute('data-game'));
       if (!g) return;
-      if (!hubState.ready) { toast('Faltan jugadores: escanead el QR'); return; }
+      // Even if it does not fit: the server answers with the reason for everybody
       sendMsg({ t: 'pick', game: g.id });
       return;
     }

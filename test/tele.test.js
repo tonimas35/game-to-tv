@@ -114,6 +114,7 @@ async function packageTests() {
   check(spkg.name === SVC && spkg.main === 'service.js' && spkg.version === V && !spkg.dependencies, 'package.json del servicio: name = id del servicio, main = service.js');
   check(sjson.id === SVC && sjson.services.length === 1 && sjson.services[0].name === SVC && sjson.description, 'services.json: { id, description, services: [{ name }] }');
   check(tvs.port === 8090 && tvs.idleMinutes === 20 && tvs.serviceId === SVC && tvs.version === V, 'tv-service.json: puerto y minutos de inactividad configurables');
+  check(tvs.players === 6, 'tv-service.json: 6 jugadores por defecto, como en modo pc');
   const pinfo = JSON.parse(file('./usr/palm/packages/' + APP + '/packageinfo.json').data.toString());
   check(pinfo.app === APP && pinfo.id === APP && pinfo.version === V && JSON.stringify(pinfo.services) === JSON.stringify([SVC]), 'packageinfo.json: { app, id, version, services: [' + SVC + '] }');
   check(has('./usr/palm/services/') && has('./usr/palm/services/' + SVC + '/') && has(S + 'node_modules/qrcode/node_modules/pngjs/lib/'), 'Entradas de carpeta usr/palm/services/<id>/… en el tar');

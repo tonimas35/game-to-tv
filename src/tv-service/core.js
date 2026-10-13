@@ -33,6 +33,7 @@ const path = require('path');
 
 const DEFAULT_PORT = 8090;           // 3000/3001 are LG's own SSAP (second screen) service
 const DEFAULT_IDLE_MS = 15 * 60 * 1000;
+const DEFAULT_PLAYERS = 6;            // player slots (2 to 8), like `game-to-tv start`
 const HEARTBEAT_MS = 5000;
 const LOG_LINES = 300;
 
@@ -114,6 +115,7 @@ function galleryCandidates(env, serviceDir) {
  *   serviceId      e.g. 'io.gametotv.launcher.service'
  *   createServer   default: require('../server').createServer
  *   port           default 8090 (G2T_PORT)
+ *   players        player slots, default 6 (G2T_JUGADORES), 2 to 8
  *   idleMs         default 15 min (G2T_IDLE_MIN); 0 = never
  *   heartbeatMs    default 5000
  *   idleCheckMs    how often idleness is checked (default min(30 s, idleMs / 4))
@@ -130,6 +132,8 @@ function createTvService(deps) {
   const port = deps.port != null && deps.port !== '' ? Number(deps.port) : Number(env.G2T_PORT || DEFAULT_PORT);
   const idleMs = deps.idleMs != null ? Number(deps.idleMs)
     : (env.G2T_IDLE_MIN != null && env.G2T_IDLE_MIN !== '' ? Number(env.G2T_IDLE_MIN) * 60000 : DEFAULT_IDLE_MS);
+  const rawPlayers = deps.players != null && deps.players !== '' ? deps.players : env.G2T_JUGADORES;
+  const players = Math.max(2, Math.min(8, parseInt(rawPlayers, 10) || DEFAULT_PLAYERS));
   const heartbeatMs = deps.heartbeatMs || HEARTBEAT_MS;
   const idleCheckMs = deps.idleCheckMs || Math.max(50, Math.min(30000, Math.floor((idleMs || 60000) / 4)));
   const netIfaces = deps.networkInterfaces || function () { return os.networkInterfaces(); };
@@ -239,6 +243,7 @@ function createTvService(deps) {
       version: version,
       port: port,
       hostIp: ip,
+      maxPlayers: players,
       galleryDir: gallery.dir ? gallery.dir : null,
       // Next to the gallery (…/game-to-tv/ambiente): photos can be copied there by hand
       ambientDir: path.join(gallery.dir ? path.dirname(gallery.dir) : path.join(os.tmpdir(), 'game-to-tv'), 'ambiente'),
@@ -332,6 +337,7 @@ function createTvService(deps) {
       gallerySaving: !!g.dir,
       galleryTried: g.tried,
       idleMinutes: idleMs / 60000,
+      players: players,
       idleFor: isActive(a) ? 0 : Math.round((Date.now() - st.lastActive) / 1000),
       subscriptions: st.subs.length,
       keepAlive: !!st.keep
@@ -414,6 +420,7 @@ function createTvService(deps) {
 module.exports = {
   DEFAULT_PORT: DEFAULT_PORT,
   DEFAULT_IDLE_MS: DEFAULT_IDLE_MS,
+  DEFAULT_PLAYERS: DEFAULT_PLAYERS,
   createTvService: createTvService,
   pickTvIp: pickTvIp,
   probeGalleryDir: probeGalleryDir,

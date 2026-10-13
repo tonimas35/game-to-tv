@@ -91,13 +91,13 @@ const driver = {
 
   /**
    * Builds the launcher folder (and, in tele mode, the service folder) and the .ipk.
-   * opts: { mode: 'tele' | 'pc', serverUrl, port, idleMinutes, outDir, packager: 'js' | 'ares', version }
+   * opts: { mode: 'tele' | 'pc', serverUrl, port, idleMinutes, players, outDir, packager: 'js' | 'ares', version }
    */
   async build(tv, opts) {
     const mode = opts.mode === 'pc' ? 'pc' : 'tele';
     const app = launcher.buildApp({ mode: mode, serverUrl: opts.serverUrl, port: opts.port, appId: appIdOf(tv), version: opts.version });
     const svc = mode === 'tele'
-      ? bundle.buildService({ appId: app.appinfo.id, serviceId: app.serviceId, version: app.appinfo.version, port: app.port, idleMinutes: opts.idleMinutes })
+      ? bundle.buildService({ appId: app.appinfo.id, serviceId: app.serviceId, version: app.appinfo.version, port: app.port, idleMinutes: opts.idleMinutes, players: opts.players })
       : null;
     const outDir = path.resolve(opts.outDir || process.cwd());
     fs.mkdirSync(outDir, { recursive: true });
@@ -122,12 +122,12 @@ const driver = {
     };
   },
 
-  /** opts: { mode, serverUrl, port, idleMinutes, outDir, ipkOnly, packager, log } */
+  /** opts: { mode, serverUrl, port, idleMinutes, players, outDir, ipkOnly, packager, log } */
   async install(tv, opts) {
     const log = opts.log || function () {};
     const hasAres = ares.available();
     const built = await this.build(tv, {
-      mode: opts.mode, serverUrl: opts.serverUrl, port: opts.port, idleMinutes: opts.idleMinutes, outDir: opts.outDir,
+      mode: opts.mode, serverUrl: opts.serverUrl, port: opts.port, idleMinutes: opts.idleMinutes, players: opts.players, outDir: opts.outDir,
       packager: hasAres && opts.packager !== 'js' && !opts.ipkOnly ? 'ares' : 'js'
     });
     const kb = built.size ? '  ' + Math.round(built.size / 1024) + ' KB' : '';

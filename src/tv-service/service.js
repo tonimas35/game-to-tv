@@ -7,7 +7,7 @@
  * The service folder that `game-to-tv tv install` builds looks like this:
  *   package.json       { name: <appId>.service, version, main: service.js }
  *   services.json      { id, description, services: [{ name }] }
- *   tv-service.json    { port, idleMinutes, appId, serviceId, version }
+ *   tv-service.json    { port, idleMinutes, players, appId, serviceId, version }
  *   service.js         require('./src/tv-service/service.js')
  *   src/server, src/games, src/config.js, src/tv-service, public/
  *   node_modules/      ws, qrcode, pngjs (production only)
@@ -33,6 +33,7 @@ const tvService = core.createTvService({
   Service: Service,
   serviceId: serviceId,
   port: process.env.G2T_PORT || settings.port,
+  players: process.env.G2T_JUGADORES || settings.players,
   idleMs: process.env.G2T_IDLE_MIN ? Number(process.env.G2T_IDLE_MIN) * 60000
     : (settings.idleMinutes != null ? Number(settings.idleMinutes) * 60000 : undefined),
   version: settings.version || pkg.version,

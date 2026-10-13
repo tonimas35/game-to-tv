@@ -92,6 +92,17 @@
   }
   .game b { display: block; font-size: 26px; }
   .game span { display: block; font-size: 15px; font-weight: 500; color: var(--muted); margin-top: 4px; }
+  .game .rng { display: inline-block; font-size: 13px; font-weight: 900; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,0.9); color: #070915; margin-top: 8px; }
+  .game .why { color: var(--warn); font-weight: 800; }
+  .game[disabled] { opacity: 1; }
+  .game[disabled] b, .game[disabled] span.d { opacity: 0.45; }
+  /* Everybody in the room, with their colour */
+  .room { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0 2px; }
+  .room span { display: inline-flex; align-items: center; gap: 6px; max-width: 46%; padding: 4px 10px; border-radius: 999px; font-size: 14px; font-weight: 800; background: rgba(255,255,255,0.06); border: 2px solid transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .room span i { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+  .room span.me { border-color: currentColor; }
+  .room span.away { opacity: 0.5; }
+  .youare { height: 8px; border-radius: 4px; background: var(--c); margin: 8px 0 0; }
   .small { font-size: 14px; color: var(--muted); margin: 6px 0 12px; }
   .foot { margin: 18px 0 8px; text-align: center; }
 
@@ -150,7 +161,9 @@
       <div class="chip"><span class="dot"></span><span id="mName" class="meName">Jugador</span></div>
       <button class="mini ghost" id="leaveBtn" type="button">Salir</button>
     </div>
-    <p class="status" id="mStatus">Esperando a tu pareja…</p>
+    <div class="youare"></div>
+    <p class="status" id="mStatus">Esperando a más jugadores…</p>
+    <div class="room" id="mRoom"></div>
     <h2 class="h">Elegid juego</h2>
     <div id="gameList"></div>
     <div id="menuPanels"></div>
@@ -339,9 +352,10 @@
         render();
         return;
       case 'ev':
-        if (msg.k === 'need2') toast('Falta tu pareja');
-        if (msg.k === 'toomany') toast('«' + msg.title + '» es para ' + msg.max + ' jugadores como mucho');
+        if (msg.k === 'need2') toast(msg.text || 'Faltan jugadores', 4500);
+        if (msg.k === 'toomany') toast(msg.text || ('«' + msg.title + '» es para ' + msg.max + ' jugadores como mucho'), 4500);
         if (msg.k === 'menu' && msg.reason) toast('Volvemos al menú');
+        if (msg.k === 'left' && msg.name) toast(msg.name + ' se ha ido; la partida sigue');
         break;
     }
     // Menu panels of the games (e.g. secret words) see every message first
@@ -393,7 +407,8 @@
     var html = '';
     G2T.games.forEach(function (g) {
       html += '<button class="game" data-game="' + esc(g.id) + '" type="button" style="border-color:' + G2T.hexA(g.accent || '#ffffff', 0.5) + '">' +
-        '<b>' + esc(g.title) + '</b><span>' + esc(g.phoneDescription || g.description) + '</span></button>';
+        '<b>' + esc(g.title) + '</b><span class="d">' + esc(g.phoneDescription || g.description) + '</span>' +
+        '<span class="rng">' + esc(G2T.playerRange(g)) + '</span><span class="why"></span></button>';
     });
     $('gameList').innerHTML = html;
     Array.prototype.forEach.call(document.querySelectorAll('#gameList .game'), function (b) {
@@ -403,22 +418,30 @@
   function renderMenu() {
     var ready = hub.ready;
     var o = others();
-    var n = o.length + 1;
     var away = o.filter(function (p) { return !p.connected; });
     var st;
-    if (ready) st = 'Jugáis tú y ' + otherName() + '. ¡Elegid juego!';
-    else if (away.length) st = 'Esperando a que vuelva ' + away[0].name + '…';
-    else st = 'Esperando a tu pareja… (que escanee el QR de la tele)';
+    if (ready) st = o.length === 1 ? 'Jugáis tú y ' + otherName() + '. ¡Elegid juego!' : 'Sois ' + (o.length + 1) + '. ¡Elegid juego!';
+    else if (away.length) st = 'Esperando a que vuelva ' + G2T.joinNames(away.map(function (p) { return p.name; })) + '…';
+    else st = 'Esperando a más jugadores… (que escaneen el QR de la tele)';
     setText($('mStatus'), st);
+    var room = '';
+    (hub.players || []).forEach(function (p, i) {
+      if (!p) return;
+      var me = i === slot - 1;
+      room += '<span class="' + (me ? 'me' : '') + (p.connected ? '' : ' away') + '" style="color:' + (p.color || COLORS[i]) + '"><i style="background:' + (p.color || COLORS[i]) + '"></i>' + esc(p.name) + (me ? ' (tú)' : '') + '</span>';
+    });
+    if ($('mRoom').innerHTML !== room) $('mRoom').innerHTML = room;
     Array.prototype.forEach.call(document.querySelectorAll('#gameList .game'), function (b) {
       var g = G2T.gameById(b.getAttribute('data-game'));
-      b.disabled = !ready || n < g.minPlayers || n > g.maxPlayers;
+      var why = G2T.whyNot(g, hub);
+      b.disabled = !!why;
+      setText(b.querySelector('.why'), why ? ' · ' + why : '');
     });
     G2T.phone.each(function (v) { if (v.menuPanel && v.menuPanel.render) v.menuPanel.render(); });
   }
   function pickGame(e) {
     var g = e.currentTarget.getAttribute('data-game');
-    if (!hub || !hub.ready) { toast('Falta tu pareja'); return; }
+    if (!hub) return;
     sendMsg({ t: 'pick', game: g });
   }
 
@@ -442,7 +465,7 @@
     setText: setText,
     // «Menú» button inside a game (asks for confirmation)
     confirmMenu: function () {
-      askConfirm('¿Volver al menú? La partida se terminará para los dos.', 'Sí, al menú', function () { sendMsg({ t: 'menu' }); });
+      askConfirm('¿Volver al menú? La partida se terminará para todos.', 'Sí, al menú', function () { sendMsg({ t: 'menu' }); });
     },
     vibrate: function (p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* noop */ } }
   };

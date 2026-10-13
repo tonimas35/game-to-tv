@@ -76,7 +76,7 @@ async function main() {
     GAME_TO_TV_HOME: HOME,
     PORT: String(PORT), HOST_IP: '192.168.1.50', SLOT_HOLD_MS: '4000',
     PONG_DEBUG_SPEED: '3', POINTS_TO_WIN: '3', DIBUJA_DEBUG_SPEED: String(SPEED), DIBUJA_ROUNDS: '8'
-  });
+  }, ['--jugadores', '2']); // the classic room for two (the default is 6: see test/grupo.test.js)
   let srvOut = srvState.out;
   const clients = [];
   let createdPngs = [];
@@ -129,6 +129,9 @@ async function main() {
     p1.send({ t: 'pick', game: 'dibuja' });
     const need2 = await p1.wait(function (m) { return m.t === 'ev' && m.k === 'need2'; }, 1000, 'need2');
     check(!!need2 && tv.hub.screen === 'menu', 'Con 1 jugador no se puede elegir juego');
+    const tvNeed = await tv.wait(function (m) { return m.t === 'ev' && m.k === 'need2'; }, 1000, 'need2 tele');
+    check(!!tvNeed && /^«Dibuja y adivina» es (para|de) 2 .*jugadores: falta 1 jugador\. Escanead el QR\.$/.test(tvNeed.text) && tvNeed.by === 1,
+      'La tele también recibe el motivo, en español: «' + (tvNeed && tvNeed.text) + '»');
 
     const p2 = await phone('Bernardo_con_nombre_largo', 'cid-berto'); clients.push(p2);
     check(p2.find('joined') && p2.find('joined').slot === 2 && p2.find('joined').color === '#ff3df2', 'El segundo móvil: hueco 2, magenta');

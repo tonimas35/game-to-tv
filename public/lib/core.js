@@ -53,6 +53,34 @@
     for (var i = 0; i < G2T.games.length; i++) if (G2T.games[i].id === id) return G2T.games[i];
     return null;
   };
+  // "2 jugadores", "2 a 6 jugadores"
+  G2T.playerRange = function (g) {
+    return g.minPlayers === g.maxPlayers ? g.minPlayers + ' jugadores' : g.minPlayers + ' a ' + g.maxPlayers + ' jugadores';
+  };
+  // Players in a 'hub' message: { n, names, away }
+  G2T.roomOf = function (hub) {
+    var out = { n: 0, names: [], away: [] };
+    ((hub && hub.players) || []).forEach(function (p) {
+      if (!p) return;
+      out.n++;
+      out.names.push(p.name);
+      if (!p.connected) out.away.push(p.name);
+    });
+    return out;
+  };
+  // Why a game cannot be played right now (null = it can): shown on the menu cards
+  G2T.whyNot = function (g, hub) {
+    var r = G2T.roomOf(hub);
+    if (r.n < g.minPlayers) {
+      var k = g.minPlayers - r.n;
+      return k === 1 ? 'Falta 1 jugador' : 'Faltan ' + k + ' jugadores';
+    }
+    if (r.n > g.maxPlayers) {
+      return (g.minPlayers === g.maxPlayers ? 'Para ' + g.maxPlayers + ' jugadores' : 'De ' + g.minPlayers + ' a ' + g.maxPlayers + ' jugadores') + ' · sois ' + r.n;
+    }
+    if (r.away.length || !(hub && hub.ready)) return 'Esperando a que vuelva ' + (r.away.length ? G2T.joinNames(r.away) : 'alguien');
+    return null;
+  };
 
   // ---------------------------------------------------------------- storage
   // localStorage/sessionStorage can be missing or throw (private mode): memory fallback

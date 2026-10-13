@@ -13,22 +13,31 @@
  *   server -> { t: 'info', ... }                 URLs (to the TV)
  *   server -> { t: 'joined', slot, name, color, cid, reconnect }
  *   server -> { t: 'full' }
- *   server -> { t: 'hub', screen, ready, pick, players: [...] }
- *   server -> { t: 'ev', k: 'join' | 'menu' | 'need2' | 'toomany', ... }
+ *   server -> { t: 'hub', screen, ready, pick, slots, players: [...] }
+ *   server -> { t: 'ev', k: 'join' | 'menu' | 'left', ... }
+ *   server -> { t: 'ev', k: 'need2' | 'toomany', game, title, min, max, n, by, text }
+ *             a game that does not fit the players in the room was picked
+ *             (sent to the TV and every phone; `text` is ready to show)
  * Everything else goes to the lobby handlers of the games (messages a player
  * can send from the menu, e.g. the secret words of «Dibuja y adivina») or to
  * the game that is running.
+ *
+ * Player slots: 6 by default (--jugadores N, 2 to 8). Slot numbers in messages
+ * start at 1; the game API uses 0-based indexes. Slots may have gaps (Ana in 1,
+ * Carla in 3): use api.players(). A game whose maxPlayers is lower than the
+ * highest occupied slot gets the slots compacted before it starts.
  */
 const crypto = require('crypto');
 const { WebSocket } = require('ws');
 
 const COLORS = ['#22e6ff', '#ff3df2', '#ffd23e', '#3ee07a', '#ff8a3d', '#a98bff', '#ffffff', '#7dffcf'];
+const DEFAULT_SLOTS = 6;
 const TICK_HZ = 60;
 const DT = 1 / TICK_HZ;
 
 function createHub(opts) {
   const games = opts.games;                       // registry from src/games
-  const SLOTS = Math.max(2, Math.min(COLORS.length, opts.maxPlayers || 2));
+  const SLOTS = Math.max(2, Math.min(COLORS.length, opts.maxPlayers || DEFAULT_SLOTS));
   const SLOT_HOLD_MS = opts.slotHoldMs || 30000;
   const log = opts.log || function (s) { console.log(s); };
 
@@ -125,6 +134,7 @@ function createHub(opts) {
       screen: hub.screen,
       ready: readyCount() >= 2,
       pick: hub.pick,
+      slots: SLOTS,
       players: players.map(function (p, i) {
         if (!p) return null;
         const conn = isConnected(p);
@@ -247,12 +257,48 @@ function createHub(opts) {
     if (hub.game && hub.game.onPlayerJoined) hub.game.onPlayerJoined(slot, reconnect);
   }
 
+  // A player is gone for good (left, or did not come back in SLOT_HOLD_MS).
+  // A game that can go on without them says so with onPlayerLeft(i) (anything
+  // but `false`); otherwise, or with fewer than minPlayers left, back to the menu.
   function freeSlot(i, why) {
     const p = players[i];
     if (!p) return;
     log('[hub] Hueco del Jugador ' + (i + 1) + ' (' + p.name + ') liberado: ' + why);
     players[i] = null;
-    if (hub.screen !== 'menu') backToMenu('falta un jugador');
+    if (hub.screen === 'menu') return;
+    const g = games.byId[hub.gameId];
+    let keep = false;
+    if (hub.game && hub.game.onPlayerLeft && g && occupied().length >= g.manifest.minPlayers) {
+      try { keep = hub.game.onPlayerLeft(i) !== false; } catch (e) { log('Error en ' + hub.gameId + '.onPlayerLeft: ' + (e && e.stack || e)); }
+    }
+    if (keep) {
+      log('[hub] «' + g.manifest.title + '» sigue sin ' + p.name);
+      broadcast({ t: 'ev', k: 'left', slot: i + 1, name: p.name });
+    } else {
+      backToMenu('falta un jugador');
+    }
+  }
+
+  // «Pong» es de 2 a 4 jugadores y sois 6. / «Dibuja y adivina» es de 2 a 6 jugadores: falta 1.
+  function rangeText(m) {
+    return m.minPlayers === m.maxPlayers ? 'para ' + m.minPlayers + ' jugadores' : 'de ' + m.minPlayers + ' a ' + m.maxPlayers + ' jugadores';
+  }
+  function pickProblem(g, by) {
+    const m = g.manifest;
+    const n = occupied().length;
+    const base = { t: 'ev', game: g.id, title: m.title, min: m.minPlayers, max: m.maxPlayers, n: n, by: by, name: by > 0 ? nameOf(by - 1) : 'la tele' };
+    if (n < m.minPlayers) {
+      const k = m.minPlayers - n;
+      return Object.assign(base, { k: 'need2', text: '«' + m.title + '» es ' + rangeText(m) + ': falta' + (k > 1 ? 'n ' : ' ') + k + (k > 1 ? ' jugadores' : ' jugador') + '. Escanead el QR.' });
+    }
+    if (n > m.maxPlayers) {
+      return Object.assign(base, { k: 'toomany', text: '«' + m.title + '» es ' + rangeText(m) + ' y sois ' + n + '. Elegid otro juego.' });
+    }
+    if (!allConnected()) {
+      const away = occupied().filter(function (i) { return !isConnected(players[i]); }).map(nameOf);
+      return Object.assign(base, { k: 'need2', text: 'Esperando a que vuelva ' + away.join(' y ') + ' para empezar.' });
+    }
+    return null;
   }
 
   function phoneOf(ws) {
@@ -323,13 +369,11 @@ function createHub(opts) {
           if (hub.screen !== 'menu') return;
           const g = games.byId[msg.game];
           if (!g) return;
-          const n = occupied().length;
-          if (!allConnected() || n < g.manifest.minPlayers) {
-            sendJSON(ws, { t: 'ev', k: 'need2', min: g.manifest.minPlayers });
-            return;
-          }
-          if (n > g.manifest.maxPlayers) {
-            sendJSON(ws, { t: 'ev', k: 'toomany', max: g.manifest.maxPlayers, title: g.manifest.title });
+          const problem = pickProblem(g, by);
+          if (problem) {
+            // Everybody sees why nothing happens (the TV and every phone)
+            log('[hub] No se puede empezar «' + g.manifest.title + '»: ' + problem.text);
+            broadcast(problem);
             return;
           }
           startGame(msg.game, by);
@@ -427,9 +471,9 @@ function createHub(opts) {
     counts: function () {
       let connected = 0;
       for (let i = 0; i < SLOTS; i++) if (isConnected(players[i])) connected++;
-      return { tvs: tvs.size, players: occupied().length, connected: connected, screen: hub.screen };
+      return { tvs: tvs.size, players: occupied().length, connected: connected, slots: SLOTS, screen: hub.screen };
     }
   };
 }
 
-module.exports = { createHub: createHub, COLORS: COLORS };
+module.exports = { createHub: createHub, COLORS: COLORS, DEFAULT_SLOTS: DEFAULT_SLOTS };

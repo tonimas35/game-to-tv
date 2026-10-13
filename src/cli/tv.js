@@ -14,7 +14,7 @@ const TV_HELP = [
   '  game-to-tv tv list',
   '  game-to-tv tv remove NOMBRE',
   '  game-to-tv tv pair NOMBRE',
-  '  game-to-tv tv install NOMBRE [--modo tele|pc] [--server-url URL] [--puerto 8090] [--apagado MIN]',
+  '  game-to-tv tv install NOMBRE [--modo tele|pc] [--server-url URL] [--puerto 8090] [--apagado MIN] [--jugadores 6]',
   '                               [--solo-ipk] [--salida CARPETA] [--empaquetador js|ares]',
   '      --modo tele (por defecto en LG): el servidor va DENTRO de la tele; el PC solo hace falta para instalar.',
   '                  --server-url (opcional) es un servidor de PC de reserva si el de la tele falla.',
@@ -209,18 +209,19 @@ async function run(args, flags) {
       const mode = installMode(flags, tv.driver);
       const port = intFlag(flags, 'puerto', tv.telePort || 8090);
       const idle = intFlag(flags, 'apagado', 15);
+      const players = Math.max(2, Math.min(8, intFlag(flags, 'jugadores', 6)));
       // tele: --server-url is only a fallback; pc: the server the app opens
       const serverUrl = mode === 'pc' ? defaultServerUrl(flags)
         : (typeof flags['server-url'] === 'string' ? defaultServerUrl(flags) : '');
       const outDir = typeof flags.salida === 'string' ? flags.salida : path.join(config.homeDir(), 'ipk');
       if (mode === 'tele') {
-        ui.info('Modo tele: el servidor de los juegos irá ' + ui.c.bold('dentro de la tele') + ' (puerto ' + port + '). El PC ya no hará falta para jugar.');
+        ui.info('Modo tele: el servidor de los juegos irá ' + ui.c.bold('dentro de la tele') + ' (puerto ' + port + ', hasta ' + players + ' jugadores). El PC ya no hará falta para jugar.');
         ui.info(serverUrl ? 'Servidor de reserva (PC): ' + ui.c.cyan(serverUrl) : ui.c.dim('(sin servidor de reserva en el PC; añádelo con --server-url URL)'));
       } else {
         ui.info('Modo pc: la app abrirá el servidor ' + ui.c.cyan(serverUrl) + ui.c.dim('  (cámbialo con --server-url)'));
       }
       const r = await d.install(tv, {
-        mode: mode, serverUrl: serverUrl, port: port, idleMinutes: idle, outDir: outDir, ipkOnly: !!flags['solo-ipk'],
+        mode: mode, serverUrl: serverUrl, port: port, idleMinutes: idle, players: players, outDir: outDir, ipkOnly: !!flags['solo-ipk'],
         packager: typeof flags.empaquetador === 'string' ? flags.empaquetador : undefined,
         log: function (s) { ui.info(s); }
       });
@@ -249,7 +250,7 @@ async function run(args, flags) {
       const serverUrl = mode === 'pc' || typeof flags['server-url'] === 'string' ? defaultServerUrl(flags) : '';
       const outDir = typeof flags.salida === 'string' ? flags.salida : process.cwd();
       const r = await webos.build({ name: 'tele', appId: typeof flags['app-id'] === 'string' ? flags['app-id'] : undefined }, {
-        mode: mode, serverUrl: serverUrl, port: intFlag(flags, 'puerto', 8090), idleMinutes: intFlag(flags, 'apagado', 15), outDir: outDir, packager: 'js'
+        mode: mode, serverUrl: serverUrl, port: intFlag(flags, 'puerto', 8090), idleMinutes: intFlag(flags, 'apagado', 15), players: intFlag(flags, 'jugadores', 6), outDir: outDir, packager: 'js'
       });
       const kb = r.size ? ', ' + Math.round(r.size / 1024) + ' KB' : '';
       ui.ok('Paquete creado: ' + r.ipk + (mode === 'tele' ? '  (modo tele, servidor en la tele, puerto ' + r.port + kb + ')' : '  (modo pc, abre ' + r.serverUrl + kb + ')'));
@@ -278,7 +279,7 @@ async function run(args, flags) {
       const a = i.actividad || {};
       ui.ok('Servidor de «' + tv.name + '» respondiendo en ' + ui.c.cyan(r.url) + ' · modo ' + (i.mode || '?') + ' · versión ' + (i.version || '?'));
       ui.info('Móviles (QR): ' + (i.movil || '?'));
-      ui.info('Ahora: ' + (a.tvs || 0) + ' pantalla(s), ' + (a.players || 0) + ' jugador(es)' + (a.screen ? ' · ' + a.screen : ''));
+      ui.info('Ahora: ' + (a.tvs || 0) + ' pantalla(s), ' + (a.players || 0) + ' jugador(es)' + (a.slots ? ' de ' + a.slots : '') + (a.screen ? ' · ' + a.screen : ''));
       if (i.mode === 'tele') {
         ui.info('Node ' + (t.node || '?') + ' · encendido hace ' + (t.uptime != null ? Math.round(t.uptime / 60) + ' min' : '?') +
           ' · se apaga tras ' + (t.idleMinutes || '?') + ' min sin uso' + (t.idleFor ? ' (sin uso desde hace ' + Math.round(t.idleFor / 60) + ' min)' : ''));

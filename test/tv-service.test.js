@@ -87,6 +87,7 @@ async function lifecycleTests() {
   const info = JSON.parse((await getText(port, '/info')).body);
   check(info.app === 'game-to-tv' && info.mode === 'tele' && info.version === PKG.version && info.tele.service === SVC && info.tele.node === process.version,
     '/info: { mode: tele, version, tele.service, tele.node }');
+  check(info.actividad && info.actividad.slots === 6 && info.tele.players === 6, 'El servidor de la tele tiene 6 huecos de jugador');
   check(info.movil === 'http://' + IP + ':' + port + '/m' && info.ip === IP, 'El QR apunta a la IP de la tele y su puerto (' + info.movil + ')');
   check((await getText(port, '/qr.svg')).status === 200, '/qr.svg listo (el lanzador lo sondea)');
   const shell = (await getText(port, '/')).body;
@@ -188,11 +189,11 @@ async function errorTests() {
   check(!t._state.keep && svc.activityManager.active().length === 0, 'Si no arranca, no se queda con la actividad keepAlive');
   check((await svc.request('status', {})).lastError === r.errorText, 'status muestra el último error');
   busy.close();
-  const env = core.createTvService({ service: new FakeService(SVC), serviceId: SVC, console: null, env: { G2T_PORT: '9123', G2T_IDLE_MIN: '2' } });
+  const env = core.createTvService({ service: new FakeService(SVC), serviceId: SVC, console: null, env: { G2T_PORT: '9123', G2T_IDLE_MIN: '2', G2T_JUGADORES: '4' } });
   const s = env.status();
-  check(s.port === 9123 && s.idleMinutes === 2, 'Puerto e inactividad configurables (G2T_PORT, G2T_IDLE_MIN)');
+  check(s.port === 9123 && s.idleMinutes === 2 && s.players === 4, 'Puerto, inactividad y jugadores configurables (G2T_PORT, G2T_IDLE_MIN, G2T_JUGADORES)');
   const def = core.createTvService({ service: new FakeService(SVC), serviceId: SVC, console: null, env: {} }).status();
-  check(def.port === 8090 && def.idleMinutes === 15, 'Por defecto: puerto 8090 (3000/3001 son de LG) y 15 min');
+  check(def.port === 8090 && def.idleMinutes === 15 && def.players === 6, 'Por defecto: puerto 8090 (3000/3001 son de LG), 15 min y 6 jugadores');
 }
 
 async function noGalleryMatch() {

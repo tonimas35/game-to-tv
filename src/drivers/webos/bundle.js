@@ -135,6 +135,7 @@ function buildService(opts) {
     appId: appId,
     port: opts.port || 8090,
     idleMinutes: opts.idleMinutes != null ? opts.idleMinutes : 15,
+    players: Math.max(2, Math.min(8, Number(opts.players) || 6)),
     version: version
   }, null, 2) + '\n');
   write('service.js', "'use strict';\n// webOS JS service of «Juegos del Salón» (game-to-tv " + version + '). See src/tv-service/.\n' +

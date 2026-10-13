@@ -31,7 +31,7 @@ const { WebSocketServer } = require('ws');
 const QRCode = require('qrcode');
 
 const { detectLanIp, listIPv4 } = require('./net');
-const { createHub } = require('./hub');
+const { createHub, DEFAULT_SLOTS } = require('./hub');
 const { loadGames, publicManifests, CLIENT_FILES } = require('../games');
 const ambient = require('./ambient');
 const config = require('../config');
@@ -164,7 +164,7 @@ function createServer(options) {
   const manifests = publicManifests(games);
   const hub = createHub({
     games: games,
-    maxPlayers: options.maxPlayers || parseInt(process.env.MAX_PLAYERS, 10) || 2,
+    maxPlayers: options.maxPlayers || parseInt(process.env.MAX_PLAYERS, 10) || DEFAULT_SLOTS,
     slotHoldMs: options.slotHoldMs || parseInt(process.env.SLOT_HOLD_MS, 10) || 30000,
     galleryDir: galleryDir,
     log: log,
