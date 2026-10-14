@@ -68,6 +68,49 @@ src/games/ejemplo-reflejos/
 | `accent` | Color del borde de la tarjeta cuando tiene el foco. |
 | `order` | Posición en el menú (menor = antes). |
 | `howTo` | Opcional: lista de frases «Cómo se juega» (llega a la tele y al móvil en `G2T.gameById(id).howTo`; «El Infiltrado» la enseña con su botón «?»). |
+| `section` | Opcional: la sección del menú donde va el juego. Por ahora solo `"1vs1"` («1 contra 1»). Sin este campo, el juego tiene su propia tarjeta en el menú principal. Ver abajo. |
+
+### Meter un juego en una sección
+
+Los duelos para dos van juntos en la sección **«1 contra 1»**: basta con una
+línea en el manifiesto.
+
+```json
+{
+  "id": "mi-duelo",
+  "title": "Mi duelo",
+  "minPlayers": 2,
+  "maxPlayers": 2,
+  "section": "1vs1",
+  "order": 50
+}
+```
+
+- **Tele.** El juego ya no sale suelto en la fila principal. En su lugar hay
+  UNA tarjeta «1 contra 1» («Duelos rápidos para dos», con un dibujo propio y
+  el número de juegos). OK la abre: una segunda fila con las tarjetas de sus
+  juegos, iguales que las demás («Falta 1 jugador», «sois 3»… por juego).
+  Las flechas mueven, OK elige y Atrás (o Escape) vuelve a la fila
+  principal. Al terminar una partida, la tele vuelve a la sección, con el foco
+  en ese juego.
+- **Móvil.** Los juegos de la sección van en un grupo plegable «1 contra 1».
+  Se abre solo cuando alguno se puede jugar (con 2 jugadores) y cada móvil lo
+  puede abrir o cerrar con un toque. Se eligen igual: `{ t: 'pick', game }`.
+- **`order`** ordena los juegos dentro de la sección. La tarjeta de la sección
+  tiene su propio `order` (15: justo después de «Dibuja y adivina»).
+- Si ningún juego declara la sección, la tarjeta no aparece.
+- Una sección que no existe es un error: el juego no se carga y el registro
+  del servidor dice por qué. Las secciones válidas están en `SECTIONS`, en
+  `src/games/index.js`.
+- La tele y el móvil reciben el campo en `G2T.gameById(id).section`, y las
+  secciones que tienen juegos en `G2T.sections` (`[{ id, title, subtitle,
+  accent, order, games }]`). Las funciones `G2T.menuEntries()`,
+  `G2T.sectionOf(g)` y `G2T.sectionGames(s)` están en `public/lib/core.js`.
+- En las pruebas con navegador, `H_.tvFocus(page, id)` (en `test/helpers`)
+  lleva el foco de la tele a la tarjeta de un juego con las flechas, entrando
+  en su sección si hace falta. `window.__tv.menu()` dice dónde está el foco.
+  En el móvil, con 2 jugadores el grupo ya está abierto y
+  `#gameList .game[data-game="<id>"]` se puede pulsar como siempre.
 
 La sala tiene **6 huecos** por defecto (`game-to-tv start --jugadores N`, de 2
 a 8). Cómo se hace un juego para varios: [sección 5](#5-de-2-a-6-jugadores).

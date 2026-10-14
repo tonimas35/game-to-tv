@@ -9,6 +9,8 @@
   var BOOT = window.G2T_BOOT || { games: [], slots: 2, colors: ['#22e6ff', '#ff3df2'] };
   G2T.boot = BOOT;
   G2T.games = BOOT.games || [];
+  // Menu sections that have games (manifest "section"): [{ id, title, subtitle, phoneSubtitle, accent, order, games }]
+  G2T.sections = BOOT.sections || [];
 
   G2T.qs = function (name) {
     var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(location.search);
@@ -81,6 +83,71 @@
     if (r.away.length || !(hub && hub.ready)) return 'Esperando a que vuelva ' + (r.away.length ? G2T.joinNames(r.away) : 'alguien');
     return null;
   };
+
+  // ---------------------------------------------------------------- menu sections
+  // A game with "section": "1vs1" in its manifest is not listed on its own in
+  // the main menu: the menu shows ONE entry for the section, which opens a
+  // list with its games (TV: a second row of cards; phone: a group).
+  G2T.sectionById = function (id) {
+    for (var i = 0; i < G2T.sections.length; i++) if (G2T.sections[i].id === id) return G2T.sections[i];
+    return null;
+  };
+  // The section a game is shown in (null = the main menu)
+  G2T.sectionOf = function (g) { return g && g.section ? G2T.sectionById(g.section) : null; };
+  // The games of a section, in menu order
+  G2T.sectionGames = function (s) {
+    return G2T.games.filter(function (g) { return !!s && g.section === s.id; });
+  };
+  // Main menu entries, in menu order: { game } or { section, games }. The
+  // section goes where its "order" falls among the games' "order" values.
+  G2T.menuEntries = function () {
+    var out = [];
+    var secs = G2T.sections.filter(function (s) { return G2T.sectionGames(s).length > 0; });
+    var placed = {};
+    function placeUpTo(order) {
+      secs.forEach(function (s) {
+        if (!placed[s.id] && (order == null || s.order < order)) {
+          placed[s.id] = true;
+          out.push({ section: s, games: G2T.sectionGames(s) });
+        }
+      });
+    }
+    G2T.games.forEach(function (g) {
+      placeUpTo(g.order == null ? 100 : g.order);
+      if (!G2T.sectionOf(g)) out.push({ game: g });
+    });
+    placeUpTo(null);
+    return out;
+  };
+  // "2 jugadores" when every game of the section has the same range
+  G2T.sectionRange = function (s) {
+    var gs = G2T.sectionGames(s);
+    if (!gs.length) return '';
+    var min = Infinity, max = 0;
+    gs.forEach(function (g) { min = Math.min(min, g.minPlayers); max = Math.max(max, g.maxPlayers); });
+    return G2T.playerRange({ minPlayers: min, maxPlayers: max });
+  };
+  // Why no game of the section can be played right now (null = at least one can)
+  G2T.sectionWhy = function (s, hub) {
+    var gs = G2T.sectionGames(s);
+    var first = null;
+    for (var i = 0; i < gs.length; i++) {
+      var why = G2T.whyNot(gs[i], hub);
+      if (!why) return null;
+      if (first === null) first = why;
+    }
+    return first;
+  };
+  // Our own artwork for each section (inline SVG, no files to download)
+  var SECTION_ART = {
+    // Two figures face to face with a bolt between them
+    '1vs1': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 170" aria-hidden="true" focusable="false">' +
+      '<g fill="#22e6ff"><circle cx="66" cy="48" r="23"/><path d="M24 160C24 108 40 82 66 82c22 0 34 12 40 28l24-12 8 16-30 20v26z"/></g>' +
+      '<g fill="#ff3df2"><circle cx="234" cy="48" r="23"/><path d="M276 160c0-52-16-78-42-78-22 0-34 12-40 28l-24-12-8 16 30 20v26z"/></g>' +
+      '<path fill="#ffd23e" d="M166 8 128 90h22l-14 72 42-90h-24l18-64z"/>' +
+      '</svg>'
+  };
+  G2T.sectionArt = function (id) { return SECTION_ART[id] || ''; };
 
   // ---------------------------------------------------------------- storage
   // localStorage/sessionStorage can be missing or throw (private mode): memory fallback

@@ -131,19 +131,21 @@ async function main() {
     let ov720 = await tv720.evaluate(OVERFLOW_CHECK);
     check(!ov.length && !ov720.length, 'Menú sin desbordes a 1920x1080 ni a 1280x720' + (ov.concat(ov720).length ? ': ' + ov.concat(ov720).join(' | ') : ''));
 
-    // El mando de la tele mueve el foco
+    // El mando de la tele mueve el foco (por la fila principal: #cards; las
+    // secciones como «1 contra 1» tienen su propia fila, ver browser-secciones.js)
+    const nCards = await tv.evaluate(function () { return document.querySelectorAll('#cards .card').length; });
     await tv.keyboard.press('ArrowRight');
-    check(await tv.evaluate(function () { return document.getElementById('card-pong').className.indexOf('focus') >= 0; }), 'Flecha derecha enfoca «Pong» en la tele');
-    // With 5 games the row scrolls: the last card comes fully into view when it has the focus
-    for (let k = 0; k < 4; k++) await tv.keyboard.press('ArrowRight');
+    check(await tv.evaluate(function () { return document.querySelectorAll('#cards .card')[1].className.indexOf('focus') >= 0; }), 'Flecha derecha enfoca la segunda tarjeta en la tele');
+    check(await H_.tvFocus(tv, 'pong'), 'El foco llega a «Pong» con las flechas');
+    // With 5 or more cards the row scrolls: the last card comes fully into view when it has the focus
+    for (let k = 0; k < nCards; k++) await tv.keyboard.press('ArrowRight');
     await sleep(400);
     const lastIn = await tv.evaluate(function () {
-      var cs = document.querySelectorAll('.card'), c = cs[cs.length - 1], r = c.getBoundingClientRect(), sr = document.getElementById('stage').getBoundingClientRect();
+      var cs = document.querySelectorAll('#cards .card'), c = cs[cs.length - 1], r = c.getBoundingClientRect(), sr = document.getElementById('stage').getBoundingClientRect();
       return c.className.indexOf('focus') >= 0 && r.left >= sr.left && r.right <= sr.right;
     });
-    check(lastIn, 'Con 5 juegos, la fila se desplaza y la última tarjeta enfocada se ve entera');
-    for (let k = 0; k < 4; k++) await tv.keyboard.press('ArrowLeft');
-    await tv.keyboard.press('ArrowLeft');
+    check(lastIn, 'Con ' + nCards + ' tarjetas, la fila se desplaza y la última tarjeta enfocada se ve entera');
+    for (let k = 0; k < nCards; k++) await tv.keyboard.press('ArrowLeft');
     await sleep(300);
 
     // ---------------- Dibuja y adivina desde el móvil ----------------

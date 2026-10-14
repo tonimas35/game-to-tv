@@ -140,7 +140,19 @@ async function phone(wsUrl, name, cid) {
   return c;
 }
 
+// Browser tests (Playwright): moves the TV menu focus to a game's card with
+// the remote keys, wherever it is (inside a menu section too: «1 contra 1»).
+// id: a game id, or 'sec-1vs1' for a section card. Resolves true when focused.
+async function tvFocus(page, id) {
+  for (let k = 0; k < 40; k++) {
+    const key = await page.evaluate(function (g) { return window.__tv.menuStep(g); }, id);
+    if (!key) break;
+    await page.keyboard.press(key);
+  }
+  return page.evaluate(function (g) { return window.__tv.menu().focus === 'card-' + g; }, id);
+}
+
 module.exports = {
   ROOT: ROOT, BIN: BIN, checker: checker, sleep: sleep, waitUntil: waitUntil, tmpHome: tmpHome, rmrf: rmrf,
-  runCli: runCli, startServer: startServer, httpGet: httpGet, makeClient: makeClient, phone: phone
+  runCli: runCli, startServer: startServer, httpGet: httpGet, makeClient: makeClient, phone: phone, tvFocus: tvFocus
 };

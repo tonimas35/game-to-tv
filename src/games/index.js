@@ -10,6 +10,10 @@
  *     phone.js        phone view (loaded by public/m.html)
  *     tv.css / phone.css / icon.svg   optional
  *
+ * A game can belong to a menu section (manifest "section": "1vs1"): the TV
+ * and phone menus then show it inside that section instead of in the main
+ * list. The known sections are in SECTIONS below.
+ *
  * See docs/crear-un-juego.md.
  */
 const fs = require('fs');
@@ -19,6 +23,20 @@ const GAMES_DIR = __dirname;
 // Files of a game folder that the browser may download
 const CLIENT_FILES = /^(tv|phone)\.(js|css)$|^icon\.(svg|png)$/;
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+// Menu sections. A section only shows up when at least one game declares it.
+// order: where its card goes in the main row, among the games' "order"
+// values (Dibuja 10, Pong 20, El Infiltrado 30, 2048 40, Reflejos 90).
+const SECTIONS = {
+  '1vs1': {
+    id: '1vs1',
+    title: '1 contra 1',
+    subtitle: 'Duelos rápidos para dos',
+    phoneSubtitle: 'Duelos rápidos para dos',
+    accent: '#ffd23e',
+    order: 15
+  }
+};
 
 function validateManifest(m, dirName) {
   const errs = [];
@@ -30,6 +48,9 @@ function validateManifest(m, dirName) {
   if (!(m.minPlayers >= 1)) errs.push('minPlayers debe ser >= 1');
   if (!(m.maxPlayers >= m.minPlayers)) errs.push('maxPlayers debe ser >= minPlayers');
   if (m.tags && !Array.isArray(m.tags)) errs.push('tags debe ser una lista');
+  if (m.section != null && !Object.prototype.hasOwnProperty.call(SECTIONS, m.section)) {
+    errs.push('section desconocida («' + m.section + '»); valores posibles: ' + Object.keys(SECTIONS).map(function (k) { return '«' + k + '»'; }).join(', '));
+  }
   return errs;
 }
 
@@ -44,7 +65,7 @@ function loadGame(dir) {
   return {
     id: manifest.id,
     dir: dir,
-    manifest: Object.assign({ tags: [], order: 100, accent: '#ffffff', icon: null, phoneDescription: manifest.description }, manifest),
+    manifest: Object.assign({ tags: [], order: 100, accent: '#ffffff', icon: null, section: null, phoneDescription: manifest.description }, manifest),
     module: mod,
     client: {
       tvJs: files.indexOf('tv.js') >= 0,
@@ -96,6 +117,8 @@ function publicManifests(games) {
       minPlayers: m.minPlayers,
       maxPlayers: m.maxPlayers,
       tags: m.tags,
+      order: m.order,
+      section: m.section || null,
       howTo: Array.isArray(m.howTo) ? m.howTo : null,
       accent: m.accent,
       icon: m.icon ? '/games/' + m.id + '/' + m.icon : null,
@@ -105,4 +128,20 @@ function publicManifests(games) {
   });
 }
 
-module.exports = { GAMES_DIR: GAMES_DIR, CLIENT_FILES: CLIENT_FILES, loadGames: loadGames, validateManifest: validateManifest, publicManifests: publicManifests };
+/**
+ * The menu sections that have at least one game, for the TV and phone pages:
+ * [{ id, title, subtitle, phoneSubtitle, accent, order, games: [ids in menu order] }]
+ */
+function publicSections(games) {
+  const out = [];
+  Object.keys(SECTIONS).forEach(function (k) {
+    const ids = games.list.filter(function (g) { return g.manifest.section === k; }).map(function (g) { return g.id; });
+    if (ids.length) out.push(Object.assign({}, SECTIONS[k], { games: ids }));
+  });
+  return out.sort(function (a, b) { return a.order - b.order; });
+}
+
+module.exports = {
+  GAMES_DIR: GAMES_DIR, CLIENT_FILES: CLIENT_FILES, SECTIONS: SECTIONS,
+  loadGames: loadGames, validateManifest: validateManifest, publicManifests: publicManifests, publicSections: publicSections
+};

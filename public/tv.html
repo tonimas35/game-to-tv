@@ -90,6 +90,31 @@
   .cards.many .card p { font-size: 25px; height: 99px; }
   .cards.many .card .tags { margin-top: 14px; }
   .cards.many .card .tags span { font-size: 20px; padding: 5px 13px; margin-right: 10px; }
+  /* Menu sections (manifest "section"): ONE card in the main row; OK opens
+     the section's own row of cards (same style), Back goes back */
+  .cards.hide { display: none; }
+  .card.sec { background: linear-gradient(135deg, #10314a 0%, var(--panel) 40%, var(--panel) 60%, #36143f 100%); border-color: rgba(255, 210, 62, 0.5); }
+  .card.sec .art svg { width: 300px; height: 170px; }
+  .cards.many .card.sec .art svg { width: 265px; height: 150px; }
+  .card.sec h2 { color: #ffd23e; }
+  .card.sec p { color: rgba(255, 255, 255, 0.82); }
+  .card.sec .tags span.count { background: #ffd23e; color: #0a0c1f; font-weight: 900; }
+  .card.sec.focus { border-color: #ffd23e; }
+  .secHead { position: absolute; left: 0; right: 0; top: 40px; height: 132px; display: none; align-items: center; justify-content: center; }
+  .secHead .secArt { display: flex; flex: 0 0 auto; width: 212px; height: 120px; margin-right: 34px; }
+  .secHead .secArt svg { width: 212px; height: 120px; }
+  .secHead h1 {
+    margin: 0; font-size: 108px; font-weight: 900; letter-spacing: 2px; line-height: 1.1; white-space: nowrap;
+    background: linear-gradient(90deg, var(--c1), #ffd23e 50%, var(--c2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .secBack {
+    position: absolute; left: 60px; top: 78px; display: none; padding: 12px 26px; border-radius: 999px;
+    font-size: 26px; font-weight: 800; background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8); white-space: nowrap;
+  }
+  #vMenu.inSec .brand { display: none; }
+  #vMenu.inSec .secHead { display: flex; }
+  #vMenu.inSec .secBack { display: block; }
   /* Players: a grid of chips (1 row up to 3, then 3 or 4 columns) left of the QR; centred when the room is full */
   .players {
     position: absolute; left: 60px; width: 1146px; bottom: 34px; height: 262px;
@@ -178,8 +203,10 @@
   <!-- ======================= MENU ======================= -->
   <section id="vMenu" class="view on">
     <h1 class="brand">Juegos del Salón</h1>
+    <div class="secBack" id="secBack">◀ Atrás · todos los juegos</div>
+    <div class="secHead" id="secHead"><span class="secArt" id="secArt"></span><h1 id="secTitle"></h1></div>
     <p class="tagline fit" id="menuStatus">Escanead el QR con la cámara del móvil para uniros</p>
-    <div class="cardsWrap"><div class="cards" id="cards"></div></div>
+    <div class="cardsWrap" id="cardsWrap"><div class="cards" id="cards"></div></div>
     <div class="players" id="menuPlayers"></div>
     <div class="qrbox" id="qrBox">
       <img id="qrImg" alt="">
@@ -189,7 +216,7 @@
         <small>o escríbelo en el navegador</small>
       </div>
     </div>
-    <div class="keys">◀ ▶ elegir juego · OK jugar</div>
+    <div class="keys" id="menuKeys">◀ ▶ elegir juego · OK jugar</div>
   </section>
 
   <!-- Game views are added here by each game's tv.js -->
@@ -317,34 +344,117 @@
   // Hub: menu and screen switching
   // ==================================================================
   var currentScreen = 'menu';
-  var menuIndex = 0;
-  var cards = [];
+  // Rows of cards: 'main' (games + one card per section) and one per section.
+  // Each row: { id, el, cards: [elements], index: focused card, fitted }
+  var rows = {};
+  var row = null;              // the row on screen
+  var cards = [];              // row.cards
+
+  function gameCard(g, many) {
+    var c = document.createElement('div');
+    c.className = 'card';
+    c.id = 'card-' + g.id;
+    c.setAttribute('data-game', g.id);
+    var tags = '<span class="range">' + G2T.esc(G2T.playerRange(g)) + '</span>';
+    (g.tags || []).forEach(function (t) { tags += '<span>' + G2T.esc(t) + '</span>'; });
+    c.innerHTML = '<div class="ok">OK para jugar</div>' +
+      '<div class="art">' + (g.icon ? '<img alt="" src="' + G2T.esc(g.icon) + '">' : '') + '</div>' +
+      '<h2 class="fit">' + G2T.esc(g.title) + '</h2><p>' + G2T.esc(g.description) + '</p><div class="tags">' + tags + '</div>' +
+      '<div class="why fit"></div>';
+    c._many = many;
+    return c;
+  }
+  // The card of a section in the main row (our own artwork, not a game icon)
+  function sectionCard(sec, games, many) {
+    var c = document.createElement('div');
+    c.className = 'card sec';
+    c.id = 'card-sec-' + sec.id;
+    c.setAttribute('data-section', sec.id);
+    var tags = '<span class="range">' + G2T.esc(G2T.sectionRange(sec)) + '</span>' +
+      '<span class="count">' + games.length + (games.length === 1 ? ' juego' : ' juegos') + '</span>';
+    c.innerHTML = '<div class="ok">OK para abrir</div>' +
+      '<div class="art">' + G2T.sectionArt(sec.id) + '</div>' +
+      '<h2 class="fit">' + G2T.esc(sec.title) + '</h2><p>' + G2T.esc(sec.subtitle) + '</p><div class="tags">' + tags + '</div>' +
+      '<div class="why fit"></div>';
+    c._many = many;
+    return c;
+  }
+  function makeRow(id, el, list) {
+    var r = { id: id, el: el, cards: [], index: 0, fitted: false };
+    var many = list.length > 2;
+    if (many) el.classList.add('many');
+    list.forEach(function (e) {
+      var c = e.game ? gameCard(e.game, many) : sectionCard(e.section, e.games, many);
+      el.appendChild(c);
+      r.cards.push(c);
+    });
+    rows[id] = r;
+    return r;
+  }
+  // fit() needs the row on screen (a hidden row has no size)
+  function fitRow(r) {
+    if (r.fitted) return;
+    r.fitted = true;
+    r.cards.forEach(function (c) { fit(c.querySelector('h2'), c._many ? 56 : 64, 30); });
+  }
 
   function buildMenu() {
     var box = $('cards');
     box.innerHTML = '';
-    if (G2T.games.length > 2) box.classList.add('many');
-    G2T.games.forEach(function (g) {
-      var c = document.createElement('div');
-      c.className = 'card';
-      c.id = 'card-' + g.id;
-      c.setAttribute('data-game', g.id);
-      var tags = '<span class="range">' + G2T.esc(G2T.playerRange(g)) + '</span>';
-      (g.tags || []).forEach(function (t) { tags += '<span>' + G2T.esc(t) + '</span>'; });
-      c.innerHTML = '<div class="ok">OK para jugar</div>' +
-        '<div class="art">' + (g.icon ? '<img alt="" src="' + G2T.esc(g.icon) + '">' : '') + '</div>' +
-        '<h2 class="fit">' + G2T.esc(g.title) + '</h2><p>' + G2T.esc(g.description) + '</p><div class="tags">' + tags + '</div>' +
-        '<div class="why fit"></div>';
-      box.appendChild(c);
-      cards.push(c);
-      var many = G2T.games.length > 2;
-      fit(c.querySelector('h2'), many ? 56 : 64, 30);
+    var entries = G2T.menuEntries();
+    row = makeRow('main', box, entries);
+    entries.forEach(function (e) {
+      if (!e.section) return;
+      var el = document.createElement('div');
+      el.className = 'cards hide';
+      el.id = 'cards-sec-' + e.section.id;
+      $('cardsWrap').appendChild(el);
+      makeRow(e.section.id, el, e.games.map(function (g) { return { game: g }; }));
     });
+    cards = row.cards;
+    fitRow(row);
     var html = '';
     for (var i = 0; i < SLOTS; i++) {
       html += '<div class="pchip" id="chip' + (i + 1) + '"><span class="dot"></span><div class="txt"><b class="fit">Jugador ' + (i + 1) + '</b><small class="fit">Esperando…</small></div><span class="num">' + (i + 1) + '</span></div>';
     }
     $('menuPlayers').innerHTML = html;
+  }
+
+  // Shows a row: 'main' or a section id; focus = id of the card to focus
+  // (a game id, or 'sec-<id>' for a section card in the main row)
+  function showRow(id, focus) {
+    var r = rows[id];
+    if (!r) return;
+    if (r !== row) {
+      row.el.classList.add('hide');
+      r.el.classList.remove('hide');
+      row = r;
+      cards = r.cards;
+      fitRow(r);
+    }
+    if (focus) for (var i = 0; i < cards.length; i++) if (cards[i].id === 'card-' + focus) r.index = i;
+    var sec = id === 'main' ? null : G2T.sectionById(id);
+    if (sec) {
+      if (!$('secArt').firstChild) $('secArt').innerHTML = G2T.sectionArt(sec.id);
+      setText($('secTitle'), sec.title);
+      $('vMenu').classList.add('inSec');
+    } else {
+      $('vMenu').classList.remove('inSec');
+    }
+    renderMenu();
+  }
+  function openSection(id, focusGame) {
+    if ($('secArt').getAttribute('data-section') !== id) {
+      $('secArt').innerHTML = '';
+      $('secArt').setAttribute('data-section', id);
+    }
+    showRow(id, focusGame || null);
+  }
+  function closeSection() { var from = row.id; showRow('main', 'sec-' + from); }
+  // The row where a game's card is: its section's row, or the main row
+  function rowOfGame(id) {
+    var sec = G2T.sectionOf(G2T.gameById(id));
+    return sec && rows[sec.id] ? sec.id : 'main';
   }
 
   function gameFits(g) { return !G2T.whyNot(g, hubState); }
@@ -359,7 +469,9 @@
         sfx.pick();
         toast(m.pick.by > 0 ? (m.pick.name + ' ha elegido «' + m.pick.title + '»') : ('Elegido con el mando: «' + m.pick.title + '»'));
       } else if (m.screen === 'menu' && from !== 'menu') {
-        for (var i = 0; i < cards.length; i++) if (cards[i].getAttribute('data-game') === from) menuIndex = i;
+        // Back from a game: its card has the focus (inside its section, if it has one)
+        if (rowOfGame(from) !== 'main') openSection(rowOfGame(from), from);
+        else showRow('main', from);
       }
     }
     renderMenu();
@@ -440,33 +552,40 @@
       st.classList.remove('ready');
     }
     fit(st, 36, 22);
+    var menuIndex = row.index;
     for (var k = 0; k < cards.length; k++) {
       var g = G2T.gameById(cards[k].getAttribute('data-game'));
-      var why = G2T.whyNot(g, hubState);
+      var sec = g ? null : G2T.sectionById(cards[k].getAttribute('data-section'));
+      // A section card says why only when none of its games can be played
+      var why = g ? G2T.whyNot(g, hubState) : G2T.sectionWhy(sec, hubState);
+      var accent = (g || sec).accent;
       var whyEl = cards[k].querySelector('.why');
       setText(whyEl, why || '');
       if (why) fit(whyEl, 26, 18);
       if (k === menuIndex) {
         cards[k].classList.add('focus');
-        cards[k].style.borderColor = g.accent || '';
+        cards[k].style.borderColor = accent || '';
       } else {
         cards[k].classList.remove('focus');
         cards[k].style.borderColor = '';
       }
       if (!why) cards[k].classList.remove('off'); else cards[k].classList.add('off');
-      if (FX) cards[k].style.boxShadow = k === menuIndex ? '0 0 34px ' + hexA(g.accent || '#ffffff', 0.35) : '';
+      if (FX) cards[k].style.boxShadow = k === menuIndex ? '0 0 34px ' + hexA(accent || '#ffffff', 0.35) : '';
     }
+    var focused = cards[menuIndex];
+    setText($('menuKeys'), row.id !== 'main' ? '◀ ▶ elegir juego · OK jugar · Atrás volver'
+      : (focused && focused.getAttribute('data-section') ? '◀ ▶ elegir juego · OK abrir' : '◀ ▶ elegir juego · OK jugar'));
     scrollCards();
   }
 
   // With many games the row scrolls so that the focused card is visible
   function scrollCards() {
-    var box = $('cards');
+    var box = row.el;
     var total = box.scrollWidth;
     var x = 0;
     if (total <= LW) x = (LW - total) / 2;
-    else if (cards[menuIndex]) {
-      var c = cards[menuIndex];
+    else if (cards[row.index]) {
+      var c = cards[row.index];
       var center = c.offsetLeft + c.offsetWidth / 2;
       x = clamp(LW / 2 - center, LW - total, 0);
     }
@@ -529,6 +648,7 @@
   function onBack() {
     if (confirmOpen) { closeConfirm(); return; }
     if (currentScreen !== 'menu') openConfirm();
+    else if (row.id !== 'main') { closeSection(); sfx.move(); }
   }
   function onKey(e) {
     if (G2T.keys.isBack(e)) {
@@ -550,8 +670,10 @@
       return;
     }
     if (currentScreen === 'menu') {
-      if (dir) { menuIndex = clamp(menuIndex + dir, 0, cards.length - 1); renderMenu(); sfx.move(); return; }
-      var g = cards[menuIndex] && G2T.gameById(cards[menuIndex].getAttribute('data-game'));
+      if (dir) { row.index = clamp(row.index + dir, 0, cards.length - 1); renderMenu(); sfx.move(); return; }
+      var card = cards[row.index];
+      if (card && card.getAttribute('data-section')) { openSection(card.getAttribute('data-section')); sfx.move(); return; }
+      var g = card && G2T.gameById(card.getAttribute('data-game'));
       if (!g) return;
       // Even if it does not fit: the server answers with the reason for everybody
       sendMsg({ t: 'pick', game: g.id });
@@ -715,7 +837,28 @@
   window.__tv = {
     hub: function () { return hubState; },
     screen: function () { return currentScreen; },
-    view: function (id) { return G2T.tv.get(id); }
+    view: function (id) { return G2T.tv.get(id); },
+    // The menu: { row: 'main' | section id, index, focus: card id, cards: [card ids] }
+    menu: function () {
+      return { row: row.id, index: row.index, focus: cards[row.index] ? cards[row.index].id : null, cards: cards.map(function (c) { return c.id; }) };
+    },
+    // Next remote key to press to get the focus to a game's card (or to a
+    // section card: 'sec-1vs1'): 'ArrowLeft' | 'ArrowRight' | 'Enter' (opens
+    // its section) | 'Escape' (leaves a section) | null (already there, or not on the menu)
+    menuStep: function (id) {
+      var target = id.indexOf('sec-') === 0 ? 'main' : rowOfGame(id);
+      if (!rows[target] || currentScreen !== 'menu') return null;
+      var want = 'card-' + id;
+      if (target !== row.id) {
+        if (row.id !== 'main') return 'Escape';
+        want = 'card-sec-' + target;
+        if (cards[row.index] && cards[row.index].id === want) return 'Enter';
+      }
+      var to = -1;
+      for (var i = 0; i < cards.length; i++) if (cards[i].id === want) to = i;
+      if (to < 0 || to === row.index) return null;
+      return to > row.index ? 'ArrowRight' : 'ArrowLeft';
+    }
   };
 })();
 </script>

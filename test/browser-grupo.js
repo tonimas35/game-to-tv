@@ -191,7 +191,7 @@ async function main() {
       'Móvil: los 6 de la sala, «Berto (tú)» en su color (magenta) y Pong desactivado con el motivo');
     await shot(ph[1], 'movil-menu-6.png');
     // Pick Pong anyway with the TV remote: everybody gets the reason
-    await tv.keyboard.press('ArrowRight');
+    await H_.tvFocus(tv, 'pong');
     await tv.keyboard.press('Enter');
     const toastTv = await waitFor(function () { return tv.evaluate(function () { var t = document.getElementById('toast'); return t.className.indexOf('on') >= 0 && t.textContent; }); }, 2000, 'aviso tele');
     const toastPh = await waitFor(function () { return ph[0].evaluate(function () { var t = document.getElementById('toast'); return !t.classList.contains('hidden') && t.textContent; }); }, 2000, 'aviso móvil');
@@ -199,7 +199,7 @@ async function main() {
     await sleep(200);
     await shot(tv, 'tv-sala-6-pong-no.png');
     await overflowAll('Aviso de juego que no encaja');
-    await tv.keyboard.press('ArrowLeft');
+    await H_.tvFocus(tv, 'dibuja');
 
     // ---------------- Pong for 4 ----------------
     console.log('\n[Pong con 4]');

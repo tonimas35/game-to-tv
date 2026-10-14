@@ -56,7 +56,7 @@ en dos sitios:
   vista solo requiere recargar la página (y la tele nunca se queda con una
   versión vieja en caché).
 - **Shells con inyección**: al servir `/` y `/m`, el servidor sustituye
-  `<!--@boot-->` por la lista de juegos (`window.G2T_BOOT`) y `<!--@games-->`
+  `<!--@boot-->` por la lista de juegos y las secciones del menú (`window.G2T_BOOT`) y `<!--@games-->`
   por los `<script>`/`<link>` de cada juego. Así las vistas ya están cargadas
   cuando llega el primer mensaje (sin carreras al reconectar a mitad de
   partida) y el shell no conoce ningún juego concreto.

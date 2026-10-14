@@ -96,6 +96,32 @@
   .game .why { color: var(--warn); font-weight: 800; }
   .game[disabled] { opacity: 1; }
   .game[disabled] b, .game[disabled] span.d { opacity: 0.45; }
+  /* Menu sections (manifest "section"): one group that opens with a tap */
+  .sec {
+    margin-bottom: 12px; border-radius: 20px; border: 2px solid rgba(255, 210, 62, 0.55);
+    background: linear-gradient(135deg, #10314a 0%, var(--panel) 45%, var(--panel) 55%, #36143f 100%);
+  }
+  .secHead {
+    display: flex; align-items: center; width: 100%; text-align: left; padding: 14px 14px 14px 12px; border-radius: 18px;
+    background: transparent; color: #fff;
+  }
+  .secHead .art { flex: 0 0 auto; width: 74px; height: 42px; margin-right: 12px; }
+  .secHead .art svg { width: 74px; height: 42px; display: block; }
+  .secHead .txt { flex: 1; min-width: 0; }
+  .secHead b { display: block; font-size: 26px; color: #ffd23e; }
+  .secHead span.d { display: block; font-size: 15px; font-weight: 500; color: rgba(255,255,255,0.82); margin-top: 2px; }
+  .secHead .rng, .secHead .cnt { display: inline-block; font-size: 13px; font-weight: 900; padding: 3px 9px; border-radius: 999px; margin-top: 8px; }
+  .secHead .rng { background: rgba(255,255,255,0.9); color: #070915; }
+  .secHead .cnt { background: #ffd23e; color: #070915; margin-left: 4px; }
+  .secHead .why { font-size: 15px; color: var(--warn); font-weight: 800; }
+  .secHead .chev {
+    flex: 0 0 auto; width: 14px; height: 14px; margin: 0 6px 0 10px; border-right: 4px solid #ffd23e; border-bottom: 4px solid #ffd23e;
+    transform: rotate(45deg);
+  }
+  .sec.open .secHead .chev { transform: rotate(-135deg); margin-top: 8px; }
+  .secBody { display: none; padding: 0 10px 0; }
+  .sec.open .secBody { display: block; }
+  .secBody .game { background: var(--panel2); margin-bottom: 10px; }
   /* Everybody in the room, with their colour */
   .room { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0 2px; }
   .room span { display: inline-flex; align-items: center; gap: 6px; max-width: 46%; padding: 4px 10px; border-radius: 999px; font-size: 14px; font-weight: 800; background: rgba(255,255,255,0.06); border: 2px solid transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -403,17 +429,43 @@
   }
 
   // ------------------------------------------------------------------ Menu
+  // Games of a section (manifest "section") go inside a group that opens with
+  // a tap. Until this phone opens or closes it, a group is open when one of
+  // its games can be played (e.g. «1 contra 1» with exactly 2 players).
+  var secOpen = {};   // section id -> true / false (chosen on this phone)
+  function gameButton(g) {
+    return '<button class="game" data-game="' + esc(g.id) + '" type="button" style="border-color:' + G2T.hexA(g.accent || '#ffffff', 0.5) + '">' +
+      '<b>' + esc(g.title) + '</b><span class="d">' + esc(g.phoneDescription || g.description) + '</span>' +
+      '<span class="rng">' + esc(G2T.playerRange(g)) + '</span><span class="why"></span></button>';
+  }
   function buildMenu() {
     var html = '';
-    G2T.games.forEach(function (g) {
-      html += '<button class="game" data-game="' + esc(g.id) + '" type="button" style="border-color:' + G2T.hexA(g.accent || '#ffffff', 0.5) + '">' +
-        '<b>' + esc(g.title) + '</b><span class="d">' + esc(g.phoneDescription || g.description) + '</span>' +
-        '<span class="rng">' + esc(G2T.playerRange(g)) + '</span><span class="why"></span></button>';
+    G2T.menuEntries().forEach(function (e) {
+      if (e.game) { html += gameButton(e.game); return; }
+      var s = e.section;
+      html += '<div class="sec" id="sec-' + esc(s.id) + '" data-section="' + esc(s.id) + '">' +
+        '<button class="secHead" type="button" aria-expanded="false">' +
+        '<span class="art">' + G2T.sectionArt(s.id) + '</span>' +
+        '<span class="txt"><b>' + esc(s.title) + '</b><span class="d">' + esc(s.phoneSubtitle || s.subtitle) + '</span>' +
+        '<span class="rng">' + esc(G2T.sectionRange(s)) + '</span><span class="cnt">' + e.games.length + (e.games.length === 1 ? ' juego' : ' juegos') + '</span>' +
+        '<span class="why"></span></span><i class="chev"></i></button>' +
+        '<div class="secBody">' + e.games.map(gameButton).join('') + '</div></div>';
     });
     $('gameList').innerHTML = html;
     Array.prototype.forEach.call(document.querySelectorAll('#gameList .game'), function (b) {
       b.addEventListener('click', pickGame);
     });
+    Array.prototype.forEach.call(document.querySelectorAll('#gameList .secHead'), function (b) {
+      b.addEventListener('click', function () {
+        var el = b.parentNode;
+        secOpen[el.getAttribute('data-section')] = !el.classList.contains('open');
+        if (hub) renderMenu();
+      });
+    });
+  }
+  function isSectionOpen(id) {
+    if (secOpen[id] != null) return secOpen[id];
+    return !!hub && !G2T.sectionWhy(G2T.sectionById(id), hub);
   }
   function renderMenu() {
     var ready = hub.ready;
@@ -437,6 +489,14 @@
       var why = G2T.whyNot(g, hub);
       b.disabled = !!why;
       setText(b.querySelector('.why'), why ? ' · ' + why : '');
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#gameList .sec'), function (el) {
+      var id = el.getAttribute('data-section');
+      var why = G2T.sectionWhy(G2T.sectionById(id), hub);
+      var open = isSectionOpen(id);
+      if (open) el.classList.add('open'); else el.classList.remove('open');
+      el.querySelector('.secHead').setAttribute('aria-expanded', open ? 'true' : 'false');
+      setText(el.querySelector('.secHead .why'), why ? ' · ' + why : '');
     });
     G2T.phone.each(function (v) { if (v.menuPanel && v.menuPanel.render) v.menuPanel.render(); });
   }
@@ -538,7 +598,12 @@
   if (ST.get(SS, 'jds.active') === '1' && savedName) startJoin();
   else showScreen('join');
   // For automated tests
-  window.__phone = { hub: function () { return hub; }, slot: function () { return slot; } };
+  window.__phone = {
+    hub: function () { return hub; },
+    slot: function () { return slot; },
+    // Is a menu section's group open on this phone? (see buildMenu)
+    sectionOpen: function (id) { return isSectionOpen(id); }
+  };
 })();
 </script>
 </body>

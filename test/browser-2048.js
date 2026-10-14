@@ -164,12 +164,15 @@ async function main() {
     check(st === '¡Hola, Ana! Elige juego con el mando o desde el móvil', 'Tele con 1 móvil: «' + st + '»');
     const phoneSt = await ana.evaluate(function () { var b = document.querySelector('#gameList .game[data-game="2048"]'); return { st: document.getElementById('mStatus').textContent, dis: b.disabled, dib: document.querySelector('#gameList .game[data-game="dibuja"]').disabled }; });
     check(/^Juegas tú/.test(phoneSt.st) && !phoneSt.dis && phoneSt.dib, 'Móvil con 1: «2048» activo y los juegos de 2 en gris («' + phoneSt.st + '»)');
-    // The remote arrows still move the menu: 3 to the right = «2048»
-    for (let k = 0; k < 3; k++) await tv.keyboard.press('ArrowRight');
+    // The remote arrows still move the menu to «2048»
+    await H_.tvFocus(tv, '2048');
     const focus = await tv.evaluate(function () { var c = document.getElementById('card-2048'); return c.className.indexOf('focus') >= 0 && c.className.indexOf('off') < 0; });
     check(focus, 'Flechas en el menú de la tele: el foco llega a «2048» (disponible)');
     await tv.keyboard.press('ArrowLeft');
-    check(await tv.evaluate(function () { return document.getElementById('card-infiltrado').className.indexOf('focus') >= 0; }), '…y vuelve atrás con la flecha izquierda');
+    check(await tv.evaluate(function () {
+      var cs = [].slice.call(document.querySelectorAll('#cards .card'));
+      return cs.indexOf(document.getElementById('card-2048')) - 1 === cs.indexOf(document.querySelector('#cards .card.focus'));
+    }), '…y vuelve atrás con la flecha izquierda');
     await tv.keyboard.press('ArrowRight');
     await tv.keyboard.press('Enter');
     const m0 = await waitFor(function () { return tvMeta(tv).then(function (m) { return m && m.mode === 'solo' ? m : null; }); }, 4000, 'empieza a solas');

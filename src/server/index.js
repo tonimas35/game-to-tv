@@ -32,7 +32,7 @@ const QRCode = require('qrcode');
 
 const { detectLanIp, listIPv4 } = require('./net');
 const { createHub, DEFAULT_SLOTS } = require('./hub');
-const { loadGames, publicManifests, CLIENT_FILES } = require('../games');
+const { loadGames, publicManifests, publicSections, CLIENT_FILES } = require('../games');
 const ambient = require('./ambient');
 const config = require('../config');
 
@@ -164,6 +164,7 @@ function createServer(options) {
   }
 
   const manifests = publicManifests(games);
+  const sections = publicSections(games);
   const hub = createHub({
     games: games,
     maxPlayers: options.maxPlayers || parseInt(process.env.MAX_PLAYERS, 10) || DEFAULT_SLOTS,
@@ -174,12 +175,13 @@ function createServer(options) {
     infoForTv: function () { return { url: urls.phone, tvUrl: urls.tv, qr: '/qr.svg' }; }
   });
 
-  // The shells get the game list where <!--@boot--> is (before public/lib/core.js)
+  // The shells get the game list (and the menu sections that have games) where
+  // <!--@boot--> is (before public/lib/core.js)
   // and the game scripts/styles where <!--@games--> is
   function renderShell(file, kind, cb) {
     fs.readFile(path.join(PUBLIC_DIR, file), 'utf8', function (err, html) {
       if (err) return cb(err);
-      const boot = { games: manifests, slots: hub.slots, colors: hub.COLORS, mode: mode, version: version };
+      const boot = { games: manifests, sections: sections, slots: hub.slots, colors: hub.COLORS, mode: mode, version: version };
       if (tele && tele.service) boot.tele = { service: tele.service };
       let tags = '';
       games.list.forEach(function (g) {
