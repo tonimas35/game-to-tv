@@ -59,7 +59,7 @@ const OVERFLOW_CHECK = function () {
     if (!hasText) continue;
     var r = el.getBoundingClientRect();
     // Menu cards that peek in or are scrolled out of the row (.cardsWrap clips them;
-    // with 4 games the row scrolls to the focused card, checked below)
+    // with 5 games the row scrolls to the focused card, checked below)
     var card = el.closest ? el.closest('.card') : null;
     if (card) { var cr = card.getBoundingClientRect(); if (cr.left < sr.left - 1 || cr.right > sr.right + 1) continue; }
     var s = sr.width / 1920;
@@ -134,15 +134,15 @@ async function main() {
     // El mando de la tele mueve el foco
     await tv.keyboard.press('ArrowRight');
     check(await tv.evaluate(function () { return document.getElementById('card-pong').className.indexOf('focus') >= 0; }), 'Flecha derecha enfoca «Pong» en la tele');
-    // With 4 games the row scrolls: the last card comes fully into view when it has the focus
-    for (let k = 0; k < 3; k++) await tv.keyboard.press('ArrowRight');
+    // With 5 games the row scrolls: the last card comes fully into view when it has the focus
+    for (let k = 0; k < 4; k++) await tv.keyboard.press('ArrowRight');
     await sleep(400);
     const lastIn = await tv.evaluate(function () {
       var cs = document.querySelectorAll('.card'), c = cs[cs.length - 1], r = c.getBoundingClientRect(), sr = document.getElementById('stage').getBoundingClientRect();
       return c.className.indexOf('focus') >= 0 && r.left >= sr.left && r.right <= sr.right;
     });
-    check(lastIn, 'Con 4 juegos, la fila se desplaza y la última tarjeta enfocada se ve entera');
-    for (let k = 0; k < 3; k++) await tv.keyboard.press('ArrowLeft');
+    check(lastIn, 'Con 5 juegos, la fila se desplaza y la última tarjeta enfocada se ve entera');
+    for (let k = 0; k < 4; k++) await tv.keyboard.press('ArrowLeft');
     await tv.keyboard.press('ArrowLeft');
     await sleep(300);
 

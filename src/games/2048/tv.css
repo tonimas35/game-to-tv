@@ -1,0 +1,106 @@
+/* «2048»: TV view (1920x1080 stage). DOM + CSS transforms only: no shadows, no filters. */
+#v2048 { background: #0a0c1f; }
+.fx #v2048 { background: radial-gradient(ellipse at 50% 40%, #161b46 0%, #0a0c1f 65%); }
+#v2048 .fit { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Top bar */
+.nTop { position: absolute; left: 50px; right: 50px; top: 18px; height: 84px; display: flex; align-items: center; justify-content: space-between; }
+.nBrand { width: 560px; font-size: 64px; font-weight: 900; letter-spacing: 4px; color: #f7a66b; }
+.nClock { font-size: 64px; font-weight: 900; font-variant-numeric: tabular-nums; min-width: 200px; text-align: center; }
+.nClock.warn { color: var(--bad); }
+.nHint { width: 560px; text-align: right; font-size: 34px; font-weight: 700; color: var(--muted); }
+
+/* Cards: one per player */
+/* z-index 0: its own stacking context, so the tiles never go over the overlays */
+.nArea { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 0; }
+#v2048 .ov { z-index: 4; }
+.nCard { position: absolute; box-sizing: border-box; border-radius: 30px; background: var(--panel); border: 4px solid var(--line); }
+.nCard.solo { background: transparent; border: 0; border-radius: 0; }
+.nCard.away { opacity: 0.55; }
+.nHead { position: absolute; left: 26px; right: 26px; top: 0; display: flex; align-items: center; justify-content: space-between; }
+.nHead .nName { flex: 1; min-width: 0; font-weight: 900; }
+.nHead .nPts { flex: 0 0 auto; margin-left: 18px; font-size: 44px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.nRace .nCard.v .nHead .nPts { font-size: 40px; }
+.nInfo { position: absolute; right: 26px; top: 26px; bottom: 26px; }
+.nInfo .nName { height: 70px; line-height: 70px; font-weight: 900; }
+.nInfo small { display: block; margin-top: 30px; font-size: 24px; font-weight: 800; letter-spacing: 4px; color: var(--muted); }
+.nInfo .nPts { font-size: 104px; line-height: 1.1; font-weight: 900; font-variant-numeric: tabular-nums; }
+.nInfo .nBestL { margin-top: 16px; font-size: 30px; font-weight: 700; color: var(--muted); }
+
+/* The board: 16 empty cells, then the tiles on top */
+.nBoard { position: absolute; border-radius: 22px; background: #1d2245; overflow: hidden; }
+.nCard.solo .nBoard { border-radius: 30px; }
+.nCells i { position: absolute; background: rgba(255, 255, 255, 0.07); }
+.nTiles { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.nT { position: absolute; left: 0; top: 0; z-index: 1; transition: transform 0.11s ease-out; -webkit-transition: -webkit-transform 0.11s ease-out; }
+.nIn {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -1px;
+}
+.nIn.nNew { animation: nAppear 0.18s ease-out 0.09s both; }
+.nIn.nPopA { animation: nPopA 0.2s ease-out 0.08s both; }
+.nIn.nPopB { animation: nPopB 0.2s ease-out 0.08s both; }
+@keyframes nAppear { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes nPopA { 0% { transform: scale(1); } 50% { transform: scale(1.16); } 100% { transform: scale(1); } }
+@keyframes nPopB { 0% { transform: scale(1); } 50% { transform: scale(1.16); } 100% { transform: scale(1); } }
+
+/* Our palette: warm creams, peach, coral and gold, then mint and lavender for the big ones */
+.nIn.v2 { background: #f4ead8; color: #3a2e26; }
+.nIn.v4 { background: #f0d9b5; color: #3a2e26; }
+.nIn.v8 { background: #f7a66b; color: #fff; }
+.nIn.v16 { background: #f48a5a; color: #fff; }
+.nIn.v32 { background: #ef6c5a; color: #fff; }
+.nIn.v64 { background: #e04848; color: #fff; }
+.nIn.v128 { background: #f6d36b; color: #3a2e26; }
+.nIn.v256 { background: #f3c64c; color: #3a2e26; }
+.nIn.v512 { background: #efb631; color: #3a2e26; }
+.nIn.v1024 { background: #5fd0a8; color: #0d2a22; }
+.nIn.v2048 { background: #8f7bff; color: #fff; }
+.nIn.vbig { background: #2ec4e6; color: #06222b; }
+
+/* «Sin movimientos» on a board, «¡Lo conseguiste!» (1 player) */
+.nOver, .nCele { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 5; display: none; background: rgba(10, 12, 31, 0.8); }
+.nCard.over .nOver, .nCard.cele .nCele { display: flex; align-items: center; justify-content: center; text-align: center; }
+.nOverIn, .nCeleIn { max-width: 92%; }
+.nOverT { font-size: 52px; font-weight: 900; }
+.nOverS { margin-top: 10px; font-size: 30px; font-weight: 800; color: var(--muted); }
+.nCard.solo .nOverS { color: #fff; }
+.nOverB { display: flex; justify-content: center; margin-top: 46px; }
+.nOverK { margin-top: 30px; font-size: 26px; color: var(--muted); }
+.nCele { background: rgba(26, 18, 60, 0.88); }
+.nCeleT { font-size: 110px; font-weight: 900; color: #ffd23e; }
+.nCeleS { margin: 6px 0 44px; font-size: 44px; font-weight: 800; }
+.nCeleIn .btn { display: inline-block; }
+
+/* 1 player: side panels */
+.nSide { position: absolute; top: 230px; width: 420px; display: none; }
+.nSide.on { display: block; }
+.nSideL { left: 60px; }
+.nSideR { right: 60px; }
+.nWho { height: 76px; line-height: 76px; font-size: 60px; font-weight: 900; }
+.nBox { margin-top: 26px; padding: 22px 30px; border-radius: 28px; background: var(--panel); }
+.nBox small { display: block; font-size: 26px; font-weight: 800; letter-spacing: 4px; color: var(--muted); }
+.nBox b { display: block; font-size: 92px; line-height: 1.1; font-weight: 900; font-variant-numeric: tabular-nums; }
+.nRec { display: none; margin-top: 22px; padding: 12px 24px; border-radius: 999px; background: #ffd23e; color: #2a1d00; font-size: 32px; font-weight: 900; text-align: center; }
+.nRec.on { display: block; }
+.nHelp { padding: 30px 34px; border-radius: 28px; background: var(--panel); }
+.nHelp small { display: block; font-size: 26px; font-weight: 800; letter-spacing: 4px; color: var(--muted); margin-bottom: 8px; }
+.nHelp p { margin: 18px 0 0; font-size: 34px; line-height: 1.3; font-weight: 700; }
+.nHelp .nKeys { white-space: nowrap; color: #f7a66b; font-weight: 900; }
+.nHelp .nDim { font-size: 28px; color: var(--muted); }
+
+/* End of the race: ranking with medals (as in the other games) */
+#nEnd { background: #080a19; }
+.nEndK { position: absolute; left: 0; right: 0; top: 60px; margin: 0; text-align: center; font-size: 34px; font-weight: 900; letter-spacing: 6px; color: #f7a66b; }
+.nEndT { position: absolute; left: 200px; right: 200px; top: 112px; height: 130px; line-height: 130px; text-align: center; font-size: 100px; font-weight: 900; }
+.nRank { position: absolute; left: 460px; top: 270px; width: 1000px; margin: 0; padding: 0; list-style: none; }
+.nRank li { display: flex; align-items: center; height: 84px; box-sizing: border-box; padding: 0 30px; margin-bottom: 14px; border-radius: 24px; background: var(--panel); font-size: 44px; font-weight: 900; }
+.nRank .medal { flex: 0 0 auto; width: 58px; height: 58px; border-radius: 50%; margin-right: 22px; text-align: center; line-height: 58px; font-size: 30px; font-weight: 900; background: rgba(255,255,255,0.12); color: #fff; }
+.nRank .medal.m1 { background: #f5c542; color: #3a2a00; }
+.nRank .medal.m2 { background: #c9d1dc; color: #20262e; }
+.nRank .medal.m3 { background: #d08a4e; color: #2e1600; }
+.nRank .n { flex: 1; min-width: 0; }
+.nRank .mx { flex: 0 0 auto; margin-left: 16px; font-size: 28px; font-weight: 700; color: var(--muted); }
+.nRank .sc { flex: 0 0 auto; width: 170px; margin-left: 16px; text-align: right; font-size: 44px; font-variant-numeric: tabular-nums; }
+.nEndBtns { position: absolute; left: 0; right: 0; bottom: 60px; display: flex; justify-content: center; align-items: center; }
+.nEndBtns small { font-size: 26px; color: var(--muted); margin-left: 20px; }

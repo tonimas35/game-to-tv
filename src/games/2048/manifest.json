@@ -1,0 +1,21 @@
+{
+  "id": "2048",
+  "title": "2048",
+  "description": "Desliza las fichas y junta números iguales hasta llegar a 2048. Para jugar a solas o echar una carrera. Inspirado en el 2048 clásico.",
+  "phoneDescription": "Junta números iguales hasta llegar a 2048 (a solas o en carrera)",
+  "howTo": [
+    "Desliza el dedo en el móvil (o toca las flechas grandes) y todas las fichas se mueven hacia ese lado.",
+    "Si chocan dos fichas con el mismo número, se juntan en una: 2 y 2 hacen 4, 4 y 4 hacen 8…",
+    "Tras cada movimiento sale una ficha nueva (un 2 o, a veces, un 4).",
+    "Cada vez que juntas dos fichas sumas puntos. El objetivo: llegar a la ficha 2048. Luego puedes seguir.",
+    "Si el tablero se llena y no se puede juntar nada, se acaba: «Sin movimientos».",
+    "En la tele también valen las flechas del teclado o del mando.",
+    "Con 2 a 6 jugadores es una carrera de 3 minutos: gana quien más puntos tenga."
+  ],
+  "minPlayers": 1,
+  "maxPlayers": 6,
+  "tags": ["A solas", "Carrera de 3 min"],
+  "icon": "icon.svg",
+  "accent": "#f7a66b",
+  "order": 40
+}

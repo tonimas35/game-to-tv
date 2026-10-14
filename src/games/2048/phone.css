@@ -1,0 +1,78 @@
+/* «2048»: phone view (portrait). Big targets for older hands. */
+#scr-2048 .bar .info { flex: 1; min-width: 0; text-align: center; font-variant-numeric: tabular-nums; }
+.npHelpBtn { width: 38px; padding: 8px 0; font-size: 17px; font-weight: 900; }
+.npScores { display: flex; gap: 10px; margin-top: 10px; flex: 0 0 auto; }
+.npBox { flex: 1; min-width: 0; padding: 8px 12px; border-radius: 16px; background: var(--panel); text-align: center; }
+.npBox small { display: block; font-size: 12px; font-weight: 900; letter-spacing: 2px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.npBox b { display: block; font-size: 30px; line-height: 1.15; font-weight: 900; font-variant-numeric: tabular-nums; }
+
+.npMain { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* The pad: a cross of arrows around the board; the whole area takes swipes */
+.npPad {
+  flex: 1; min-height: 0; margin-top: 10px; padding: 8px; border-radius: 26px; background: var(--panel);
+  border: 3px solid var(--c); touch-action: none; -webkit-user-select: none; user-select: none;
+  display: grid; grid-template-columns: 1fr 2.4fr 1fr; grid-template-rows: 1fr 2.4fr 1fr; gap: 8px;
+  grid-template-areas: ". up ." "left board right" ". down .";
+}
+.npArrow {
+  padding: 0; border-radius: 20px; font-size: 40px; line-height: 1; color: #fff;
+  background: var(--c-soft); border: 3px solid var(--c); touch-action: none;
+}
+.npArrow:active { background: var(--c); color: #070915; }
+.npUp { grid-area: up; }
+.npDown { grid-area: down; }
+.npLeft { grid-area: left; }
+.npRight { grid-area: right; }
+.npBoard {
+  grid-area: board; min-width: 0; min-height: 0; padding: 5px; border-radius: 14px; background: #1d2245;
+  display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: 5px; pointer-events: none;
+}
+.npBoard i {
+  display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; border-radius: 7px;
+  background: rgba(255,255,255,0.07); font-style: normal; font-weight: 900; font-size: 19px; overflow: hidden;
+}
+.npBoard i.l3 { font-size: 15px; }
+.npBoard i.l4 { font-size: 12px; }
+.npHint { margin: 8px 0 0; text-align: center; font-size: 15px; color: var(--muted); flex: 0 0 auto; }
+.npNew { flex: 0 0 auto; margin-top: 8px; font-size: 18px; padding: 13px; }
+
+/* Same palette as the TV */
+.npBoard i.v2 { background: #f4ead8; color: #3a2e26; }
+.npBoard i.v4 { background: #f0d9b5; color: #3a2e26; }
+.npBoard i.v8 { background: #f7a66b; color: #fff; }
+.npBoard i.v16 { background: #f48a5a; color: #fff; }
+.npBoard i.v32 { background: #ef6c5a; color: #fff; }
+.npBoard i.v64 { background: #e04848; color: #fff; }
+.npBoard i.v128 { background: #f6d36b; color: #3a2e26; }
+.npBoard i.v256 { background: #f3c64c; color: #3a2e26; }
+.npBoard i.v512 { background: #efb631; color: #3a2e26; }
+.npBoard i.v1024 { background: #5fd0a8; color: #0d2a22; }
+.npBoard i.v2048 { background: #8f7bff; color: #fff; }
+.npBoard i.vbig { background: #2ec4e6; color: #06222b; }
+
+/* Panels */
+.npPanel { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
+.npPanel.center { justify-content: center; align-items: center; text-align: center; }
+.npT1 { font-size: 38px; font-weight: 900; line-height: 1.1; }
+.npT2 { font-size: 26px; font-weight: 800; }
+.npT3 { margin: 0 0 8px; font-size: 18px; color: var(--muted); }
+.npGold { color: #ffd23e; }
+.npCount { font-size: 110px; font-weight: 900; line-height: 1; }
+.npSecond { margin-top: 2px; font-size: 22px; padding: 16px; }
+.npRank { list-style: none; margin: 6px 0 12px; padding: 0; width: 100%; max-width: 360px; }
+.npRank li { display: flex; align-items: center; gap: 10px; padding: 7px 12px; margin-bottom: 6px; border-radius: 12px; background: var(--panel); font-size: 18px; font-weight: 800; }
+.npRank li.me { box-shadow: inset 0 0 0 2px var(--c); }
+.npRank li b { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.npRank li i { font-style: normal; font-weight: 900; font-variant-numeric: tabular-nums; }
+.npRank .md { flex: 0 0 auto; width: 28px; height: 28px; line-height: 28px; border-radius: 50%; text-align: center; font-size: 15px; font-weight: 900; background: rgba(255,255,255,0.12); }
+.npRank .md.m1 { background: #f5c542; color: #3a2a00; }
+.npRank .md.m2 { background: #c9d1dc; color: #20262e; }
+.npRank .md.m3 { background: #d08a4e; color: #2e1600; }
+
+/* Help */
+#npHelp { z-index: 15; justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.npHelpBox { width: 100%; max-width: 380px; text-align: left; }
+.npHelpBox h2 { margin: 6px 0 12px; font-size: 28px; color: #f7a66b; }
+.npHelpBox ol { margin: 0 0 18px; padding-left: 22px; }
+.npHelpBox li { margin-bottom: 9px; font-size: 17px; line-height: 1.35; }
+.npHelpBox .bigbtn { width: 100%; }
