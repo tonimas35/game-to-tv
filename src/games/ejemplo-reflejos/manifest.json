@@ -8,5 +8,6 @@
   "tags": ["Al mejor de 5", "Ejemplo"],
   "icon": "icon.svg",
   "accent": "#ffd23e",
-  "order": 90
+  "order": 90,
+  "bots": true
 }
