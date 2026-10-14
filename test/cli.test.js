@@ -129,14 +129,20 @@ async function serverRoutes() {
     const tv = await H_.httpGet(BASE, '/');
     const ids = (tv.body.match(/window\.G2T_BOOT = (\{.*?\});<\/script>/) || [])[1];
     const boot = ids ? JSON.parse(ids) : { games: [] };
-    check(boot.games.map(function (g) { return g.id; }).join(',') === 'dibuja,pong,infiltrado,2048,ejemplo-reflejos', 'La tele recibe la lista de juegos (ordenada por «order»)');
-    check(boot.games[3].minPlayers === 1 && boot.games[3].maxPlayers === 6 && boot.games[3].howTo && boot.games[3].howTo.length >= 5 && /inspirado en el 2048 clásico/i.test(boot.games[3].description), '«2048» (1 a 6), con su «Cómo se juega» y «inspirado en el 2048 clásico»');
-    check(boot.games[2].howTo && boot.games[2].howTo.length >= 6 && boot.games[2].minPlayers === 3 && boot.games[2].maxPlayers === 6, '«El Infiltrado» (3 a 6) lleva su «Cómo se juega» para el móvil');
+    // Every game folder in src/games reaches the TV, sorted by «order» (robust to new games)
+    const gameDirs = fs.readdirSync(path.join(__dirname, '..', 'src', 'games')).filter(function (d) { return fs.existsSync(path.join(__dirname, '..', 'src', 'games', d, 'manifest.json')); });
+    const bootIds = boot.games.map(function (g) { return g.id; });
+    const sortedOk = boot.games.every(function (g, i) { return i === 0 || (boot.games[i - 1].order || 0) <= (g.order || 0); });
+    check(bootIds.length === gameDirs.length && gameDirs.every(function (d) { return bootIds.indexOf(d) >= 0; }) && sortedOk && bootIds[0] === 'dibuja' && bootIds[1] === 'pong',
+      'La tele recibe la lista de juegos (ordenada por «order»)');
+    const bootGame = function (id) { return boot.games.filter(function (g) { return g.id === id; })[0] || {}; };
+    check(bootGame('2048').minPlayers === 1 && bootGame('2048').maxPlayers === 6 && bootGame('2048').howTo && bootGame('2048').howTo.length >= 5 && /inspirado en el 2048 clásico/i.test(bootGame('2048').description), '«2048» (1 a 6), con su «Cómo se juega» y «inspirado en el 2048 clásico»');
+    check(bootGame('infiltrado').howTo && bootGame('infiltrado').howTo.length >= 6 && bootGame('infiltrado').minPlayers === 3 && bootGame('infiltrado').maxPlayers === 6, '«El Infiltrado» (3 a 6) lleva su «Cómo se juega» para el móvil');
     check(tv.body.indexOf('<script src="/games/pong/tv.js"></script>') > tv.body.indexOf('<script src="/lib/core.js"></script>') &&
       tv.body.indexOf('window.G2T_BOOT') < tv.body.indexOf('/lib/core.js') && /href="\/games\/dibuja\/tv\.css"/.test(tv.body), 'El shell de la tele carga core.js y luego tv.js/tv.css de cada juego');
     const m = await H_.httpGet(BASE, '/m');
     check(/\/games\/ejemplo-reflejos\/phone\.js/.test(m.body) && /\/games\/dibuja\/phone\.css/.test(m.body), 'El shell del móvil carga phone.js/phone.css de cada juego');
-    check(boot.games[1].tv && boot.games[1].tv.field && boot.games[1].tv.field.w === 1920, 'Datos extra para la tele (campo del Pong)');
+    check(bootGame('pong').tv && bootGame('pong').tv.field && bootGame('pong').tv.field.w === 1920, 'Datos extra para la tele (campo del Pong)');
     const js = await H_.httpGet(BASE, '/games/pong/tv.js');
     check(js.status === 200 && /javascript/.test(js.type) && js.headers['cache-control'] === 'no-store', '/games/pong/tv.js se sirve sin caché');
     check((await H_.httpGet(BASE, '/games/pong/index.js')).status === 404 && (await H_.httpGet(BASE, '/games/pong/manifest.json')).status === 404, 'El código del servidor de los juegos no se sirve');
@@ -144,7 +150,7 @@ async function serverRoutes() {
     check((await H_.httpGet(BASE, '/lib/core.js')).status === 200 && (await H_.httpGet(BASE, '/lib/../tv.html')).status !== 200, '/lib/ solo sirve sus archivos');
     check((await H_.httpGet(BASE, '/games/dibuja/icon.svg')).type.indexOf('image/svg+xml') === 0, 'Iconos de los juegos');
     const info = JSON.parse((await H_.httpGet(BASE, '/info')).body);
-    check(info.app === 'game-to-tv' && info.juegos.length === 5 && info.movil === 'http://192.168.1.50:' + PORT + '/m', '/info identifica a game-to-tv');
+    check(info.app === 'game-to-tv' && info.juegos.length === gameDirs.length && info.movil === 'http://192.168.1.50:' + PORT + '/m', '/info identifica a game-to-tv');
     const amb = await H_.httpGet(BASE, '/ambiente');
     check(amb.status === 200 && /Modo ambiente/.test(amb.body), '/ambiente');
     const list = JSON.parse((await H_.httpGet(BASE, '/ambiente/lista.json')).body);
@@ -152,7 +158,8 @@ async function serverRoutes() {
     const foto = await H_.httpGet(BASE, '/ambiente/foto/playa.png');
     check(foto.status === 200 && foto.type === 'image/png', 'Sirve las fotos del modo ambiente');
     check((await H_.httpGet(BASE, '/ambiente/foto/..%2Fconfig.json')).status === 404 && (await H_.httpGet(BASE, '/ambiente/foto/notas.txt')).status === 404, 'El modo ambiente no deja salir de su carpeta ni sirve otros archivos');
-    check(/Juegos:\s+Dibuja y adivina, Pong, El Infiltrado, 2048, Reflejos/.test(srv.out), 'start lista los juegos cargados');
+    const juegosLine = (/Juegos:\s+([^\n]*)/.exec(srv.out) || [])[1] || '';
+    check(boot.games.every(function (g) { return juegosLine.indexOf(g.title) >= 0; }) && /^Dibuja y adivina, Pong/.test(juegosLine), 'start lista los juegos cargados');
     // Port already in use -> clear Spanish error
     const r = await H_.runCli(['start', '--port', String(PORT), '--sin-qr'], { GAME_TO_TV_HOME: HOME });
     check(r.code === 1 && /ya está en uso/.test(r.out), 'start con el puerto ocupado: mensaje claro');
@@ -215,7 +222,9 @@ function browserTests() {
 function registryTests() {
   console.log('\n[Registro de juegos]');
   const g = loadGames();
-  check(g.list.length === 5 && g.byId.dibuja && g.byId.pong && g.byId.infiltrado && g.byId['2048'] && g.byId['ejemplo-reflejos'], 'Se cargan los 5 juegos de src/games');
+  const dirs = fs.readdirSync(path.join(__dirname, '..', 'src', 'games')).filter(function (d) { return fs.existsSync(path.join(__dirname, '..', 'src', 'games', d, 'manifest.json')); });
+  check(g.list.length === dirs.length && dirs.every(function (d) { return g.byId[d]; }) && g.byId.dibuja && g.byId.pong && g.byId.infiltrado && g.byId['2048'] && g.byId['ejemplo-reflejos'],
+    'Se cargan todos los juegos de src/games (' + dirs.length + ')');
   check(validateManifest({ id: 'x', title: 'X', description: 'd', minPlayers: 2, maxPlayers: 1 }, 'x').length === 1, 'maxPlayers < minPlayers es un error');
   check(validateManifest({ id: 'Malo', title: 'X', description: 'd', minPlayers: 1, maxPlayers: 2 }, 'otro').length === 2, 'id con mayúsculas o distinto de la carpeta es un error');
   // A broken game folder is skipped with a message, the rest still load

@@ -29,6 +29,7 @@ const check = H_.checker('Secciones del menú («1 contra 1») con juegos falsos
 const FAKE_DIR = writeFakeGames(path.join(TMP, 'juegos'));
 const DIRS = [games.GAMES_DIR, FAKE_DIR];
 const IDS = DUELOS.map(function (g) { return g.id; });
+function isFake(id) { return IDS.indexOf(id) >= 0; }
 // A folder with one fake game WITHOUT a section (the menu as it was before sections)
 const PLAIN_DIR = writeFakeGames(path.join(TMP, 'sin-seccion'), [Object.assign({}, DUELOS[0], { id: 'prueba-normal', title: 'Normal', section: null })]);
 // The real games (after the «1 contra 1» games arrive, some of them have a section)
@@ -66,11 +67,12 @@ function registryTests() {
 
   const all = games.loadGames(DIRS, quiet);
   const pub = games.publicManifests(all);
-  const fake = pub.filter(function (m) { return m.section === '1vs1'; });
+  // Real duels (tanques, motos…) also live in this section: look only at the fake ones
+  const fake = pub.filter(function (m) { return m.section === '1vs1' && isFake(m.id); });
   check(fake.length === 4 && fake.map(function (m) { return m.id; }).join() === IDS.join(), 'publicManifests lleva "section" (los 4 duelos, en orden)');
   check(fake[0].icon === '/games/' + IDS[0] + '/icon.svg' && fake[0].order === 50, '…con su icono y su order');
   const secs = games.publicSections(all);
-  check(secs.length === 1 && secs[0].id === '1vs1' && secs[0].title === '1 contra 1' && secs[0].games.join() === IDS.join() && typeof secs[0].order === 'number' && /^#/.test(secs[0].accent),
+  check(secs.length === 1 && secs[0].id === '1vs1' && secs[0].title === '1 contra 1' && secs[0].games.filter(isFake).join() === IDS.join() && typeof secs[0].order === 'number' && /^#/.test(secs[0].accent),
     'publicSections: «1 contra 1» con sus juegos, order y accent');
 }
 
@@ -84,8 +86,8 @@ async function serverTests() {
   try {
     const tvBoot = bootOf((await H_.httpGet(BASE, '/')).body);
     const mBoot = bootOf((await H_.httpGet(BASE, '/m')).body);
-    check(!!tvBoot && tvBoot.sections.length === 1 && tvBoot.sections[0].games.join() === IDS.join(), 'La tele recibe G2T_BOOT.sections con «1 contra 1»');
-    check(!!mBoot && JSON.stringify(mBoot.sections) === JSON.stringify(tvBoot.sections) && mBoot.games.filter(function (g) { return g.section === '1vs1'; }).length === 4,
+    check(!!tvBoot && tvBoot.sections.length === 1 && tvBoot.sections[0].games.filter(isFake).join() === IDS.join(), 'La tele recibe G2T_BOOT.sections con «1 contra 1»');
+    check(!!mBoot && JSON.stringify(mBoot.sections) === JSON.stringify(tvBoot.sections) && mBoot.games.filter(function (g) { return g.section === '1vs1' && isFake(g.id); }).length === 4,
       'El móvil recibe lo mismo, y cada juego su "section"');
     check(tvBoot.games.length === REAL.list.length + 4, 'Los juegos reales siguen en G2T_BOOT.games (' + tvBoot.games.length + ' en total)');
     check((await H_.httpGet(BASE, '/games/' + IDS[0] + '/icon.svg')).status === 200, 'El icono de un juego de sección se sirve como los demás');
@@ -145,7 +147,7 @@ async function teleTests() {
   try {
     const boot = bootOf((await H_.httpGet('http://127.0.0.1:' + r.port, '/')).body);
     check(r.returnValue && !!boot && boot.mode === 'tele' && boot.sections.length === 1 && boot.sections[0].id === '1vs1' &&
-      boot.games.filter(function (g) { return g.section === '1vs1'; }).length === 4, 'El servidor dentro de la tele también pasa "section" y las secciones');
+      boot.games.filter(function (g) { return g.section === '1vs1' && isFake(g.id); }).length === 4, 'El servidor dentro de la tele también pasa "section" y las secciones');
   } finally {
     await svc.request('stop', {});
   }
