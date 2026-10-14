@@ -201,7 +201,7 @@ async function main() {
       const g = two.grid, h = two.heads[0], hx = h % 64;
       let jx = -1;
       for (let x = 12; x <= hx; x++) if (g[16 * 64 + x] === '1' && g[17 * 64 + x] === '1') jx = x;
-      jog = jx > 12 && g[16 * 64 + jx - 1] === '0' && g[17 * 64 + jx + 1] === '0';
+      jog = jx >= 12 && g[16 * 64 + jx - 1] === '0' && g[17 * 64 + jx + 1] === '0';
     }
     if (!two) { const dbg = await tvState(tv); console.log('    (depuración: fase ' + dbg.meta.phase + ', dirs ' + dbg.dirs + ', cabezas ' + dbg.heads.map(function (c) { return (c % 64) + ',' + Math.floor(c / 64); }).join(' / ') + ', giros enviados ' + (sentAfter - sentBefore) + ')'); }
     check(sentAfter - sentBefore === 2 && !!two && jog, 'Un solo gesto rápido «arriba y derecha» manda dos giros y la moto hace los dos (sube una casilla y sigue)');
