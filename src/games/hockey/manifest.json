@@ -1,0 +1,21 @@
+{
+  "id": "hockey",
+  "title": "Hockey de mesa",
+  "description": "Mesa de aire en la tele: tu móvil, en horizontal, es el mazo. Mete el disco en la portería rival. A 7.",
+  "phoneDescription": "Tu móvil es el mazo: mete el disco en la portería rival",
+  "section": "1vs1",
+  "minPlayers": 2,
+  "maxPlayers": 2,
+  "tags": ["A 7", "Mesa de aire"],
+  "howTo": [
+    "Pon el móvil en horizontal: verás tu mitad de la mesa, con tu portería en el borde de fuera.",
+    "Arrastra el dedo por la pantalla: tu mazo va adonde está el dedo (en la tele, el círculo de tu color).",
+    "Golpea el disco: cuanto más rápido mueves el mazo, más fuerte sale el tiro.",
+    "Gol cuando el disco entra entero en la portería. El disco vuelve a salir hacia quien ha encajado.",
+    "Tu mazo no puede pasar de la línea del centro.",
+    "Gana quien llegue antes a 7 goles."
+  ],
+  "icon": "icon.svg",
+  "accent": "#5ad1ff",
+  "order": 60
+}
