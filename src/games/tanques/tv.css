@@ -1,0 +1,53 @@
+/* «Tanques»: TV view (1920x1080 stage) over the arena canvas. No shadows, no filters. */
+#vTanques { background: transparent; }
+#vTanques .fit { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Score bar (the canvas paints its dark band, 120 px) */
+.kHud { position: absolute; left: 0; top: 0; width: 1920px; height: 120px; display: flex; align-items: center; }
+.kSide { width: 760px; height: 120px; box-sizing: border-box; display: flex; align-items: center; }
+.kL { padding: 0 20px 0 44px; }
+.kR { padding: 0 44px 0 20px; }
+.kWho { flex: 1; min-width: 0; }
+.kR .kWho { text-align: right; }
+.kName { height: 62px; line-height: 62px; font-size: 52px; font-weight: 900; }
+.kPips { height: 26px; margin-top: 2px; white-space: nowrap; overflow: hidden; }
+.kPips i { display: inline-block; box-sizing: border-box; width: 22px; height: 22px; margin: 0 10px 0 0; border-radius: 50%; border: 3px solid #fff; }
+.kR .kPips i { margin: 0 0 0 10px; }
+.kPts { flex: 0 0 auto; width: 150px; text-align: center; font-size: 96px; line-height: 120px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.kMid { width: 400px; text-align: center; }
+.kTitle { font-size: 40px; line-height: 50px; font-weight: 900; letter-spacing: 10px; color: #3ee07a; }
+.kSub { height: 40px; line-height: 40px; font-size: 30px; font-weight: 700; color: var(--muted); }
+.kPopA { animation: kPopA 0.35s ease-out both; }
+.kPopB { animation: kPopB 0.35s ease-out both; }
+@keyframes kPopA { from { transform: scale(1.45); opacity: 0.3; } to { transform: scale(1); opacity: 1; } }
+@keyframes kPopB { from { transform: scale(1.45); opacity: 0.3; } to { transform: scale(1); opacity: 1; } }
+
+/* 3-2-1 over the arena */
+.kCount { position: absolute; left: 0; top: 120px; width: 1920px; height: 960px; display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.kCount.on { display: flex; }
+.kCount b { display: block; width: 330px; height: 330px; border-radius: 50%; background: rgba(5, 6, 15, 0.78); border: 6px solid rgba(255, 255, 255, 0.85); box-sizing: border-box; text-align: center; line-height: 318px; font-size: 210px; font-weight: 900; color: #fff; }
+.kCount b.go { width: 560px; border-radius: 165px; font-size: 170px; color: #3ee07a; border-color: #3ee07a; }
+.kCount p { max-width: 1300px; margin: 26px 0 0; padding: 12px 40px; border-radius: 999px; background: rgba(5, 6, 15, 0.78); font-size: 44px; font-weight: 800; }
+.kCount p:empty { display: none; }
+
+/* Result of the round */
+.kBanner { position: absolute; left: 360px; top: 150px; width: 1200px; box-sizing: border-box; padding: 16px 40px 18px; border-radius: 34px; background: rgba(5, 6, 15, 0.86); border: 4px solid rgba(255, 255, 255, 0.18); text-align: center; display: none; }
+.kBanner.on { display: block; }
+.kBanner b { display: block; height: 80px; line-height: 80px; font-size: 64px; font-weight: 900; }
+.kBanner small { display: block; height: 44px; line-height: 44px; font-size: 34px; font-weight: 700; color: var(--muted); }
+
+/* Pause above everything but the end screen */
+#vTanques #kPause { z-index: 4; }
+#kPauseWho { height: 140px; line-height: 140px; }
+#kPauseSub { height: 56px; line-height: 56px; }
+
+/* Winner screen */
+#kEnd { background: #080a19; z-index: 5; }
+.kEndK { position: absolute; left: 0; right: 0; top: 150px; margin: 0; text-align: center; font-size: 40px; font-weight: 900; letter-spacing: 8px; color: #3ee07a; }
+.kEndT { position: absolute; left: 160px; right: 160px; top: 230px; height: 170px; line-height: 170px; text-align: center; font-size: 130px; font-weight: 900; }
+.kEndS { position: absolute; left: 160px; right: 160px; top: 450px; height: 160px; display: flex; align-items: center; justify-content: center; }
+.kEndS b { flex: 0 0 auto; margin: 0 50px; height: 160px; line-height: 160px; font-size: 140px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.kEndN { flex: 1; min-width: 0; height: 80px; line-height: 80px; font-size: 56px; font-weight: 900; }
+.kEndS .kEndN:first-child { text-align: right; }
+.kEndBtns { position: absolute; left: 0; right: 0; bottom: 170px; display: flex; justify-content: center; align-items: center; }
+.kEndBtns small { font-size: 28px; color: var(--muted); margin-left: 20px; }
