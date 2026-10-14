@@ -123,7 +123,8 @@ function serveGallery(res, pathname, dir) {
 /**
  * Creates (but does not start) the server.
  * options: port, hostIp, galleryDir (null in tele mode = do not save PNGs),
- *          ambientDir, timezone, slotHoldMs, maxPlayers, gamesDirs, log,
+ *          dataDir (small persistent data such as the «2048» records; default
+ *          ~/.game-to-tv, null = memory only), ambientDir, timezone, slotHoldMs, maxPlayers, gamesDirs, log,
  *          config, mode ('pc' | 'tele'), version,
  *          tele: { service, info() -> extra /info data, logs() -> text }
  */
@@ -137,6 +138,7 @@ function createServer(options) {
   const hostIp = detectLanIp(options.hostIp);
   const galleryDir = options.galleryDir === null ? null : (options.galleryDir || config.galleryDir(cfg));
   const ambientDir = options.ambientDir || config.ambientDir(cfg);
+  const dataDir = options.dataDir === null ? null : (options.dataDir || config.homeDir());
   const timezone = options.timezone || process.env.TZ_AMBIENTE || cfg.timezone || 'Europe/Madrid';
   const log = options.log || function (s) { console.log(s); };
   const games = loadGames(options.gamesDirs, log);
@@ -167,6 +169,7 @@ function createServer(options) {
     maxPlayers: options.maxPlayers || parseInt(process.env.MAX_PLAYERS, 10) || DEFAULT_SLOTS,
     slotHoldMs: options.slotHoldMs || parseInt(process.env.SLOT_HOLD_MS, 10) || 30000,
     galleryDir: galleryDir,
+    dataDir: dataDir,
     log: log,
     infoForTv: function () { return { url: urls.phone, tvUrl: urls.tv, qr: '/qr.svg' }; }
   });
@@ -278,6 +281,7 @@ function createServer(options) {
     urls: urls,
     hostIp: hostIp,
     galleryDir: galleryDir,
+    dataDir: dataDir,
     ambientDir: ambientDir,
     games: games,
     hub: hub,

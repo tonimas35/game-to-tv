@@ -14,6 +14,8 @@
  *   server -> { t: 'joined', slot, name, color, cid, reconnect }
  *   server -> { t: 'full' }
  *   server -> { t: 'hub', screen, ready, pick, slots, players: [...] }
+ *             ready: every player is connected and there are enough of them
+ *             for at least one game (1 with «2048», 2 with the others)
  *   server -> { t: 'ev', k: 'join' | 'menu' | 'left', ... }
  *             ('menu' may carry `text`: why, ready to show)
  *   server -> { t: 'ev', k: 'need2' | 'toomany', game, title, min, max, n, by, text }
@@ -41,6 +43,9 @@ function createHub(opts) {
   const SLOTS = Math.max(2, Math.min(COLORS.length, opts.maxPlayers || DEFAULT_SLOTS));
   const SLOT_HOLD_MS = opts.slotHoldMs || 30000;
   const log = opts.log || function (s) { console.log(s); };
+  // The smallest room any game accepts (1 with «2048»): the room is «ready»
+  // from there on, and each game card says whether it fits (whyNot)
+  const MIN_ANY = games.list.reduce(function (m, g) { return Math.min(m, Math.max(1, g.manifest.minPlayers || 1)); }, games.list.length ? Infinity : 2);
 
   // players[i] = { cid, name, ws, disconnectedAt, store: { <gameId>: {...} } }
   const players = new Array(SLOTS).fill(null);
@@ -96,6 +101,9 @@ function createHub(opts) {
       COLORS: COLORS,
       GALERIA_DIR: opts.galleryDir,
       galleryDir: opts.galleryDir,
+      // Folder for small persistent data (e.g. the «2048» records): ~/.game-to-tv
+      // in pc mode, a writable folder of the TV in tele mode; null = keep in memory
+      dataDir: opts.dataDir || null,
       slots: SLOTS,
       tvs: tvs,
       isConnected: function (i) { return isConnected(players[i]); },
@@ -133,7 +141,7 @@ function createHub(opts) {
     return {
       t: 'hub',
       screen: hub.screen,
-      ready: readyCount() >= 2,
+      ready: readyCount() >= MIN_ANY,
       pick: hub.pick,
       slots: SLOTS,
       players: players.map(function (p, i) {
@@ -283,13 +291,20 @@ function createHub(opts) {
       log('[hub] «' + g.manifest.title + '» sigue sin ' + p.name);
       broadcast({ t: 'ev', k: 'left', slot: i + 1, name: p.name });
     } else {
-      backToMenu('falta un jugador', g ? p.name + ' se ha ido y «' + g.manifest.title + '» necesita al menos ' + g.manifest.minPlayers + ' jugadores. Volvemos al menú.' : '');
+      backToMenu('falta un jugador', g ? leftText(p.name, g.manifest) : '');
     }
+  }
+
+  // «Ana se ha ido y «Pong» necesita al menos 2 jugadores.» / «Ana se ha ido y no queda nadie.»
+  function leftText(name, m) {
+    if (!occupied().length) return name + ' se ha ido y no queda nadie jugando a «' + m.title + '». Volvemos al menú.';
+    return name + ' se ha ido y «' + m.title + '» necesita al menos ' + m.minPlayers + (m.minPlayers === 1 ? ' jugador' : ' jugadores') + '. Volvemos al menú.';
   }
 
   // «Pong» es de 2 a 4 jugadores y sois 6. / «Dibuja y adivina» es de 2 a 6 jugadores: falta 1.
   function rangeText(m) {
-    return m.minPlayers === m.maxPlayers ? 'para ' + m.minPlayers + ' jugadores' : 'de ' + m.minPlayers + ' a ' + m.maxPlayers + ' jugadores';
+    if (m.minPlayers === m.maxPlayers) return 'para ' + m.minPlayers + (m.minPlayers === 1 ? ' jugador' : ' jugadores');
+    return 'de ' + m.minPlayers + ' a ' + m.maxPlayers + ' jugadores';
   }
   function pickProblem(g, by) {
     const m = g.manifest;
@@ -467,6 +482,7 @@ function createHub(opts) {
   return {
     COLORS: COLORS,
     slots: SLOTS,
+    minAny: MIN_ANY,
     onConnection: onConnection,
     start: function () { running = true; lastTime = process.hrtime.bigint(); loop(); },
     stop: function () {

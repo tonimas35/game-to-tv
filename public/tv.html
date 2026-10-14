@@ -421,7 +421,10 @@
     box.className = 'players' + (visible > 6 ? ' c4' : '') + (allIn ? ' full' : '');
     $('qrBox').style.display = allIn ? 'none' : 'flex';
     var st = $('menuStatus');
-    if (hubState.ready) {
+    if (hubState.ready && joined.length === 1) {
+      setText(st, '¡Hola, ' + joined[0] + '! Elige juego con el mando o desde el móvil');
+      st.classList.add('ready');
+    } else if (hubState.ready) {
       setText(st, joined.length <= 3
         ? '¡Listos, ' + G2T.joinNames(joined) + '! Elegid juego con el mando o desde el móvil'
         : '¡Sois ' + joined.length + '! Elegid juego con el mando o desde el móvil');

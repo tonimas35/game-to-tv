@@ -420,7 +420,8 @@
     var o = others();
     var away = o.filter(function (p) { return !p.connected; });
     var st;
-    if (ready) st = o.length === 1 ? 'Jugáis tú y ' + otherName() + '. ¡Elegid juego!' : 'Sois ' + (o.length + 1) + '. ¡Elegid juego!';
+    if (ready && !o.length) st = 'Juegas tú. ¡Elige juego! (Para jugar con más gente, que escaneen el QR de la tele)';
+    else if (ready) st = o.length === 1 ? 'Jugáis tú y ' + otherName() + '. ¡Elegid juego!' : 'Sois ' + (o.length + 1) + '. ¡Elegid juego!';
     else if (away.length) st = 'Esperando a que vuelva ' + G2T.joinNames(away.map(function (p) { return p.name; })) + '…';
     else st = 'Esperando a más jugadores… (que escaneen el QR de la tele)';
     setText($('mStatus'), st);

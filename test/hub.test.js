@@ -67,7 +67,65 @@ function fancyVariant(word) {
   return 'La ' + word.toUpperCase().replace(/A/g, 'Á').replace(/E/g, 'É') + '  ';
 }
 
+// ---------------- The hub with games of 1 player (in process, fake sockets) ----------------
+function fakeWs() {
+  const ws = { readyState: 1, out: [], handlers: {} };
+  ws.on = function (ev, fn) { ws.handlers[ev] = fn; };
+  ws.send = function (s) { ws.out.push(JSON.parse(s)); };
+  ws.close = function () { ws.readyState = 3; if (ws.handlers.close) ws.handlers.close(); };
+  ws.msg = function (o) { ws.handlers.message(Buffer.from(JSON.stringify(o))); };
+  ws.last = function (t, k) { for (let i = ws.out.length - 1; i >= 0; i--) if (ws.out[i].t === t && (!k || ws.out[i].k === k)) return ws.out[i]; return null; };
+  return ws;
+}
+function fakeGame(id, min, max) {
+  return {
+    id: id,
+    manifest: { id: id, title: id === 'solo' ? 'Solitario' : 'Parejas', minPlayers: min, maxPlayers: max },
+    module: { create: function () { return { start: function () {}, stop: function () {}, tick: function () {}, onPlayerLeft: function () { return true; } }; } }
+  };
+}
+function minPlayersUnit() {
+  console.log('\n[Hub: juegos de 1 jugador]');
+  const { createHub } = require('../src/server/hub');
+  function room(list) {
+    const games = { list: list, byId: {} };
+    list.forEach(function (g) { games.byId[g.id] = g; });
+    const hub = createHub({ games: games, log: function () {} });
+    const tv = fakeWs();
+    hub.onConnection(tv);
+    tv.msg({ t: 'hello', role: 'tv' });
+    return { hub: hub, tv: tv, join: function (name) { const p = fakeWs(); hub.onConnection(p); p.msg({ t: 'join', name: name, cid: 'c-' + name }); return p; } };
+  }
+  // Only games of 2 or more: as before, 1 player is not «ready»
+  const r2 = room([fakeGame('pares', 2, 4)]);
+  r2.join('Ana');
+  check(r2.hub.minAny === 2 && r2.tv.last('hub').ready === false, 'Sin juegos de 1, con 1 jugador la sala no está lista');
+  // With a game of 1: ready with one phone, and that game can start
+  const r1 = room([fakeGame('pares', 2, 4), fakeGame('solo', 1, 6)]);
+  const ana = r1.join('Ana');
+  check(r1.hub.minAny === 1 && r1.tv.last('hub').ready === true, 'Con un juego de 1, un solo móvil ya deja la sala lista');
+  ana.msg({ t: 'pick', game: 'pares' });
+  const need = ana.last('ev', 'need2');
+  check(!!need && need.text === '«Parejas» es de 2 a 4 jugadores: falta 1 jugador. Escanead el QR.', 'El juego de 2 sigue pidiendo 2: «' + (need && need.text) + '»');
+  r1.tv.msg({ t: 'pick', game: 'solo' });
+  check(r1.tv.last('hub').screen === 'solo', 'El juego de 1 empieza con 1 (elegido con el mando)');
+  // Somebody else joins and leaves: the game goes on; the last one leaves: menu
+  const berto = r1.join('Berto');
+  berto.msg({ t: 'leave' });
+  check(r1.tv.last('hub').screen === 'solo' && r1.tv.last('ev', 'left').name === 'Berto', 'Se va uno de 2: el juego de 1 sigue');
+  ana.msg({ t: 'leave' });
+  const back = r1.tv.last('ev', 'menu');
+  check(r1.tv.last('hub').screen === 'menu' && !!back && back.text === 'Ana se ha ido y no queda nadie jugando a «Solitario». Volvemos al menú.', 'Se va la última: al menú («' + (back && back.text) + '»)');
+  // Nobody in the room: even the game of 1 says what is missing
+  r1.tv.msg({ t: 'pick', game: 'solo' });
+  const need0 = r1.tv.last('ev', 'need2');
+  check(!!need0 && /^«Solitario» es de 1 a 6 jugadores: falta 1 jugador\./.test(need0.text), 'Sala vacía: «' + (need0 && need0.text) + '»');
+  r1.hub.stop();
+  r2.hub.stop();
+}
+
 async function main() {
+  minPlayersUnit();
   console.log('Arrancando servidor de pruebas en el puerto ' + PORT + '...');
   const startedAt = Date.now();
   let before = [];

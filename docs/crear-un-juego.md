@@ -62,7 +62,7 @@ src/games/ejemplo-reflejos/
 | `id` | Igual que el nombre de la carpeta: minúsculas, números y guiones. |
 | `title`, `description` | La tarjeta de la tele. |
 | `phoneDescription` | Texto corto del botón en el móvil (si falta, se usa `description`). |
-| `minPlayers`, `maxPlayers` | El hub no deja empezar con menos o más jugadores. La tarjeta muestra el rango («2 a 6 jugadores») y, si no encaja, el motivo. |
+| `minPlayers`, `maxPlayers` | El hub no deja empezar con menos o más jugadores. La tarjeta muestra el rango («2 a 6 jugadores») y, si no encaja, el motivo. `minPlayers` puede ser 1 («2048»): la sala está «lista» con un solo móvil y los demás juegos siguen pidiendo su mínimo. |
 | `tags` | Etiquetas de la tarjeta (cortas: caben 2 o 3; el rango de jugadores ya lo pone el menú). |
 | `icon` | Archivo de la carpeta que se dibuja en la tarjeta. |
 | `accent` | Color del borde de la tarjeta cuando tiene el foco. |
@@ -152,6 +152,7 @@ Ideas clave:
 | `api.sendWs(ws, obj)` | A una conexión concreta (en `syncTv`). |
 | `api.store(i)` | Datos del jugador que sobreviven entre partidas (ver «menú» abajo). |
 | `api.galleryDir` | Carpeta para guardar archivos (la galería de dibujos). Puede ser `null` en una tele sin carpeta con permiso de escritura: entonces no guardes nada. |
+| `api.dataDir` | Carpeta para datos pequeños que deben durar (los récords de «2048»): `~/.game-to-tv` en modo pc, junto a la galería en modo tele. Puede ser `null`: guárdalos solo en memoria, y si escribir falla, sigue sin romper el juego. |
 | `api.log(texto)` | Escribe en la consola del servidor. |
 
 Funciones opcionales del objeto del juego: `onPlayerDisconnected(i)`,

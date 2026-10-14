@@ -245,6 +245,9 @@ function createTvService(deps) {
       hostIp: ip,
       maxPlayers: players,
       galleryDir: gallery.dir ? gallery.dir : null,
+      // Next to the gallery (…/game-to-tv): small data such as the «2048» records.
+      // Without a writable folder they live in memory only
+      dataDir: gallery.dir ? path.dirname(gallery.dir) : null,
       // Next to the gallery (…/game-to-tv/ambiente): photos can be copied there by hand
       ambientDir: path.join(gallery.dir ? path.dirname(gallery.dir) : path.join(os.tmpdir(), 'game-to-tv'), 'ambiente'),
       config: { version: 1, tvs: {}, timezone: env.TZ_AMBIENTE || 'Europe/Madrid', port: port },
