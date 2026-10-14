@@ -76,6 +76,25 @@ del PC en el router.
   `game-to-tv start --port 3001`.
 
 
+## Instaladores de un clic (`instalar/`)
+
+Guía para quien los usa: [guia-familia.md](guia-familia.md). Para quien ayuda:
+
+- **Dónde está todo**: Windows, `%LOCALAPPDATA%\game-to-tv` (`node`, `app`,
+  el lanzador `Juegos-del-Salon.bat` del icono del escritorio y su `.ico`);
+  Mac, `~/Library/Application Support/game-to-tv`. La configuración y los
+  dibujos siguen en `~/.game-to-tv`, y actualizar no los toca.
+- **Cortafuegos (Windows)**: la regla se llama «game-to-tv (TCP 3000)» (TCP
+  3000, solo desde la red local, perfiles Privado y Público, solo para el
+  `node.exe` que usa el instalador). Si se dijo «No» al aviso, se vuelve a
+  preguntar la próxima vez. `game-to-tv doctor` la reconoce.
+- **«Ya estaba en marcha»**: si se abre dos veces, la segunda ventana solo
+  abre la pantalla de juegos y se puede cerrar.
+- **Sin Internet**: si ya estaba instalado, arranca con la versión que tenía.
+- **Desinstalar**: borrar esa carpeta y el icono del escritorio y, en
+  PowerShell como administrador,
+  `Remove-NetFirewallRule -DisplayName "game-to-tv (TCP 3000)"`.
+
 ## `game-to-tv tv scan` no encuentra la tele
 
 - Comprueba que la tele está **encendida** (en reposo se desconecta del Wi‑Fi).

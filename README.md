@@ -52,6 +52,41 @@ que sois, lo pone en gris con el motivo («De 2 a 4 jugadores · sois 6»).
 | Samsung Tizen | 🔜 | Pendiente (ver [docs/roadmap.md](docs/roadmap.md)). |
 | Android TV / Google TV | 🔜 | Pendiente. |
 
+## La forma más fácil (sin saber nada técnico)
+
+Para jugar con un ordenador de casa (Windows 10/11 o Mac) y cualquier tele, sin
+terminal, sin git y sin instalar Node.js a mano, hay un archivo de doble clic
+en [instalar/](instalar/):
+
+- **Windows**: [`Juegos-del-Salon-Windows.bat`](instalar/Juegos-del-Salon-Windows.bat)
+- **Mac**: [`Juegos-del-Salon-Mac.command`](instalar/Juegos-del-Salon-Mac.command)
+
+La primera vez descarga el Node.js oficial (versión fija, comprobada con su
+SHA-256) y los juegos en una carpeta del usuario (`%LOCALAPPDATA%\game-to-tv`
+o `~/Library/Application Support/game-to-tv`), **sin permisos de
+administrador**; cada vez que se vuelve a abrir, actualiza los juegos (y si no
+hay Internet, usa los que ya tenía). Después arranca el servidor, abre la
+pantalla de la tele a pantalla completa en el navegador del ordenador (para
+conectarlo a la tele por HDMI) y dice, en grande y en castellano llano, la
+dirección para el navegador de la tele y que no hay que cerrar la ventana. En
+Windows, además, crea el icono «Juegos del Salón» en el escritorio y, si la red
+está como «Pública» o falta la regla del cortafuegos, pide permiso **una sola
+vez** para abrir el puerto 3000 solo a la red de casa (y, si se acepta, marcar
+la red como Privada).
+
+Guía para la familia (qué pulsar en cada aviso, HDMI, el QR, qué hacer si un
+móvil no conecta): **[docs/guia-familia.md](docs/guia-familia.md)**.
+
+> **Para quien envía el archivo.** El `.bat` se puede mandar tal cual (por
+> WhatsApp, como documento). El `.command` de Mac, mejor dentro de un zip
+> (`zip Juegos-del-Salon-Mac.zip Juegos-del-Salon-Mac.command`): así conserva
+> el permiso de ejecución; suelto, al descargarlo el Mac suele decir que no
+> tiene permiso para abrirlo. Avisos que verán: SmartScreen («Windows protegió
+> su PC»), el control de cuentas de usuario para el cortafuegos y, en Mac,
+> Gatekeeper; la guía explica qué pulsar. Algunos antivirus desconfían de los
+> `.bat` que descargan cosas con PowerShell: si lo bloquean, hay que
+> permitirlo a mano.
+
 ## Inicio rápido
 
 Necesitas un PC (Windows, macOS o Linux) con **Node.js 18 o superior** en la
@@ -141,7 +176,7 @@ fotos, muestra un fondo tranquilo. En LG: `game-to-tv tv open salon --ruta /ambi
 
 | Comando | Para qué |
 |---|---|
-| `game-to-tv start [--port 3000] [--host-ip IP] [--jugadores 6] [--galeria DIR] [--abrir TELE]` | Arranca el servidor (6 huecos de jugador por defecto, de 2 a 8) |
+| `game-to-tv start [--port 3000] [--host-ip IP] [--jugadores 6] [--galeria DIR] [--abrir TELE] [--navegador] [--sencillo]` | Arranca el servidor (6 huecos de jugador por defecto, de 2 a 8). `--navegador` abre la pantalla de la tele en este PC a pantalla completa; `--sencillo`, instrucciones cortas para la familia. Sin configuración ni teles, arranca igual en el puerto 3000 sin preguntar nada |
 | `game-to-tv doctor` | Revisa Node, puerto, IP, cortafuegos de Windows, ares-cli y teles (no cambia nada) |
 | `game-to-tv tv scan` | Busca teles (LG por SSDP) |
 | `game-to-tv tv add NOMBRE IP [--driver webos\|browser]` · `tv list` · `tv remove NOMBRE` | Gestiona las teles |
@@ -169,6 +204,7 @@ el hub. Guía paso a paso con un juego completo de ejemplo («Reflejos», de 2 a
 
 ## Más documentación
 
+- [docs/guia-familia.md](docs/guia-familia.md): guía de una página para jugar sin saber nada técnico (instaladores de un clic).
 - [docs/arquitectura.md](docs/arquitectura.md): cómo encaja todo.
 - [docs/crear-un-juego.md](docs/crear-un-juego.md): tu propio juego en una tarde.
 - [docs/drivers.md](docs/drivers.md): cómo dar soporte a otra marca de tele.
@@ -186,6 +222,7 @@ npm test               # servidor, juegos (con 2, 3, 4 y 6 móviles falsos, «si
 npm run check          # navegador en ES2019 (Chromium 87) y servidor de la tele compatible con Node 12
 npm run test:node12    # todas las pruebas con Node 12, como el de la tele (lo descarga con npx)
 npm run test:browser   # pruebas con Chromium sin pantalla (si Playwright está instalado)
+bash test/instalar/simular.sh   # ensayo completo de los instaladores de un clic en Linux (descarga ~50 MB)
 ```
 
 ## English summary

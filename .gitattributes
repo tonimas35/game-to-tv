@@ -1,0 +1,6 @@
+# Instaladores de un clic (instalar/):
+# - el .bat tiene que llegar a Windows con CRLF, también si se descarga «raw»
+#   desde GitHub: se guarda tal cual, sin convertir finales de línea
+# - el .command es bash para Mac: siempre LF (y ejecutable: git lo guarda)
+*.bat -text diff
+*.command text eol=lf
