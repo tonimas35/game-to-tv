@@ -1,0 +1,53 @@
+/* «Hockey de mesa»: phone view (landscape; a hint in portrait) */
+#scr-hockey .chip { max-width: 100%; justify-content: center; }
+.hkWrap { flex: 1; min-height: 0; display: flex; flex-direction: row; gap: 10px; }
+.hkWrap.right { flex-direction: row-reverse; }
+.hkSide { flex: 0 0 148px; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.hkScore { display: flex; align-items: baseline; justify-content: center; gap: 8px; font-weight: 900; }
+.hkScore b { font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums; }
+.hkScore i { font-style: normal; font-size: 24px; color: var(--muted); }
+.hkVs { text-align: center; font-size: 14px; font-weight: 700; color: var(--muted); }
+.hkStatus { text-align: center; font-size: 15px; font-weight: 800; line-height: 1.3; min-height: 2.6em; }
+.hkBtns { display: flex; gap: 6px; }
+.hkBtns button { flex: 1; min-width: 0; padding: 11px 0; }
+.hkHelpBtn { font-weight: 900; }
+.hkPad {
+  position: relative; flex: 1; min-width: 0; min-height: 0; border-radius: 18px; overflow: hidden;
+  background: rgba(255,255,255,0.04); border: 2px solid var(--c); touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+.hkPad canvas { position: absolute; left: 0; top: 0; display: block; pointer-events: none; }
+.hkWatch { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; border-radius: 18px; background: var(--panel); padding: 16px; }
+.hkWatch b { font-size: 26px; }
+.hkWatch span { font-size: 16px; color: var(--muted); }
+
+/* Portrait: «Gira el móvil» instead of the pad */
+.hkRotate { display: none; flex: 1; min-height: 0; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 0 12px; }
+.hkRotate b { font-size: 32px; font-weight: 900; }
+.hkRotate span { font-size: 17px; color: var(--muted); max-width: 320px; }
+.hkRotate .hkRotSt { color: #fff; font-weight: 800; }
+.hkPhone { width: 74px; height: 124px; border-radius: 16px; border: 5px solid var(--c); position: relative; animation: hkTurn 2.2s ease-in-out infinite; }
+.hkPhone i { position: absolute; left: 50%; bottom: 7px; width: 14px; height: 4px; margin-left: -7px; border-radius: 2px; background: var(--c); }
+@keyframes hkTurn { 0%, 25% { transform: rotate(0deg); } 55%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) {
+  #scr-hockey .hkWrap { display: none; }
+  #scr-hockey .hkRotate { display: flex; }
+}
+
+/* End of the match (fits a landscape phone: buttons side by side) */
+#hkOver { gap: 10px; }
+.hkOverS { font-size: 50px; font-weight: 900; line-height: 1.1; }
+.hkOverB { display: flex; gap: 12px; width: 100%; max-width: 560px; justify-content: center; }
+.hkOverB .bigbtn { flex: 1; font-size: 24px; padding: 18px 12px; }
+@media (orientation: portrait) {
+  .hkOverB { flex-direction: column; align-items: center; }
+  .hkOverB .bigbtn { flex: 0 0 auto; }
+}
+
+/* Help */
+#hkHelp { z-index: 15; justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.hkHelpBox { width: 100%; max-width: 520px; text-align: left; }
+.hkHelpBox h2 { margin: 4px 0 10px; font-size: 26px; color: #5ad1ff; }
+.hkHelpBox ol { margin: 0 0 16px; padding-left: 22px; }
+.hkHelpBox li { margin-bottom: 8px; font-size: 16px; line-height: 1.35; }
+.hkHelpBox .bigbtn { width: 100%; font-size: 22px; padding: 16px; }
