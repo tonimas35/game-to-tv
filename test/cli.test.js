@@ -13,6 +13,8 @@ const { analyzeFirewall, psScript } = require('../src/cli/firewall');
 const { loadGames, validateManifest } = require('../src/games');
 const drivers = require('../src/drivers');
 const { judge } = require('../src/games/dibuja/match');
+const { browserCommand } = require('../src/cli/open-browser');
+const config = require('../src/config');
 
 const check = H_.checker('CLI, configuración y servidor');
 const TMP = H_.tmpHome('g2t-cli-');
@@ -158,6 +160,57 @@ async function serverRoutes() {
   }
 }
 
+// What the one-click installers (instalar/) rely on: `start` on a computer
+// that has never run game-to-tv, with no questions asked
+async function freshStart() {
+  console.log('\n[start en un ordenador nuevo (instaladores de un clic)]');
+  const PORT = 3987;
+  const HOME = path.join(TMP, 'nuevo', 'José Mª', '.game-to-tv');
+  const env = { GAME_TO_TV_HOME: HOME, HOST_IP: '192.168.1.77', G2T_NAVEGADOR: '0' };
+  check(config.DEFAULTS.port === 3000 && Object.keys(config.DEFAULTS.tvs).length === 0, 'Sin configuración: puerto 3000 y ninguna tele');
+  const srv = await H_.startServer(env, ['--sencillo', '--navegador', '--port', String(PORT)]);
+  try {
+    await H_.waitUntil(function () { return /No abro el navegador/.test(srv.out); }, 3000, '--navegador');
+    check(/escuchando/.test(srv.out) && !/Error/.test(srv.out), 'Arranca sin ~/.game-to-tv ni teles y sin preguntar nada');
+    check(/Deja esta ventana abierta mientras jugáis/.test(srv.out) && /Para salir, cierra esta ventana/.test(srv.out), '--sencillo: «Deja esta ventana abierta…» y «Para salir, cierra esta ventana»');
+    check(/app «Internet»/.test(srv.out) && srv.out.indexOf('http://192.168.1.77:' + PORT + '/\n') >= 0, '--sencillo: la dirección para el navegador de la Samsung');
+    check(srv.out.indexOf('http://localhost:' + PORT + '/') >= 0, '--navegador abre la pantalla de la tele (/) de este PC (desactivado con G2T_NAVEGADOR=0)');
+    const BASE = 'http://127.0.0.1:' + PORT;
+    const tv = await H_.httpGet(BASE, '/');
+    const m = await H_.httpGet(BASE, '/m');
+    check(tv.status === 200 && /G2T_BOOT/.test(tv.body) && m.status === 200, 'La pantalla de la tele (/) y la de los móviles (/m) responden');
+    check(!fs.existsSync(path.join(HOME, 'config.json')), 'start no crea config.json');
+    const again = await H_.runCli(['start', '--sencillo', '--navegador', '--sin-qr', '--port', String(PORT)], env);
+    check(again.code === 0 && /ya estaba en marcha/.test(again.out), 'Abrirlo dos veces: «ya estaba en marcha» (código 0) en vez de un error');
+  } finally {
+    await srv.stop();
+  }
+  const help = await H_.runCli(['--help'], env);
+  check(/--navegador/.test(help.out) && /--sencillo/.test(help.out), 'La ayuda explica --navegador y --sencillo');
+}
+
+function browserTests() {
+  console.log('\n[Abrir la pantalla de la tele en el navegador del PC]');
+  const url = 'http://localhost:3000/';
+  const winEnv = { ProgramFiles: 'C:\\Program Files', 'ProgramFiles(x86)': 'C:\\Program Files (x86)', LOCALAPPDATA: 'C:\\Users\\José Mª\\AppData\\Local' };
+  const has = function (list) { return function (p) { return list.indexOf(p) >= 0; }; };
+  let c = browserCommand({ platform: 'win32', env: winEnv, url: url, exists: has(['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe']) });
+  check(c.cmd === 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' && c.args.indexOf('--app=' + url) >= 0 && c.args.indexOf('--start-fullscreen') >= 0 && c.fullscreen,
+    'Windows con Chrome: ventana sin barras y a pantalla completa');
+  check(c.args.indexOf('--user-data-dir=C:\\Users\\José Mª\\AppData\\Local\\game-to-tv\\navegador') >= 0, 'Perfil propio en %LOCALAPPDATA% (funciona aunque Chrome ya esté abierto; usuario con espacios y tildes)');
+  c = browserCommand({ platform: 'win32', env: winEnv, url: url, exists: has(['C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe']) });
+  check(/msedge\.exe$/.test(c.cmd) && c.label === 'Edge' && c.fullscreen, 'Windows sin Chrome: Edge');
+  c = browserCommand({ platform: 'win32', env: winEnv, url: url });
+  check(c.cmd === 'explorer.exe' && c.args[0] === url && !c.fullscreen, 'Windows sin Chrome ni Edge: el navegador predeterminado');
+  c = browserCommand({ platform: 'darwin', env: {}, home: '/Users/jose', url: url, exists: has(['/Applications/Google Chrome.app']) });
+  check(c.cmd === 'open' && c.args.slice(0, 3).join('|') === '-na|/Applications/Google Chrome.app|--args' && c.args.indexOf('--start-fullscreen') >= 0 &&
+    c.args.indexOf('--user-data-dir=/Users/jose/Library/Application Support/game-to-tv/navegador') >= 0, 'Mac con Chrome: open -na … --args --app --start-fullscreen');
+  c = browserCommand({ platform: 'darwin', env: {}, home: '/Users/jose', url: url });
+  check(c.cmd === 'open' && c.args.length === 1 && c.args[0] === url, 'Mac sin Chrome: open URL (Safari)');
+  c = browserCommand({ platform: 'linux', env: {}, home: '/home/x', url: url });
+  check(c.cmd === 'xdg-open' && c.args[0] === url, 'Linux: xdg-open');
+}
+
 function registryTests() {
   console.log('\n[Registro de juegos]');
   const g = loadGames();
@@ -189,6 +242,8 @@ function matchTests() {
     await firewallTests();
     await doctorTest();
     await serverRoutes();
+    await freshStart();
+    browserTests();
     registryTests();
     matchTests();
   } catch (e) {

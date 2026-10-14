@@ -2,14 +2,14 @@
 /*
  * game-to-tv command line. All user-facing text is in Spanish.
  *
- *   game-to-tv start [--port 3000] [--host-ip IP] [--jugadores N] [--galeria DIR] [--abrir TELE] [--sin-qr]
+ *   game-to-tv start [--port 3000] [--host-ip IP] [--jugadores N] [--galeria DIR] [--abrir TELE] [--navegador] [--sencillo] [--sin-qr]
  *   game-to-tv doctor
  *   game-to-tv tv <subcomando> ...      (see src/cli/tv.js)
  */
 const { parseArgs } = require('./args');
 const pkg = require('../../package.json');
 
-const BOOLEANS = ['help', 'sin-qr', 'solo-ipk', 'json', 'version', 'forzar', 'ares', 'js', 'logs', 'navegador'];
+const BOOLEANS = ['help', 'sin-qr', 'solo-ipk', 'json', 'version', 'forzar', 'ares', 'js', 'logs', 'navegador', 'sencillo'];
 
 const HELP = [
   '',
@@ -22,6 +22,9 @@ const HELP = [
   '        --jugadores N                    Huecos de jugador, de 2 a 8 (por defecto 6)',
   '        --galeria CARPETA                Dónde guardar los dibujos (por defecto ~/.game-to-tv/galeria)',
   '        --abrir TELE                     Abre los juegos en esa tele al arrancar',
+  '        --navegador                      Abre la pantalla de la tele en el navegador de este PC, a',
+  '                                         pantalla completa (PC conectado a la tele por HDMI)',
+  '        --sencillo                       Instrucciones cortas y sencillas en vez de la lista técnica',
   '        --sin-qr                         No dibujar el QR en la terminal',
   '',
   '    game-to-tv doctor                    Revisa Node, el puerto, la IP, el cortafuegos de Windows,',
