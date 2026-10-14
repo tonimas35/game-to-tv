@@ -66,7 +66,8 @@
   }
   .card .art { height: 170px; display: flex; align-items: center; justify-content: center; }
   .card .art img { width: 300px; height: 170px; }
-  .card h2 { margin: 14px 0 10px; font-size: 64px; font-weight: 900; line-height: 1.1; }
+  /* Fixed line box: a title shrunk by fit() keeps the text below in place */
+  .card h2 { margin: 14px 0 10px; font-size: 64px; font-weight: 900; line-height: 1.1; height: 71px; }
   .card p { margin: 0; font-size: 29px; line-height: 1.32; color: var(--muted); height: 78px; overflow: hidden; }
   .card .tags { margin-top: 18px; display: flex; }
   .card .tags span { font-size: 22px; font-weight: 700; padding: 6px 16px; border-radius: 999px; background: rgba(255,255,255,0.08); margin-right: 12px; white-space: nowrap; }
@@ -86,7 +87,7 @@
   .cards.many .card { width: 560px; margin: 0 18px; padding: 26px 34px; }
   .cards.many .card .art { height: 150px; }
   .cards.many .card .art img { width: 265px; height: 150px; }
-  .cards.many .card h2 { font-size: 56px; }
+  .cards.many .card h2 { font-size: 56px; height: 62px; }
   .cards.many .card p { font-size: 25px; height: 99px; }
   .cards.many .card .tags { margin-top: 14px; }
   .cards.many .card .tags span { font-size: 20px; padding: 5px 13px; margin-right: 10px; }
@@ -391,11 +392,23 @@
     rows[id] = r;
     return r;
   }
+  // Shrinks a block of text (the card description: 3 lines) until it fits its height
+  function fitLines(el, maxPx, minPx) {
+    var size = maxPx;
+    el.style.fontSize = size + 'px';
+    while (size > minPx && el.scrollHeight > el.clientHeight + 1) {
+      size -= 1;
+      el.style.fontSize = size + 'px';
+    }
+  }
   // fit() needs the row on screen (a hidden row has no size)
   function fitRow(r) {
     if (r.fitted) return;
     r.fitted = true;
-    r.cards.forEach(function (c) { fit(c.querySelector('h2'), c._many ? 56 : 64, 30); });
+    r.cards.forEach(function (c) {
+      fit(c.querySelector('h2'), c._many ? 56 : 64, 30);
+      fitLines(c.querySelector('p'), c._many ? 25 : 29, 20);
+    });
   }
 
   function buildMenu() {

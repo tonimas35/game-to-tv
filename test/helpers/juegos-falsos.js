@@ -8,12 +8,13 @@
 const fs = require('fs');
 const path = require('path');
 
-// Four duels of the «1 contra 1» section
+// Four duels of the «1 contra 1» section. order 1-4: they go before the real
+// duels (tanques, motos… have 50+), so tests know where they are
 const DUELOS = [
-  { id: 'prueba-duelo-a', title: 'Duelo Alfa', accent: '#22e6ff', order: 50 },
-  { id: 'prueba-duelo-b', title: 'Duelo Beta', accent: '#ff3df2', order: 51 },
-  { id: 'prueba-duelo-c', title: 'Duelo Gamma', accent: '#3ee07a', order: 52 },
-  { id: 'prueba-duelo-d', title: 'Duelo Delta larguísimo', accent: '#ff8a3d', order: 53 }
+  { id: 'prueba-duelo-a', title: 'Duelo Alfa', accent: '#22e6ff', order: 1 },
+  { id: 'prueba-duelo-b', title: 'Duelo Beta', accent: '#ff3df2', order: 2 },
+  { id: 'prueba-duelo-c', title: 'Duelo Gamma', accent: '#3ee07a', order: 3 },
+  { id: 'prueba-duelo-d', title: 'Duelo Delta larguísimo', accent: '#ff8a3d', order: 4 }
 ].map(function (g) {
   return Object.assign({
     description: 'Juego de prueba de la sección «1 contra 1»: no existe de verdad, solo sirve para probar el menú.',

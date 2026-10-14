@@ -70,7 +70,7 @@ function registryTests() {
   // Real duels (tanques, motos…) also live in this section: look only at the fake ones
   const fake = pub.filter(function (m) { return m.section === '1vs1' && isFake(m.id); });
   check(fake.length === 4 && fake.map(function (m) { return m.id; }).join() === IDS.join(), 'publicManifests lleva "section" (los 4 duelos, en orden)');
-  check(fake[0].icon === '/games/' + IDS[0] + '/icon.svg' && fake[0].order === 50, '…con su icono y su order');
+  check(fake[0].icon === '/games/' + IDS[0] + '/icon.svg' && fake[0].order === 1, '…con su icono y su order');
   const secs = games.publicSections(all);
   check(secs.length === 1 && secs[0].id === '1vs1' && secs[0].title === '1 contra 1' && secs[0].games.filter(isFake).join() === IDS.join() && typeof secs[0].order === 'number' && /^#/.test(secs[0].accent),
     'publicSections: «1 contra 1» con sus juegos, order y accent');

@@ -4,8 +4,8 @@
     <radialGradient id="b1" cx="0.32" cy="0.3" r="0.75"><stop offset="0" stop-color="#a9f4ff"/><stop offset="0.5" stop-color="#22e6ff"/><stop offset="1" stop-color="#0f7f8f"/></radialGradient>
     <radialGradient id="b2" cx="0.32" cy="0.3" r="0.75"><stop offset="0" stop-color="#ffb3f9"/><stop offset="0.5" stop-color="#ff3df2"/><stop offset="1" stop-color="#8f1f88"/></radialGradient>
   </defs>
-  <rect x="10" y="10" width="280" height="150" rx="14" fill="#2b1a12"/>
-  <rect x="78" y="10" width="144" height="150" fill="#b98552"/>
+  <rect x="10" y="10" width="280" height="150" rx="14" fill="#2b1a12" stroke="rgba(255,255,255,0.2)" stroke-width="3"/>
+  <rect x="62" y="20" width="176" height="130" rx="24" fill="#b98552"/>
   <circle cx="150" cy="85" r="68" fill="url(#sand)" stroke="#cfa955" stroke-width="9"/>
   <circle cx="150" cy="85" r="68" fill="none" stroke="#8c6a26" stroke-width="1.5" stroke-dasharray="3 5"/>
   <circle cx="122" cy="90" r="27" fill="url(#b1)" stroke="#0b5560" stroke-width="2"/>

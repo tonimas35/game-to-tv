@@ -142,6 +142,8 @@ async function main() {
   process.stdout.on('error', function () { /* EPIPE: se ignora */ });
 
   try {
+    // The URLs are printed right after «escuchando», maybe in a later chunk of output
+    await waitUntil(function () { return srvState.out.indexOf('/m') >= 0 && /escuchando/.test(srvState.out); }, 2000, 'URLs impresas');
     srvOut = srvState.out;
     check(/escuchando/.test(srvOut), 'El servidor arranca e imprime las URLs');
     check(srvOut.indexOf('http://192.168.1.50:' + PORT + '/m') >= 0, 'HOST_IP se usa en la URL del móvil');

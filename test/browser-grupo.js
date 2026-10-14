@@ -147,11 +147,11 @@ async function main() {
     await waitFor(function () { return tv.evaluate(function () { return /Ana/.test(document.getElementById('chip1').textContent); }); }, 3000, 'chip Ana');
     await sleep(300);
     const lobby1 = await tv.evaluate(function () {
-      return { vis: document.querySelectorAll('.pchip.vis').length, qr: document.getElementById('qrBox').style.display !== 'none', off: document.querySelectorAll('.card.off').length,
+      return { vis: document.querySelectorAll('.pchip.vis').length, qr: document.getElementById('qrBox').style.display !== 'none', off: document.querySelectorAll('#cards .card.off').length, main: document.querySelectorAll('#cards .card').length,
         why: document.querySelector('#card-dibuja .why').textContent, solo: document.getElementById('card-2048').className.indexOf('off') < 0,
         status: document.getElementById('menuStatus').textContent };
     });
-    check(lobby1.vis === 2 && lobby1.qr && lobby1.off === 4 && lobby1.why === 'Falta 1 jugador', 'Con 1 jugador: su ficha + 1 hueco libre, QR y «Falta 1 jugador» en las tarjetas de 2 o más');
+    check(lobby1.vis === 2 && lobby1.qr && lobby1.off === lobby1.main - 1 && lobby1.why === 'Falta 1 jugador', 'Con 1 jugador: su ficha + 1 hueco libre, QR y «Falta 1 jugador» en las tarjetas de 2 o más');
     check(lobby1.solo && lobby1.status === '¡Hola, Ana! Elige juego con el mando o desde el móvil', 'Con 1 jugador, «2048» está disponible: «' + lobby1.status + '»');
     await shot(tv, 'tv-sala-1.png');
     await overflowAll('Sala con 1');

@@ -306,7 +306,7 @@ async function main() {
     await waitFor(function () { return tv.evaluate(function () { return window.__tv.screen() === 'menu'; }); }, 3000, 'menú');
     check(await tv.evaluate(function () { return window.__tv.screen() === 'menu'; }), 'Con el mando: «Menú» desde la galería');
     check(await ph[0].isVisible('#scrMenu'), 'Los móviles vuelven a su menú');
-    await tv.keyboard.press('ArrowRight');
+    await H_.tvFocus(tv, 'pong');
     await tv.keyboard.press('Enter');
     await waitFor(function () { return tv.evaluate(function () { return window.__tv.screen() === 'pong'; }); }, 3000, 'pong');
     check(await tv.evaluate(function () { return window.__tv.screen() === 'pong'; }), 'Con el mando: flecha + OK abre el Pong');
@@ -382,7 +382,7 @@ async function main() {
     const lg = await lgCtx.newPage(); watch(lg, 'tele-webos');
     await lg.goto(BASE + '/');
     await waitFor(function () { return lg.evaluate(function () { return document.getElementById('conn').className.indexOf('on') < 0; }); }, 5000, 'lg conectada');
-    await lg.keyboard.press('ArrowRight');
+    await H_.tvFocus(lg, 'pong');
     await lg.keyboard.press('Enter');
     await waitFor(function () { return lg.evaluate(function () { return window.__tv.screen() === 'pong'; }); }, 3000, 'pong en lg');
     await sleep(3500);

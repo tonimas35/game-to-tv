@@ -40,7 +40,9 @@ const games = require('../src/games');
 const { createServer } = require('../src/server');
 const FAKE_DIR = writeFakeGames(path.join(TMP, 'juegos'));
 const PLAIN_DIR = writeFakeGames(path.join(TMP, 'sin-seccion'), [{ id: 'prueba-normal', title: 'Normal', description: 'Juego de prueba sin sección.', minPlayers: 2, maxPlayers: 2, section: null, accent: '#ffffff' }]);
+// The fake duels go first in the section (order 1-4); the real ones follow
 const DUELS = ['prueba-duelo-a', 'prueba-duelo-b', 'prueba-duelo-c', 'prueba-duelo-d'];
+const REAL_DUELS = ['tanques', 'motos', 'hockey', 'sumo'];
 
 const LAUNCH = { args: ['--autoplay-policy=no-user-gesture-required'] };
 if (fs.existsSync('/opt/pw-browsers')) {
@@ -187,6 +189,11 @@ async function main() {
       check(!bad.length, label + ': sin desbordes a 1920x1080 ni a 1280x720' + (bad.length ? ': ' + bad.join(' | ') : ''));
     }
 
+    // Every game of the section, from G2T_BOOT (the 4 fakes and the real duels)
+    const SEC = await tv.evaluate(function () { return window.G2T.sectionById('1vs1').games; });
+    const N = SEC.length;
+    check(SEC.slice(0, 4).join() === DUELS.join() && REAL_DUELS.every(function (id) { return SEC.indexOf(id) >= 4; }),
+      'La sección tiene los 4 duelos falsos y los reales (' + SEC.slice(4).join(', ') + ')');
     const main0 = await tv.evaluate(function () {
       var c = document.getElementById('card-sec-1vs1');
       var ids = [].map.call(document.querySelectorAll('#cards .card'), function (x) { return x.id; });
@@ -197,12 +204,14 @@ async function main() {
         subHidden: getComputedStyle(document.getElementById('cards-sec-1vs1')).display === 'none'
       };
     });
-    check(main0.inMain && main0.svg && main0.h2 === '1 contra 1' && main0.p === 'Duelos rápidos para dos' && main0.tags.join() === '2 jugadores,4 juegos',
-      'Una tarjeta «1 contra 1» en la fila principal, con dibujo propio, «Duelos rápidos para dos», «2 jugadores» y «4 juegos»');
+    check(main0.inMain && main0.svg && main0.h2 === '1 contra 1' && main0.p === 'Duelos rápidos para dos' && main0.tags.join() === '2 jugadores,' + N + ' juegos',
+      'Una tarjeta «1 contra 1» en la fila principal, con dibujo propio, «Duelos rápidos para dos», «2 jugadores» y «' + N + ' juegos»');
     check(main0.ids.filter(function (id) { return /prueba-duelo/.test(id); }).length === 0 && main0.ids.length === games.loadGames([games.GAMES_DIR], quiet).list.filter(function (g) { return !g.manifest.section; }).length + 1,
       'Los duelos no salen sueltos en la fila principal (' + main0.ids.join(', ') + ')');
     check(main0.ids[1] === 'card-sec-1vs1', 'La tarjeta va la segunda (se ve nada más encender)');
-    check(main0.sub.join() === DUELS.map(function (d) { return 'card-' + d; }).join() && main0.subHidden, 'Sus 4 duelos están en una fila aparte, oculta');
+    check(main0.sub.join() === SEC.map(function (d) { return 'card-' + d; }).join() && main0.subHidden, 'Sus ' + N + ' juegos están en una fila aparte, oculta');
+    check(REAL_DUELS.every(function (id) { return main0.sub.indexOf('card-' + id) >= 0; }) && main0.ids.every(function (id) { return REAL_DUELS.indexOf(id.replace('card-', '')) < 0; }),
+      'Los cuatro duelos reales (Tanques, Motos, Hockey, Sumo) están en el submenú y no en la fila principal');
 
     // ---------------- Phones: 1 player ----------------
     console.log('\n[Con 1 jugadora]');
@@ -223,7 +232,7 @@ async function main() {
       var s = document.getElementById('sec-1vs1');
       return { open: s.classList.contains('open'), why: s.querySelector('.secHead .why').textContent, n: s.querySelectorAll('.secBody .game').length, vis: s.querySelector('.secBody').getClientRects().length };
     });
-    check(!ph1.open && ph1.vis === 0 && ph1.n === 4 && ph1.why === ' · Falta 1 jugador', 'Móvil con 1: el grupo «1 contra 1» está cerrado y dice por qué («' + ph1.why + '»)');
+    check(!ph1.open && ph1.vis === 0 && ph1.n === N && ph1.why === ' · Falta 1 jugador', 'Móvil con 1: el grupo «1 contra 1» está cerrado y dice por qué («' + ph1.why + '»)');
 
     // ---------------- TV: open the section ----------------
     console.log('\n[Tele: abrir la sección con el mando]');
@@ -244,8 +253,8 @@ async function main() {
         keys: document.getElementById('menuKeys').textContent, main: getComputedStyle(document.getElementById('cards')).display,
         whys: [].map.call(document.querySelectorAll('#cards-sec-1vs1 .card'), function (c) { return c.classList.contains('off') ? c.querySelector('.why').textContent : ''; }) };
     });
-    check(s1.m.row === '1vs1' && s1.m.focus === 'card-prueba-duelo-a' && s1.m.cards.length === 4 && s1.inSec && !s1.brand && s1.head === '1 contra 1' && s1.art && s1.back && s1.main === 'none',
-      'OK abre el submenú: título «1 contra 1» con su dibujo, «Atrás», sus 4 duelos y el foco en el primero');
+    check(s1.m.row === '1vs1' && s1.m.focus === 'card-prueba-duelo-a' && s1.m.cards.length === N && s1.inSec && !s1.brand && s1.head === '1 contra 1' && s1.art && s1.back && s1.main === 'none',
+      'OK abre el submenú: título «1 contra 1» con su dibujo, «Atrás», sus ' + N + ' juegos y el foco en el primero');
     check(s1.keys === '◀ ▶ elegir juego · OK jugar · Atrás volver', 'Ayuda del mando: «' + s1.keys + '»');
     check(s1.whys.every(function (w) { return w === 'Falta 1 jugador'; }), 'Cada duelo dice «Falta 1 jugador»');
     await tv.keyboard.press('Enter');
@@ -260,21 +269,41 @@ async function main() {
     const berto = await newPhone('Berto');
     await waitFor(function () { return tv.evaluate(function () { return !document.getElementById('card-prueba-duelo-a').classList.contains('off'); }); }, 3000, 'duelos disponibles');
     await sleep(3600); // the toast goes away
-    // Arrows: to the last duel (long title) and the row scrolls
-    for (let k = 0; k < 5; k++) await press('ArrowRight');
+    // Arrows: to the last game of the section (one press too many) and the row scrolls
+    for (let k = 0; k < N; k++) await press('ArrowRight');
     await sleep(350); // the row slides (0.25 s)
-    const last = await tv.evaluate(function () {
-      var c = document.getElementById('card-prueba-duelo-d'), r = c.getBoundingClientRect(), h = c.querySelector('h2');
+    const last = await tv.evaluate(function (id) {
+      var c = document.getElementById('card-' + id), r = c.getBoundingClientRect();
+      var h = document.querySelector('#card-prueba-duelo-d h2');
       return { focus: c.classList.contains('focus'), r: r.right, l: r.left, fit: h.scrollWidth <= h.clientWidth + 1, size: parseInt(h.style.fontSize, 10) };
-    });
-    check(last.focus && last.l >= 0 && last.r <= 1920, 'Flechas: el foco llega al último duelo (no se pasa) y la fila se desplaza para verlo entero');
+    }, SEC[N - 1]);
+    check(last.focus && last.l >= 0 && last.r <= 1920, 'Flechas: el foco llega al último juego (' + SEC[N - 1] + ', no se pasa) y la fila se desplaza para verlo entero');
     check(last.fit && last.size < 56, 'El título largo se encoge para caber (' + last.size + ' px)');
-    await overflow('Submenú en el último duelo');
-    for (let k = 0; k < 2; k++) await press('ArrowLeft');
-    check((await menuOf(tv)).focus === 'card-prueba-duelo-b', 'Flecha izquierda vuelve atrás (Duelo Beta)');
+    const descs = await tv.evaluate(function () {
+      return [].map.call(document.querySelectorAll('#cards-sec-1vs1 .card p, #cards .card p'), function (p) {
+        return { id: p.parentNode.id, px: parseInt(p.style.fontSize, 10), ok: p.scrollHeight <= p.clientHeight + 1 };
+      });
+    });
+    check(descs.every(function (d) { return d.ok && d.px >= 20; }), 'Todas las descripciones caben en sus 3 líneas (' +
+      descs.filter(function (d) { return d.px < 25; }).map(function (d) { return d.id.replace('card-', '') + ' ' + d.px + ' px'; }).join(', ') + ')');
+    await overflow('Submenú en el último juego');
+    // Every card of the sub-menu, one by one with the arrows: none overflows
+    for (let k = N - 1; k > 0; k--) {
+      await press('ArrowLeft');
+      if (k % 2 === 1) await overflow('Submenú en ' + SEC[k - 1]);
+    }
+    check((await menuOf(tv)).focus === 'card-' + SEC[0], 'Flecha izquierda vuelve hasta el primero');
+    // The real duels, with their icons
+    for (const p of TVS) await H_.tvFocus(p, 'tanques');
     await sleep(350);
     await shot(tv, 'menu-tv-1vs1.png');
     await shot(tv720, 'menu-tv-1vs1-720p.png');
+    await overflow('Submenú «1 contra 1» en los duelos reales');
+    for (const p of TVS) await H_.tvFocus(p, 'hockey');
+    await sleep(350);
+    await shot(tv, 'menu-tv-1vs1-reales-2.png');
+    for (const p of TVS) await H_.tvFocus(p, 'prueba-duelo-b');
+    check((await menuOf(tv)).focus === 'card-prueba-duelo-b', 'Las flechas vuelven a «Duelo Beta»');
     await overflow('Submenú «1 contra 1»');
 
     // Back: Escape and the LG key 461
@@ -320,14 +349,18 @@ async function main() {
         loose: [].filter.call(document.querySelectorAll('#gameList > .game'), function (b) { return /prueba-duelo/.test(b.getAttribute('data-game')); }).length,
         pos: [].indexOf.call(document.getElementById('gameList').children, s), title: s.querySelector('.secHead b').textContent, sub: s.querySelector('.secHead span.d').textContent };
     });
-    check(g2.open && g2.aria === 'true' && g2.why === '' && g2.games.join() === DUELS.join() && g2.loose === 0 && g2.pos === 1 && g2.title === '1 contra 1' && g2.sub === 'Duelos rápidos para dos',
-      'Móvil con 2: el grupo «1 contra 1» (segundo de la lista) se abre solo y deja elegir sus 4 duelos');
+    check(g2.open && g2.aria === 'true' && g2.why === '' && g2.games.join() === SEC.join() && g2.loose === 0 && g2.pos === 1 && g2.title === '1 contra 1' && g2.sub === 'Duelos rápidos para dos',
+      'Móvil con 2: el grupo «1 contra 1» (segundo de la lista) se abre solo y deja elegir sus ' + N + ' juegos (con los 4 duelos reales)');
     const pc = await berto.evaluate(PHONE_CHECK);
     check(!pc.length, 'El grupo cabe en un iPhone (390 px)' + (pc.length ? ': ' + pc.join(' | ') : ''));
     await waitFor(function () { return berto.evaluate(function () { return document.getElementById('toast').classList.contains('hidden'); }); }, 4000, 'sin aviso');
     await berto.evaluate(function () { document.getElementById('sec-1vs1').scrollIntoView({ block: 'start' }); });
     await sleep(150);
     await shot(berto, 'menu-movil-1vs1.png');
+    // The real duels inside the group
+    await berto.evaluate(function (id) { document.querySelector('#gameList .game[data-game="' + id + '"]').scrollIntoView({ block: 'start' }); }, SEC[4]);
+    await sleep(150);
+    await shot(berto, 'menu-movil-1vs1-reales.png');
     await berto.evaluate(function () { document.getElementById('scrMenu').scrollTop = 0; });
     // A tap closes it, another opens it (only on this phone)
     await berto.tap('#sec-1vs1 .secHead');
