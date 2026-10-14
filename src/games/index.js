@@ -9,6 +9,8 @@
  *     tv.js           TV view (loaded by public/tv.html)
  *     phone.js        phone view (loaded by public/m.html)
  *     tv.css / phone.css / icon.svg   optional
+ *     bot.js          computer opponent («Rivales bot»), with "bots": true in
+ *                     the manifest: module.exports = { create(ctx) }
  *
  * A game can belong to a menu section (manifest "section": "1vs1"): the TV
  * and phone menus then show it inside that section instead of in the main
@@ -18,6 +20,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const Bots = require('../server/bots');
 
 const GAMES_DIR = __dirname;
 // Files of a game folder that the browser may download
@@ -48,6 +51,12 @@ function validateManifest(m, dirName) {
   if (!(m.minPlayers >= 1)) errs.push('minPlayers debe ser >= 1');
   if (!(m.maxPlayers >= m.minPlayers)) errs.push('maxPlayers debe ser >= minPlayers');
   if (m.tags && !Array.isArray(m.tags)) errs.push('tags debe ser una lista');
+  if (m.bots != null && typeof m.bots !== 'boolean') errs.push('bots debe ser true o false');
+  if (m.botLevels != null) {
+    if (!Array.isArray(m.botLevels) || !m.botLevels.length || m.botLevels.some(function (l) { return Bots.LEVEL_IDS.indexOf(l) < 0; })) {
+      errs.push('botLevels debe ser una lista con algunos de estos niveles: ' + Bots.LEVEL_IDS.join(', '));
+    }
+  }
   if (m.section != null && !Object.prototype.hasOwnProperty.call(SECTIONS, m.section)) {
     errs.push('section desconocida («' + m.section + '»); valores posibles: ' + Object.keys(SECTIONS).map(function (k) { return '«' + k + '»'; }).join(', '));
   }
@@ -62,11 +71,19 @@ function loadGame(dir) {
   const mod = require(path.join(dir, 'index.js'));
   if (typeof mod.create !== 'function') throw new Error('Juego «' + dirName + '»: index.js debe exportar create(api)');
   const files = fs.readdirSync(dir);
+  // «Rivales bot»: "bots": true needs a bot.js with create(ctx)
+  let bot = null;
+  if (manifest.bots) {
+    if (files.indexOf('bot.js') < 0) throw new Error('Juego «' + dirName + '»: el manifiesto dice "bots": true pero falta bot.js');
+    bot = require(path.join(dir, 'bot.js'));
+    if (!bot || typeof bot.create !== 'function') throw new Error('Juego «' + dirName + '»: bot.js debe exportar create(ctx)');
+  }
   return {
     id: manifest.id,
     dir: dir,
-    manifest: Object.assign({ tags: [], order: 100, accent: '#ffffff', icon: null, section: null, phoneDescription: manifest.description }, manifest),
+    manifest: Object.assign({ tags: [], order: 100, accent: '#ffffff', icon: null, section: null, phoneDescription: manifest.description, bots: false, botLevels: Bots.LEVEL_IDS.slice() }, manifest),
     module: mod,
+    bot: bot,
     client: {
       tvJs: files.indexOf('tv.js') >= 0,
       tvCss: files.indexOf('tv.css') >= 0,
@@ -119,6 +136,8 @@ function publicManifests(games) {
       tags: m.tags,
       order: m.order,
       section: m.section || null,
+      bots: !!m.bots,
+      botLevels: m.bots ? m.botLevels : [],
       howTo: Array.isArray(m.howTo) ? m.howTo : null,
       accent: m.accent,
       icon: m.icon ? '/games/' + m.id + '/' + m.icon : null,

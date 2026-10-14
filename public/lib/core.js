@@ -59,20 +59,28 @@
   G2T.playerRange = function (g) {
     return g.minPlayers === g.maxPlayers ? g.minPlayers + ' jugadores' : g.minPlayers + ' a ' + g.maxPlayers + ' jugadores';
   };
-  // Players in a 'hub' message: { n, names, away }
+  // Players in a 'hub' message: { n, names, away, bots } (bots count as players)
   G2T.roomOf = function (hub) {
-    var out = { n: 0, names: [], away: [] };
+    var out = { n: 0, names: [], away: [], bots: 0 };
     ((hub && hub.players) || []).forEach(function (p) {
       if (!p) return;
       out.n++;
       out.names.push(p.name);
+      if (p.bot) out.bots++;
       if (!p.connected) out.away.push(p.name);
     });
     return out;
   };
+  // «Rivales bot»: the levels ([{ id, label, value, hint }]) and their names
+  G2T.botLevels = BOOT.botLevels || [];
+  G2T.botLevelLabel = function (id) {
+    for (var i = 0; i < G2T.botLevels.length; i++) if (G2T.botLevels[i].id === id) return G2T.botLevels[i].label;
+    return id || '';
+  };
   // Why a game cannot be played right now (null = it can): shown on the menu cards
   G2T.whyNot = function (g, hub) {
     var r = G2T.roomOf(hub);
+    if (r.bots && !g.bots) return 'Este juego no admite rivales: quita los bots';
     if (r.n < g.minPlayers) {
       var k = g.minPlayers - r.n;
       return k === 1 ? 'Falta 1 jugador' : 'Faltan ' + k + ' jugadores';

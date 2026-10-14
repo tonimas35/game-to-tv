@@ -33,6 +33,7 @@ const QRCode = require('qrcode');
 
 const { detectLanIp, listIPv4 } = require('./net');
 const { createHub, DEFAULT_SLOTS } = require('./hub');
+const Bots = require('./bots');
 const { loadGames, publicManifests, publicSections, CLIENT_FILES } = require('../games');
 const ambient = require('./ambient');
 const config = require('../config');
@@ -182,7 +183,7 @@ function createServer(options) {
   function renderShell(file, kind, cb) {
     fs.readFile(path.join(PUBLIC_DIR, file), 'utf8', function (err, html) {
       if (err) return cb(err);
-      const boot = { games: manifests, sections: sections, slots: hub.slots, colors: hub.COLORS, mode: mode, version: version };
+      const boot = { games: manifests, sections: sections, slots: hub.slots, colors: hub.COLORS, mode: mode, version: version, botLevels: Bots.LEVELS };
       if (tele && tele.service) boot.tele = { service: tele.service };
       let tags = '';
       games.list.forEach(function (g) {
