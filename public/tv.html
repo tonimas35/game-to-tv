@@ -137,6 +137,9 @@
   .pchip b { display: block; font-size: 36px; line-height: 1.2; }
   .pchip small { display: block; font-size: 22px; line-height: 1.3; color: var(--muted); }
   .pchip.in { border-style: solid; }
+  /* «Rivales bot»: a robot (our own drawing: the TV may have no emoji font) instead of the dot */
+  .pchip.bot .dot { width: 42px; height: 42px; margin-right: 12px; border-radius: 0; background: transparent; }
+  .pchip .dot svg { display: block; width: 100%; height: 100%; }
   .pchip.free b { color: rgba(255,255,255,0.5); }
   .keys { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 22px; color: rgba(255,255,255,0.38); }
   .qrbox {
@@ -371,6 +374,8 @@
       case 'need2': toast(ev.text || 'Faltan jugadores: escanead el QR', 5000); sfx.wrong(); break;
       case 'toomany': toast(ev.text || ('«' + ev.title + '» es para ' + ev.max + ' jugadores como mucho'), 5000); sfx.wrong(); break;
       case 'left': if (ev.name) toast(ev.name + ' se ha ido; la partida sigue'); break;
+      case 'bot': if (ev.text) toast(ev.text); if (ev.add) sfx.join(); break;
+      case 'nobot': case 'nobots': if (ev.text) toast(ev.text, 5000); sfx.wrong(); break;
     }
     var v = activeView();
     if (v && v.onEvent) v.onEvent(ev);
@@ -539,11 +544,16 @@
     else G2T.keepAlive.start({ container: stage, src: httpBase + '/keepalive.mp4' });
   }
 
+  // «Rivales bot»: a robot head, drawn in the bot's colour (currentColor)
+  var ROBOT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="2.2" r="1.8" fill="currentColor"/><rect x="11.1" y="3" width="1.8" height="3.4" fill="currentColor"/>' +
+    '<rect x="2.6" y="6" width="18.8" height="15" rx="4.2" fill="currentColor"/><rect x="0.2" y="10.5" width="2.6" height="6" rx="1.2" fill="currentColor"/><rect x="21.2" y="10.5" width="2.6" height="6" rx="1.2" fill="currentColor"/>' +
+    '<circle cx="8.4" cy="12.6" r="2.3" fill="#12162e"/><circle cx="15.6" cy="12.6" r="2.3" fill="#12162e"/><rect x="7.6" y="16.6" width="8.8" height="2" rx="1" fill="#12162e"/></svg>';
+
   // Chips: every player in the room, plus ONE «free» chip while there is room
   // (with 6 slots, four empty chips would only be noise)
   function renderMenu() {
     var ps = hubState.players || [];
-    var joined = [], away = [], freeShown = false, visible = 0;
+    var joined = [], away = [], freeShown = false, visible = 0, bots = 0;
     for (var i = 0; i < SLOTS; i++) {
       var chip = $('chip' + (i + 1));
       var p = ps[i];
@@ -553,14 +563,23 @@
       if (p) {
         joined.push(p.name);
         if (!p.connected) away.push(p.name);
-        chip.className = 'pchip vis in';
+        if (p.bot) bots++;
+        chip.className = 'pchip vis in' + (p.bot ? ' bot' : '');
         chip.style.borderColor = p.connected ? COLORS[i] : hexA(COLORS[i], 0.45);
-        dot.style.background = COLORS[i];
+        if (p.bot) {
+          if (!dot.firstChild) dot.innerHTML = ROBOT_SVG;
+          dot.style.background = '';
+          dot.style.color = COLORS[i];
+        } else {
+          if (dot.firstChild) dot.innerHTML = '';
+          dot.style.background = COLORS[i];
+        }
         setText(b, p.name);
         b.style.color = COLORS[i];
         fit(b, 36, 24);
         var extra = (p.badges && p.badges.length) ? ' · ' + p.badges.join(' · ') : '';
-        setText(sm, p.connected ? ('¡Listo!' + extra) : ('Reconectando… ' + (p.holdLeft || 0) + ' s'));
+        if (p.bot) setText(sm, 'Rival · ' + (p.levelName || G2T.botLevelLabel(p.level)));
+        else setText(sm, p.connected ? ('¡Listo!' + extra) : ('Reconectando… ' + (p.holdLeft || 0) + ' s'));
         fit(sm, 22, 15);
         visible++;
       } else {
@@ -568,6 +587,7 @@
         if (!freeShown) visible++;
         freeShown = true;
         chip.style.borderColor = '';
+        if (dot.firstChild) dot.innerHTML = '';
         dot.style.background = '';
         setText(b, 'Hueco libre');
         b.style.color = '';
@@ -621,8 +641,10 @@
       if (FX) cards[k].style.boxShadow = k === menuIndex ? '0 0 34px ' + hexA(accent || '#ffffff', 0.35) : '';
     }
     var focused = cards[menuIndex];
-    setText($('menuKeys'), row.id !== 'main' ? '◀ ▶ elegir juego · OK jugar · Atrás volver'
-      : (focused && focused.getAttribute('data-section') ? '◀ ▶ elegir juego · OK abrir' : '◀ ▶ elegir juego · OK jugar'));
+    // While there is room for one more: how to play against the computer
+    var botHint = freeShown && joined.length > bots ? ' · Añade un rival desde el móvil' : '';
+    setText($('menuKeys'), (row.id !== 'main' ? '◀ ▶ elegir juego · OK jugar · Atrás volver'
+      : (focused && focused.getAttribute('data-section') ? '◀ ▶ elegir juego · OK abrir' : '◀ ▶ elegir juego · OK jugar')) + botHint);
     scrollCards();
   }
 

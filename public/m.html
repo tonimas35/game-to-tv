@@ -129,6 +129,31 @@
   .room span.me { border-color: currentColor; }
   .room span.away { opacity: 0.5; }
   .youare { height: 8px; border-radius: 4px; background: var(--c); margin: 8px 0 0; }
+  /* «Rivales bot»: the bots in the room (with ×), the add button, the level sheet and the card badge */
+  .room span.bot { padding-right: 3px; max-width: 78%; }
+  .room span em { font-style: normal; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .room span .rmBot {
+    flex: 0 0 auto; width: 26px; height: 26px; padding: 0; margin-left: 2px; border-radius: 50%; font-size: 17px; font-weight: 900; line-height: 26px;
+    background: rgba(255,255,255,0.14); color: #fff;
+  }
+  .botAdd {
+    display: block; width: 100%; max-width: 420px; margin: 10px auto 0; padding: 11px 14px; font-size: 18px; border-radius: 14px;
+    background: rgba(255,255,255,0.07); color: #fff; border: 2px dashed rgba(255,255,255,0.32);
+  }
+  .game .bt { display: inline-block; font-size: 13px; font-weight: 900; padding: 3px 9px; border-radius: 999px; background: rgba(169,139,255,0.28); color: #e3d9ff; margin: 8px 0 0 6px; }
+  #botSheet { z-index: 18; background: rgba(7, 9, 21, 0.9); }
+  #botSheet .box { width: 100%; max-width: 520px; background: var(--panel); border-radius: 22px; padding: 16px; }
+  #botSheet h3 { margin: 0 0 4px; font-size: 24px; }
+  #botSheet p { margin: 0 0 12px; font-size: 15px; color: var(--muted); }
+  .lvls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .lvl { text-align: left; padding: 12px 14px; border-radius: 16px; background: var(--panel2); color: #fff; border: 2px solid rgba(255,255,255,0.14); min-height: 72px; }
+  .lvl b { display: block; font-size: 22px; }
+  .lvl span { display: block; font-size: 14px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+  .lvl.l-facil { border-color: rgba(62,224,122,0.6); }
+  .lvl.l-normal { border-color: rgba(34,230,255,0.6); }
+  .lvl.l-dificil { border-color: rgba(255,138,61,0.7); }
+  .lvl.l-imposible { border-color: rgba(255,90,106,0.8); }
+  #botSheet .cancel { width: 100%; font-size: 17px; padding: 11px; }
   .small { font-size: 14px; color: var(--muted); margin: 6px 0 12px; }
   .foot { margin: 18px 0 8px; text-align: center; }
 
@@ -190,6 +215,7 @@
     <div class="youare"></div>
     <p class="status" id="mStatus">Esperando a más jugadores…</p>
     <div class="room" id="mRoom"></div>
+    <button class="botAdd" id="botAddBtn" type="button">🤖 Añadir rival</button>
     <h2 class="h">Elegid juego</h2>
     <div id="gameList"></div>
     <div id="menuPanels"></div>
@@ -197,6 +223,15 @@
   </section>
 
   <!-- Game screens are added here by each game's phone.js -->
+
+  <div id="botSheet" class="over hidden">
+    <div class="box">
+      <h3>🤖 Añadir un rival</h3>
+      <p>El móvil juega por él. ¿Cómo de bueno?</p>
+      <div class="lvls" id="botLevels"></div>
+      <button class="ghost cancel" id="botCancel" type="button">Cancelar</button>
+    </div>
+  </div>
 
   <div id="modal" class="over hidden">
     <div class="box">
@@ -382,6 +417,7 @@
         if (msg.k === 'toomany') toast(msg.text || ('«' + msg.title + '» es para ' + msg.max + ' jugadores como mucho'), 4500);
         if (msg.k === 'menu' && msg.reason) toast(msg.text || 'Volvemos al menú', msg.text ? 5000 : 2600);
         if (msg.k === 'left' && msg.name) toast(msg.name + ' se ha ido; la partida sigue');
+        if ((msg.k === 'bot' || msg.k === 'nobot' || msg.k === 'nobots') && msg.text) toast((msg.k === 'bot' ? '🤖 ' : '') + msg.text, msg.k === 'bot' ? 2600 : 4500);
         break;
     }
     // Menu panels of the games (e.g. secret words) see every message first
@@ -402,6 +438,7 @@
     show($('scrJoin'), name === 'join');
     show($('scrFull'), name === 'full');
     show($('scrMenu'), name === 'menu');
+    if (name !== 'menu') show($('botSheet'), false);
     G2T.phone.each(function (v) {
       show(sections[v.id], name === v.id);
       if (name !== v.id && v.onHide) v.onHide();
@@ -436,7 +473,7 @@
   function gameButton(g) {
     return '<button class="game" data-game="' + esc(g.id) + '" type="button" style="border-color:' + G2T.hexA(g.accent || '#ffffff', 0.5) + '">' +
       '<b>' + esc(g.title) + '</b><span class="d">' + esc(g.phoneDescription || g.description) + '</span>' +
-      '<span class="rng">' + esc(G2T.playerRange(g)) + '</span><span class="why"></span></button>';
+      '<span class="rng">' + esc(G2T.playerRange(g)) + '</span>' + (g.bots ? '<span class="bt">🤖 vs bot</span>' : '') + '<span class="why"></span></button>';
   }
   function buildMenu() {
     var html = '';
@@ -472,18 +509,30 @@
     var o = others();
     var away = o.filter(function (p) { return !p.connected; });
     var st;
-    if (ready && !o.length) st = 'Juegas tú. ¡Elige juego! (Para jugar con más gente, que escaneen el QR de la tele)';
+    if (ready && !o.length) st = 'Juegas tú. ¡Elige juego! (Para jugar con más gente, que escaneen el QR de la tele o añade un rival)';
+    else if (ready && o.every(function (p) { return p.bot; })) st = 'Juegas contra ' + otherName() + '. ¡Elige juego!';
     else if (ready) st = o.length === 1 ? 'Jugáis tú y ' + otherName() + '. ¡Elegid juego!' : 'Sois ' + (o.length + 1) + '. ¡Elegid juego!';
     else if (away.length) st = 'Esperando a que vuelva ' + G2T.joinNames(away.map(function (p) { return p.name; })) + '…';
     else st = 'Esperando a más jugadores… (que escaneen el QR de la tele)';
     setText($('mStatus'), st);
     var room = '';
+    var used = 0;
     (hub.players || []).forEach(function (p, i) {
       if (!p) return;
+      used++;
       var me = i === slot - 1;
-      room += '<span class="' + (me ? 'me' : '') + (p.connected ? '' : ' away') + '" style="color:' + (p.color || COLORS[i]) + '"><i style="background:' + (p.color || COLORS[i]) + '"></i>' + esc(p.name) + (me ? ' (tú)' : '') + '</span>';
+      var col = p.color || COLORS[i];
+      if (p.bot) {
+        room += '<span class="bot" data-slot="' + (i + 1) + '" style="color:' + col + '"><i style="background:' + col + '"></i><em>🤖 ' + esc(p.name) + ' · ' + esc(p.levelName || G2T.botLevelLabel(p.level)) + '</em>' +
+          '<button class="rmBot" type="button" data-slot="' + (i + 1) + '" aria-label="Quitar a ' + esc(p.name) + '">×</button></span>';
+        return;
+      }
+      room += '<span class="' + (me ? 'me' : '') + (p.connected ? '' : ' away') + '" style="color:' + col + '"><i style="background:' + col + '"></i>' + esc(p.name) + (me ? ' (tú)' : '') + '</span>';
     });
     if ($('mRoom').innerHTML !== room) $('mRoom').innerHTML = room;
+    var full = used >= (hub.slots || SLOTS);
+    $('botAddBtn').disabled = full;
+    setText($('botAddBtn'), full ? '🤖 Sala llena: no caben más rivales' : '🤖 Añadir rival');
     Array.prototype.forEach.call(document.querySelectorAll('#gameList .game'), function (b) {
       var g = G2T.gameById(b.getAttribute('data-game'));
       var why = G2T.whyNot(g, hub);
@@ -500,6 +549,27 @@
     });
     G2T.phone.each(function (v) { if (v.menuPanel && v.menuPanel.render) v.menuPanel.render(); });
   }
+  // «Rivales bot»: the sheet with the four levels; × in the room list removes one
+  function buildBotSheet() {
+    var html = '';
+    G2T.botLevels.forEach(function (l) {
+      html += '<button class="lvl l-' + esc(l.id) + '" type="button" data-level="' + esc(l.id) + '"><b>' + esc(l.label) + '</b><span>' + esc(l.hint || '') + '</span></button>';
+    });
+    $('botLevels').innerHTML = html;
+    Array.prototype.forEach.call(document.querySelectorAll('#botLevels .lvl'), function (b) {
+      b.addEventListener('click', function () {
+        show($('botSheet'), false);
+        sendMsg({ t: 'bot.add', level: b.getAttribute('data-level') });
+      });
+    });
+  }
+  $('botAddBtn').addEventListener('click', function () { show($('botSheet'), true); });
+  $('botCancel').addEventListener('click', function () { show($('botSheet'), false); });
+  $('mRoom').addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('.rmBot') : null;
+    if (b) sendMsg({ t: 'bot.remove', slot: parseInt(b.getAttribute('data-slot'), 10) });
+  });
+
   function pickGame(e) {
     var g = e.currentTarget.getAttribute('data-game');
     if (!hub) return;
@@ -576,6 +646,7 @@
   // Boot: build the menu and mount every game view
   // ==================================================================
   buildMenu();
+  buildBotSheet();
   G2T.phone.each(function (v) {
     var sec = document.createElement('section');
     sec.id = 'scr-' + v.id;

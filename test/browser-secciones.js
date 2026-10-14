@@ -238,7 +238,7 @@ async function main() {
     console.log('\n[Tele: abrir la sección con el mando]');
     await press('ArrowRight');
     const f1 = await menuOf(tv);
-    check(f1.row === 'main' && f1.focus === 'card-sec-1vs1' && await tv.evaluate(function () { return document.getElementById('menuKeys').textContent; }) === '◀ ▶ elegir juego · OK abrir',
+    check(f1.row === 'main' && f1.focus === 'card-sec-1vs1' && /^◀ ▶ elegir juego · OK abrir( · Añade un rival desde el móvil)?$/.test(await tv.evaluate(function () { return document.getElementById('menuKeys').textContent; })),
       'Flecha derecha: foco en «1 contra 1» («OK abrir»)');
     await sleep(300);
     await shot(tv, 'menu-tv-principal-falta.png');
@@ -255,7 +255,7 @@ async function main() {
     });
     check(s1.m.row === '1vs1' && s1.m.focus === 'card-prueba-duelo-a' && s1.m.cards.length === N && s1.inSec && !s1.brand && s1.head === '1 contra 1' && s1.art && s1.back && s1.main === 'none',
       'OK abre el submenú: título «1 contra 1» con su dibujo, «Atrás», sus ' + N + ' juegos y el foco en el primero');
-    check(s1.keys === '◀ ▶ elegir juego · OK jugar · Atrás volver', 'Ayuda del mando: «' + s1.keys + '»');
+    check(/^◀ ▶ elegir juego · OK jugar · Atrás volver( · Añade un rival desde el móvil)?$/.test(s1.keys), 'Ayuda del mando: «' + s1.keys + '»');
     check(s1.whys.every(function (w) { return w === 'Falta 1 jugador'; }), 'Cada duelo dice «Falta 1 jugador»');
     await tv.keyboard.press('Enter');
     const tNeed = await waitFor(function () { return tv.evaluate(function () { var t = document.getElementById('toast'); return t.className.indexOf('on') >= 0 && /falta/.test(t.textContent) && t.textContent; }); }, 2000, 'aviso');
@@ -378,7 +378,7 @@ async function main() {
     await waitFor(function () { return tv.evaluate(function () { return window.__tv.screen() === 'prueba-duelo-c'; }); }, 3000, 'duelo C');
     check(await tv.evaluate(function () { return window.__tv.screen() === 'prueba-duelo-c' && document.getElementById('toast').textContent === 'Berto ha elegido «Duelo Gamma»'; }),
       'Berto elige «Duelo Gamma» desde el grupo: empieza en la tele («Berto ha elegido…»)');
-    check(await berto.evaluate(function () { return window.__phone.hub().screen === 'prueba-duelo-c'; }), '…y en los móviles');
+    check(!!(await waitFor(function () { return berto.evaluate(function () { return window.__phone.hub().screen === 'prueba-duelo-c'; }); }, 2000, 'duelo C en el móvil')), '…y en los móviles');
     // Back to the menu from a phone (the hub's {t:'menu'})
     const fakeTv = H_.makeClient('ws://127.0.0.1:' + PORT + '/ws', 'tele falsa'); fakes.push(fakeTv);
     await fakeTv.ready;

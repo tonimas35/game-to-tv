@@ -30,7 +30,7 @@
     "start": "node bin/game-to-tv.js start",
     "test": "node test/run.js",
     "check": "node scripts/check-browser-js.js && node scripts/check-node12.js",
-    "test:browser": "node test/browser-smoke.js && node test/browser-grupo.js && node test/browser-infiltrado.js && node test/browser-2048.js && node test/browser-secciones.js && node test/browser-tanques.js && node test/browser-motos.js && node test/browser-hockey.js && node test/browser-sumo.js && node test/browser-tele.js",
+    "test:browser": "node test/browser-smoke.js && node test/browser-grupo.js && node test/browser-infiltrado.js && node test/browser-2048.js && node test/browser-secciones.js && node test/browser-tanques.js && node test/browser-motos.js && node test/browser-hockey.js && node test/browser-sumo.js && node test/browser-tele.js && node test/browser-bots.js",
     "test:node12": "npx -y -p node@12 -c \"node test/run.js\"",
     "icons": "node scripts/make-icons.js"
   },
