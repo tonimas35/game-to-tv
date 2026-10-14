@@ -42,7 +42,12 @@ pregunta si «node» puede aceptar conexiones entrantes, pulsa **Permitir**.
   juegos, en Windows pulsa la tecla **Windows + P** y elige **Duplicar**.
 - **Sin cable:** en la tele Samsung, abre la app **Internet** y escribe la
   dirección que sale en la ventana del ordenador, algo como
-  `http://192.168.1.40:3000/`.
+  `http://192.168.1.40:3000/`. Guárdala en favoritos para la próxima vez.
+- **Sin cable, plan B (Windows):** envía la pantalla del ordenador a la tele por
+  el aire. Pulsa **Windows + K** y elige la tele Samsung de la lista (en la tele
+  puede que tengas que aceptar). Para los juegos de dibujar y del infiltrado va
+  bien; el Pong puede ir con un pelín de retraso.
+- **Si nada de esto funciona**, podéis jugar mirando la pantalla del ordenador.
 
 **Mientras jugáis, no cierres la ventana del ordenador.** Para terminar,
 ciérrala. Para salir de la pantalla completa, pulsa **F11**.
