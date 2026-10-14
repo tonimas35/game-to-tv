@@ -1,0 +1,22 @@
+{
+  "id": "sumo",
+  "title": "Sumo",
+  "section": "1vs1",
+  "description": "Dos bolas gorditas en un círculo que encoge. Empuja, embiste y saca a tu rival del dohyo. Al mejor de 5.",
+  "phoneDescription": "Empuja a tu rival fuera del círculo (al mejor de 5)",
+  "howTo": [
+    "Eres la bola de tu color. Mueve el joystick del móvil para empujar.",
+    "«¡Embestida!» da un acelerón y, mientras dura, pesas mucho más: ¡bien apuntada, saca al otro de golpe!",
+    "Después tarda 2 segundos en recargarse: el anillo del botón se va llenando.",
+    "Si tu bola sale del círculo, pierdes la ronda.",
+    "A los 10 segundos el círculo empieza a encoger: no te quedes en el borde.",
+    "Si los dos caéis a la vez es empate y se repite la ronda.",
+    "Gana quien gane 3 rondas (al mejor de 5)."
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 2,
+  "tags": ["Al mejor de 5", "Empujones"],
+  "icon": "icon.svg",
+  "accent": "#f0b04a",
+  "order": 50
+}
