@@ -1,0 +1,23 @@
+{
+  "id": "tanques",
+  "title": "Tanques",
+  "section": "1vs1",
+  "description": "Duelo de tanques en un pequeño laberinto. Las balas rebotan en las paredes… ¡y también te pueden dar a ti! Gana quien llegue a 5.",
+  "phoneDescription": "Duelo de tanques: las balas rebotan… y te dan a ti también",
+  "howTo": [
+    "Cada uno lleva un tanque de su color. Mira la tele: la flecha de tu móvil es la dirección en la pantalla.",
+    "Palanca (lado izquierdo): arrastra el dedo hacia donde quieras ir y el tanque gira y avanza hacia allí. Suelta para pararte.",
+    "Si prefieres botones, toca «Botones»: ◀ ▶ giran el tanque, ▲ avanza y ▼ retrocede.",
+    "«¡Fuego!» (lado derecho) dispara. Como mucho 4 balas a la vez.",
+    "Las balas rebotan en las paredes hasta 5 veces y destruyen cualquier tanque… también el tuyo. ¡Cuidado con los rebotes!",
+    "Cada ronda la gana quien siga vivo. Si caéis los dos casi a la vez, nadie puntúa.",
+    "Gana el duelo quien llegue antes a 5. Cada ronda cambia el mapa.",
+    "Juega con el móvil en horizontal: es más cómodo."
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 2,
+  "tags": ["A 5", "Rebotes"],
+  "icon": "icon.svg",
+  "accent": "#3ee07a",
+  "order": 50
+}

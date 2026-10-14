@@ -1,0 +1,81 @@
+/* «Tanques»: phone view. Best sideways: stick on the left, «¡Fuego!» on the right. */
+#scr-tanques .bar { gap: 6px; }
+#scr-tanques .chip { max-width: 34%; }
+.kpScore { flex: 1; min-width: 0; text-align: center; font-size: 24px; font-weight: 900; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.kpHelpBtn { width: 38px; padding: 8px 0; font-size: 17px; font-weight: 900; }
+.kpStatus { flex: 0 0 auto; margin: 6px 0; min-height: 1.4em; text-align: center; font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpRotate { display: none; flex: 0 0 auto; margin-top: 8px; padding: 7px 12px; border-radius: 12px; background: rgba(255, 210, 62, 0.16); color: #ffd23e; font-size: 15px; font-weight: 800; text-align: center; }
+
+.kpMain { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.kpLeft { flex: 1.25; min-width: 0; min-height: 0; display: flex; }
+.kpRight { flex: 1; min-width: 0; min-height: 0; display: flex; }
+
+/* Floating stick: the base jumps under the thumb */
+.kpStick {
+  position: relative; flex: 1; min-height: 0; overflow: hidden; border-radius: 24px; border: 3px solid var(--c);
+  background: var(--c-soft); touch-action: none; -webkit-user-select: none; user-select: none;
+}
+.kpBase {
+  position: absolute; left: 50%; top: 50%; width: 136px; height: 136px; margin: -68px 0 0 -68px; border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.06); pointer-events: none;
+}
+.kpStick.on .kpBase { border-color: #ffffff; }
+.kpKnob {
+  position: absolute; left: 50%; top: 50%; width: 62px; height: 62px; margin: -31px 0 0 -31px; border-radius: 50%;
+  background: var(--c); border: 3px solid #ffffff; will-change: transform; pointer-events: none;
+}
+.kpHint { position: absolute; left: 6px; right: 6px; bottom: 6px; margin: 0; text-align: center; font-size: 13px; color: var(--muted); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpStick.on .kpHint { display: none; }
+
+/* Buttons mode: a cross */
+.kpKeys {
+  flex: 1; min-height: 0; display: grid; gap: 8px; touch-action: none;
+  grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr;
+  grid-template-areas: ". up ." "left . right" ". down .";
+}
+.kpKey { min-width: 0; min-height: 0; padding: 0; border-radius: 18px; font-size: 32px; line-height: 1; color: #fff; background: var(--c-soft); border: 3px solid var(--c); touch-action: none; }
+.kpKey.on { background: var(--c); color: #070915; }
+.kpUp { grid-area: up; }
+.kpDown { grid-area: down; }
+.kpLeftK { grid-area: left; }
+.kpRightK { grid-area: right; }
+
+.kpFire {
+  flex: 1; min-width: 0; min-height: 0; padding: 0; border-radius: 28px; font-size: 36px; font-weight: 900; letter-spacing: 1px;
+  color: #ffffff; background: #ff4f3a; border: 4px solid rgba(255, 255, 255, 0.55); touch-action: none;
+}
+.kpFire.on { background: #ffd23e; color: #2a1d00; }
+.kpFire.off { opacity: 0.4; }
+.kpMain.hit .kpStick, .kpMain.hit .kpKey { background: rgba(255, 70, 70, 0.45); }
+
+/* Portrait: a hint, and the fire button under the stick */
+@media (orientation: portrait) {
+  .kpRotate { display: block; }
+  .kpMain { flex-direction: column; }
+  .kpLeft { flex: 1.5; }
+  .kpFire { font-size: 34px; }
+}
+@media (orientation: landscape) and (max-height: 420px) {
+  .kpStatus { margin: 4px 0; font-size: 16px; }
+  .kpBase { width: 120px; height: 120px; margin: -60px 0 0 -60px; }
+}
+
+/* Panels */
+.kpPanel { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; text-align: center; }
+.kpT1 { font-size: 38px; font-weight: 900; line-height: 1.1; }
+.kpT2 { font-size: 26px; font-weight: 800; }
+.kpT3 { margin: 0; font-size: 18px; color: var(--muted); }
+.kpBig { font-size: 52px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.kpEndBtns { display: flex; gap: 10px; width: 100%; max-width: 560px; margin-top: 4px; }
+.kpEndBtns .bigbtn { flex: 1; min-width: 0; font-size: 24px; padding: 18px 10px; }
+@media (orientation: portrait) {
+  .kpEndBtns { flex-direction: column; max-width: 360px; }
+}
+
+/* Help */
+#kpHelp { z-index: 15; justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.kpHelpBox { width: 100%; max-width: 520px; text-align: left; }
+.kpHelpBox h2 { margin: 6px 0 12px; font-size: 28px; color: #3ee07a; }
+.kpHelpBox ol { margin: 0 0 18px; padding-left: 22px; }
+.kpHelpBox li { margin-bottom: 9px; font-size: 17px; line-height: 1.35; }
+.kpHelpBox .bigbtn { width: 100%; }
