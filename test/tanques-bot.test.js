@@ -185,8 +185,14 @@ function cpu() {
   A.pick();
   A.run(15);              // warm up (JIT, the first map)
   A.resetTiming();
-  A.run(150);
+  // 150 s of duels (a new one as soon as one ends: the time is mostly play)
+  let duels = 0;
+  for (let k = 0; k < 150; k++) {
+    A.run(1);
+    if (A.last('kmeta').phase === 'end') { A.send({ t: 'k.again' }); duels++; }
+  }
   const T = A.timing();
+  console.log('    (' + duels + ' duelos terminados; ' + T.calls + ' llamadas al bot)');
   check(T.avgTickMs < 0.5, '«Imposible» contra «Difícil», 150 s: ' + T.avgTickMs.toFixed(3) + ' ms por tick de media (límite de la prueba 0,5 ms; peor tick ' + T.stepWorst.toFixed(1) + ' ms, ' + T.over1 + ' de ' + T.steps + ' por encima de 1 ms)');
   check(T.over1 / T.steps < 0.01, 'Menos del 1 % de los ticks pasa de 1 ms (búsqueda repartida en varios ticks)');
   A.close();

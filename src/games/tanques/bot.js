@@ -10,7 +10,7 @@
  *
  * Every tick (60 Hz), in this order:
  *   1. Dodge: the bullets on screen are traced (with bounces) for a short
- *      horizon; if one hits the tank as it moves now, it tries 13 manoeuvres
+ *      horizon; if one hits the tank as it moves now, it tries 15 manoeuvres
  *      (reverse, forward, turning, the stick in 8 directions, stop) and keeps
  *      the safest one for a moment.
  *   2. Fire: the barrel AS IT IS NOW is traced (analytically: wall to wall,
@@ -22,7 +22,7 @@
  *      little push (the tank turns exactly to the angle while creeping) in
  *      short pulses.
  *   4. Move: BFS over the arena cells (links precomputed once per round,
- *      a few rows per tick during the countdown) towards the goal of its mode:
+ *      a row per tick during the countdown) towards the goal of its mode:
  *      attack (most of the time), flank (sometimes) or retreat (outgunned).
  *
  * Levels (ctx.level): reaction time, thinking rate, aim noise, how many
@@ -646,7 +646,7 @@ function create(ctx) {
     },
     tick: function (dt) {
       if (stopped || !meta) return;
-      // The arena's cells and links: a few rows per tick until done (the countdown is enough)
+      // The arena's cells and links: a row per tick until done (the countdown is enough)
       if (nav && !nav.ready) nav.build(1);
       const playing = meta.phase === 'play' && !meta.paused && myIdx >= 0 && nav && nav.ready && latest && now() - latestAt < 1000;
       if (!playing) {
