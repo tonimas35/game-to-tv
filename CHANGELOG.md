@@ -3,6 +3,51 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
+## 0.4.1 - 2026-10-14
+
+### Añadido
+
+- **Instaladores de un clic** en `instalar/`, para jugar sin saber nada
+  técnico (sin terminal, sin git y sin Node.js instalado):
+  - `Juegos-del-Salon-Windows.bat` (Windows 10/11): sin permisos de
+    administrador, descarga el Node.js oficial portátil (22.23.3; x64, ARM64
+    o x86; con su SHA-256 comprobado) en `%LOCALAPPDATA%\game-to-tv`, o usa
+    un Node.js 18+ ya instalado; descarga los juegos de GitHub, hace
+    `npm install --omit=dev` y arranca. Al volver a abrirlo, actualiza (y si
+    algo falla o no hay Internet, sigue con la versión que había; la
+    configuración de `~/.game-to-tv` no se toca). Crea el icono «Juegos del
+    Salón» en el escritorio, que arranca sin descargar nada.
+  - Cortafuegos de Windows: comprueba sin cambiar nada el perfil de red y las
+    reglas. Si la red está como «Pública», falta la regla o hay reglas de
+    bloqueo de Node.js, lo explica y pide permiso **una sola vez** para crear
+    la regla «game-to-tv (TCP 3000)» (solo desde la red local, perfiles
+    Privado y Público, solo para ese `node.exe`) y, si se acepta, marcar la
+    red como Privada. Si se dice que no, sigue y explica qué no funcionará.
+  - `Juegos-del-Salon-Mac.command`: lo mismo en Mac, en
+    `~/Library/Application Support/game-to-tv` (Apple Silicon o Intel, sin
+    admin ni Homebrew).
+  - Mensajes en castellano llano; ante cualquier fallo, «Haz una foto de esta
+    pantalla y envíasela a quien te pasó el archivo».
+- [Guía de una página para la familia](docs/guia-familia.md): qué pulsar en
+  SmartScreen, en el aviso de Windows y en Gatekeeper, HDMI y el botón
+  «Source» de la Samsung (o su app «Internet»), el QR, qué juegos van con 2 y
+  qué hacer si un móvil no conecta.
+- `game-to-tv start --navegador`: abre la pantalla de la tele en el navegador
+  del PC, a pantalla completa (Chrome o Edge en una ventana propia; si no, el
+  navegador predeterminado). Pensado para un portátil conectado por HDMI.
+- `game-to-tv start --sencillo`: instrucciones cortas («Deja esta ventana
+  abierta mientras jugáis», la dirección para el navegador de la tele, «Para
+  salir, cierra esta ventana») en vez de la lista técnica.
+- Pruebas de los instaladores en `npm test` (finales de línea, versión y
+  SHA-256 de Node.js, URLs, la regla del cortafuegos; con `pwsh`, el paso del
+  cortafuegos con los cmdlets de Windows simulados) y un ensayo completo en
+  Linux: `bash test/instalar/simular.sh`.
+
+### Cambiado
+
+- Abrir `start` dos veces con `--navegador` o `--sencillo` ya no da error de
+  puerto ocupado: dice que ya estaba en marcha y abre la pantalla.
+
 ## 0.4.0 - 2026-10-13
 
 ### Añadido

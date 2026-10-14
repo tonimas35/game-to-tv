@@ -1,6 +1,6 @@
 {
   "name": "game-to-tv",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Juegos de grupo para el salón: la tele es la pantalla y los móviles son los mandos (escanea un QR, sin instalar nada). En LG webOS, el servidor puede ir dentro de la tele.",
   "keywords": [
     "party-games",
