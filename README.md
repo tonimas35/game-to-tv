@@ -51,10 +51,16 @@ Duelos rápidos para dos, agrupados en la tarjeta «1 contra 1» del menú:
 | **Sumo** | Dos bolas gorditas en un círculo que encoge: empuja, embiste con «¡Embestida!» y saca a tu rival. Al mejor de 5. |
 | **Hockey de mesa** | Mueve la maza arrastrando el dedo por tu mitad de la mesa (móvil en horizontal) y mete el disco en la portería contraria. A 7. |
 
+**Rivales bot:** ¿no hay con quién jugar? En el menú del móvil, «🤖 Añadir
+rival» y elige su nivel (Fácil, Normal, Difícil o Imposible): entra en la sala
+un jugador más, con nombre (Paco, Lola, Maripili…) y color, que juega solo. Por
+ahora en **Tanques**; los juegos que aún no los admiten salen en gris mientras
+haya bots («Este juego no admite rivales: quita los bots»). Se quitan con la ×
+de la lista de jugadores y se van solos cuando no queda nadie.
+
 **Solo con el móvil:** abre `http://IP:PUERTO/solo` y el móvil es a la vez
-pantalla y mando (el juego detrás, los mandos medio transparentes delante).
-Para practicar Tanques sin rival hay un bot experimental:
-`node tools/bot-tanques.js --server ws://IP:PUERTO/ws` (se dirige con `orden.json`).
+pantalla y mando (el juego detrás y los mandos medio transparentes delante).
+Con un rival bot, se puede jugar a Tanques con un solo móvil.
 
 El menú de la tele muestra para cuántos es cada juego y, si no encaja con los
 que sois, lo pone en gris con el motivo («De 2 a 4 jugadores · sois 6»).

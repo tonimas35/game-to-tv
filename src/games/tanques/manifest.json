@@ -16,6 +16,7 @@
   ],
   "minPlayers": 2,
   "maxPlayers": 2,
+  "bots": true,
   "tags": ["A 5", "Rebotes"],
   "icon": "icon.svg",
   "accent": "#3ee07a",
