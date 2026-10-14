@@ -135,11 +135,17 @@ function ConvertTo-Arg([string]$A) {
   return $A
 }
 
-# Runs node in THIS console window (so the QR and colors show, and closing the window stops it)
+# Runs node in THIS console window (so the QR and colors show, and closing the window stops it).
+# Not Start-Process -Wait: on PowerShell 5.1 it also waits for every child, and node starts the browser.
 function Invoke-Node($Node, [string]$WorkDir, [string[]]$Arguments) {
-  $line = ($Arguments | ForEach-Object { ConvertTo-Arg $_ }) -join ' '
   $env:npm_config_update_notifier = 'false'
-  $p = Start-Process -FilePath $Node.Exe -ArgumentList $line -WorkingDirectory $WorkDir -NoNewWindow -Wait -PassThru
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $Node.Exe
+  $psi.Arguments = ($Arguments | ForEach-Object { ConvertTo-Arg $_ }) -join ' '
+  $psi.WorkingDirectory = $WorkDir
+  $psi.UseShellExecute = $false
+  $p = [System.Diagnostics.Process]::Start($psi)
+  $p.WaitForExit()
   return $p.ExitCode
 }
 
