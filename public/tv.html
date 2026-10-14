@@ -277,9 +277,43 @@
   var stage = $('stage');
   var stageScale = 1;
   var dpr = 1;
+  // Manual size fix for browsers that zoom the page on their own (seen on Amazon
+  // Silk on a Fire TV: the page looked zoomed in). ?escala=0.5 shrinks the whole
+  // screen; the value is remembered in this browser (?escala=1 resets it).
+  var manualScale = (function () {
+    var q = parseFloat(G2T.qs('escala'));
+    try {
+      if (q > 0) localStorage.setItem('g2t.escala', String(q));
+      else q = parseFloat(localStorage.getItem('g2t.escala'));
+    } catch (e) { /* private mode: only the URL value */ }
+    return q > 0.2 && q <= 3 ? q : 1;
+  })();
+  var infoBox = null;
+  function showInfo(w, h, vv) {
+    if (G2T.qs('info') === null) return;
+    if (!infoBox) {
+      infoBox = document.createElement('div');
+      infoBox.style.cssText = 'position:fixed;left:8px;top:8px;z-index:99;background:#fff;color:#000;font:14px monospace;padding:6px 8px;border-radius:6px;max-width:90vw;white-space:pre-wrap';
+      document.body.appendChild(infoBox);
+    }
+    infoBox.textContent = 'pantalla ' + Math.round(w) + 'x' + Math.round(h) + ' · inner ' + window.innerWidth + 'x' + window.innerHeight +
+      ' · client ' + document.documentElement.clientWidth + 'x' + document.documentElement.clientHeight +
+      (vv ? ' · visual ' + Math.round(vv.width) + 'x' + Math.round(vv.height) + ' zoom ' + (vv.scale || 1) : '') +
+      ' · dpr ' + (window.devicePixelRatio || 1) + ' · escala ' + stageScale.toFixed(3) + (manualScale !== 1 ? ' (manual ' + manualScale + ')' : '') +
+      '\n' + navigator.userAgent;
+  }
   function layout() {
-    var w = window.innerWidth || document.documentElement.clientWidth || LW;
-    var h = window.innerHeight || document.documentElement.clientHeight || LH;
+    // The visual viewport is what is really on screen (some TV browsers zoom the page)
+    var vv = window.visualViewport;
+    var sw = (vv && vv.width) || window.innerWidth || document.documentElement.clientWidth || LW;
+    var sh = (vv && vv.height) || window.innerHeight || document.documentElement.clientHeight || LH;
+    // With a manual scale everything (menu and game canvases) lives in a smaller,
+    // centred box: the body is shifted and every layer sizes itself to that box
+    var w = sw * manualScale, h = sh * manualScale;
+    var sx = (sw - w) / 2 + ((vv && vv.offsetLeft) || 0), sy = (sh - h) / 2 + ((vv && vv.offsetTop) || 0);
+    var bt = (sx || sy) ? 'translate(' + sx + 'px,' + sy + 'px)' : '';
+    document.body.style.transform = bt;
+    document.body.style.webkitTransform = bt;
     stageScale = Math.min(w / LW, h / LH);
     dpr = G2T.capDpr(LW * stageScale); // for thumbnails and confetti (relative to the stage)
     var ox = (w - LW * stageScale) / 2, oy = (h - LH * stageScale) / 2;
@@ -288,6 +322,7 @@
     stage.style.webkitTransform = tr;
     resizeFx();
     G2T.tv.each(function (v) { if (v.layout) v.layout(w, h); });
+    showInfo(sw, sh, vv);
   }
 
   // ==================================================================
@@ -828,6 +863,7 @@
     try { v.mount(host, G2T.gameById(v.id) || {}); } catch (e) { if (window.console) console.error(e); }
   });
   window.addEventListener('resize', layout);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', layout);
   layout();
   renderMenu();
   renderConn();
