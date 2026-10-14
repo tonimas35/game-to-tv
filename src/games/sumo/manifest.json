@@ -13,6 +13,7 @@
     "Si los dos caéis a la vez es empate y se repite la ronda.",
     "Gana quien gane 3 rondas (al mejor de 5)."
   ],
+  "bots": true,
   "minPlayers": 2,
   "maxPlayers": 2,
   "tags": ["Al mejor de 5", "Empujones"],

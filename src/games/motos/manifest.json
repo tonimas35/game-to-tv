@@ -13,6 +13,7 @@
     "Puedes encadenar dos giros rápidos (por ejemplo, arriba y luego izquierda) para cerrar una curva.",
     "Cuanto más dura la ronda, más rápido van las motos."
   ],
+  "bots": true,
   "minPlayers": 2,
   "maxPlayers": 2,
   "tags": ["A 5 rondas", "Reflejos"],
