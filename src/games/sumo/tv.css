@@ -1,0 +1,88 @@
+/* «Sumo»: TV view (1920x1080 stage, transparent over the arena canvas). No shadows, no filters. */
+#vSumo .fit { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Score at the top: a box per wrestler at the sides, the round in the middle */
+.suSide {
+  position: absolute; top: 22px; width: 400px; height: 132px; box-sizing: border-box; padding: 14px 26px;
+  border-radius: 30px; background: rgba(36, 20, 12, 0.88); border: 4px solid rgba(255, 220, 160, 0.18);
+}
+.suL { left: 36px; }
+.suR { right: 36px; text-align: right; }
+.suWho { display: flex; align-items: center; height: 56px; }
+.suR .suWho { justify-content: flex-end; }
+.suDot { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; background: #fff; }
+.suL .suDot { margin-right: 14px; }
+.suR .suDot { margin-left: 14px; }
+.suName { min-width: 0; max-width: 250px; font-size: 44px; font-weight: 900; line-height: 56px; }
+.suPips { position: absolute; bottom: 20px; display: flex; }
+.suL .suPips { left: 26px; }
+.suR .suPips { right: 26px; }
+.suPips i { width: 30px; height: 30px; margin-right: 12px; border-radius: 50%; box-sizing: border-box; border: 4px solid #fff; }
+.suR .suPips i { margin-right: 0; margin-left: 12px; }
+.suPts { position: absolute; top: 4px; font-size: 104px; line-height: 124px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.suL .suPts { right: 26px; }
+.suR .suPts { left: 26px; }
+
+.suMid { position: absolute; left: 640px; width: 640px; top: 20px; text-align: center; }
+.suRound { font-size: 52px; font-weight: 900; line-height: 66px; color: #ffe2a8; }
+.suBest { font-size: 26px; font-weight: 700; line-height: 34px; color: rgba(255, 236, 205, 0.7); }
+
+.suShrink {
+  position: absolute; left: 760px; width: 400px; top: 124px; height: 44px; line-height: 44px; display: none;
+  border-radius: 999px; background: #e0612f; color: #fff; text-align: center; font-size: 28px; font-weight: 900;
+}
+.suShrink.on { display: block; animation: suBlink 1s ease-in-out infinite; }
+@keyframes suBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* Countdown (a round badge) and «¡YA!» (a pill) over the middle of the ring */
+.suBig {
+  position: absolute; display: none; box-sizing: border-box; text-align: center; font-weight: 900; pointer-events: none;
+  background: rgba(36, 20, 12, 0.88); border: 6px solid #f0b04a; color: #fff;
+}
+.suBig.suNum { display: block; left: 830px; top: 482px; width: 260px; height: 260px; border-radius: 50%; font-size: 170px; line-height: 246px; }
+/* «¡YA!» goes high, out of the way of the first clash in the middle */
+.suBig.suYa { display: block; left: 720px; top: 236px; width: 480px; height: 160px; border-radius: 80px; font-size: 112px; line-height: 146px; color: #ffd23e; }
+.suPopA, .suPopB { animation: suPop 0.45s ease-out both; }
+.suPopB { animation-name: suPop2; }
+@keyframes suPop { from { transform: scale(1.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes suPop2 { from { transform: scale(1.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.suGoA, .suGoB { animation: suGo 0.9s ease-out forwards; }
+.suGoB { animation-name: suGo2; }
+@keyframes suGo { 0% { transform: scale(0.8); opacity: 1; } 60% { opacity: 1; } 100% { transform: scale(1.25); opacity: 0; } }
+@keyframes suGo2 { 0% { transform: scale(0.8); opacity: 1; } 60% { opacity: 1; } 100% { transform: scale(1.25); opacity: 0; } }
+.suSub {
+  position: absolute; left: 660px; width: 600px; top: 770px; height: 76px; line-height: 70px; box-sizing: border-box; padding: 0 30px;
+  display: none; border-radius: 38px; background: rgba(36, 20, 12, 0.88); text-align: center; font-size: 44px; font-weight: 900; color: #fff3dc;
+}
+.suSub.on { display: block; }
+
+/* Who won the round */
+.suBanner {
+  position: absolute; left: 360px; width: 1200px; top: 520px; height: 130px; line-height: 122px; box-sizing: border-box;
+  padding: 0 40px; display: none; border-radius: 999px; background: rgba(36, 20, 12, 0.92); border: 4px solid rgba(255, 220, 160, 0.3);
+  text-align: center; font-size: 64px; font-weight: 900;
+}
+.suBanner.on { display: block; animation: suDrop 0.35s ease-out; }
+@keyframes suDrop { from { transform: translateY(-40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.suKeys { position: absolute; right: 40px; bottom: 16px; font-size: 22px; color: rgba(255, 236, 205, 0.45); }
+
+/* Opaque screens: pause and the winner */
+#vSumo .suOpaque { background: #1d110b; z-index: 4; }
+.suPauseT { margin: 0; font-size: 150px; font-weight: 900; color: #ffe2a8; }
+.suPauseWho { max-width: 1600px; font-size: 96px; font-weight: 900; line-height: 1.2; }
+.suPauseHold { margin: 18px 0 0; min-height: 50px; font-size: 40px; font-weight: 700; color: rgba(255, 236, 205, 0.75); }
+
+.suEndK { position: absolute; left: 0; right: 0; top: 70px; margin: 0; text-align: center; font-size: 36px; font-weight: 900; letter-spacing: 6px; color: #f0b04a; }
+.suEndBall { position: absolute; left: 870px; top: 150px; width: 180px; height: 180px; border-radius: 50%; background: #fff; }
+.suEndBall i { position: absolute; top: 60px; width: 40px; height: 40px; border-radius: 50%; background: #fff; border: 4px solid #3a1f10; box-sizing: border-box; }
+.suEndBall i:first-child { left: 42px; }
+.suEndBall i:last-child { right: 42px; }
+.suEndBall i::after { content: ''; position: absolute; left: 10px; top: 14px; width: 16px; height: 16px; border-radius: 50%; background: #1c120c; }
+.suEndT { position: absolute; left: 160px; right: 160px; top: 360px; height: 150px; line-height: 150px; text-align: center; font-size: 120px; font-weight: 900; }
+.suEndScore { position: absolute; left: 260px; right: 260px; top: 540px; height: 130px; display: flex; align-items: center; justify-content: center; }
+.suEndScore b { flex: 0 0 auto; margin: 0 40px; font-size: 120px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.suEndN { flex: 1; min-width: 0; font-size: 48px; font-weight: 900; }
+.suEndScore .suEndN:first-child { text-align: right; }
+.suEndBtns { position: absolute; left: 0; right: 0; top: 760px; display: flex; justify-content: center; }
+.suEndK2 { position: absolute; left: 0; right: 0; top: 880px; margin: 0; text-align: center; font-size: 30px; color: rgba(255, 236, 205, 0.6); }
