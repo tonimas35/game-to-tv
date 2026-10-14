@@ -17,5 +17,6 @@
   "tags": ["A solas", "Carrera de 3 min"],
   "icon": "icon.svg",
   "accent": "#f7a66b",
-  "order": 40
+  "order": 40,
+  "bots": true
 }
