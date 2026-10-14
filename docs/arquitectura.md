@@ -124,6 +124,25 @@ en dos sitios:
   de los juegos), quién eligió el juego. Se reenvía al cambiar y como mucho una
   vez por segundo.
 
+- **Rivales bot** (`src/server/bots.js`, niveles y nombres): un bot ocupa un
+  hueco normal sin socket y siempre conectado (`{ t: 'bot.add', level }` y
+  `{ t: 'bot.remove', slot }` desde un móvil, solo en el menú). Si el juego
+  tiene `"bots": true`, al empezar se crea un bot por rival con su `bot.js`:
+  - **Lo que ve**: `sendTvs`, `sendSlot`, `sendPhones` y `broadcast` le pasan
+    al bot lo que va a la tele (`onTv`) y a su hueco (`onSlot`). Cada texto se
+    convierte con `JSON.parse` **una sola vez** (una caché de un elemento:
+    un `broadcast` va a la tele y a los móviles con el mismo texto) y el mismo
+    objeto va a todos los bots. Sin bots en marcha no se hace nada de esto.
+  - **Lo que hace**: `ctx.send(msg)` lo guarda en una cola (como texto); al
+    principio del tick siguiente el hub lo entrega a `onMessage(hueco, msg)`
+    del juego, igual que un mensaje de móvil (los del hub se ignoran).
+  - **Cada tick**: huecos caducados → cola de los bots → `tick` del juego →
+    `tick(dt)` de cada bot; luego `flush` del juego (el estado sale hacia la
+    tele y los bots).
+  - `api.tvs.size` cuenta una tele más mientras juegan bots; `counts()` (el
+    apagado por inactividad del modo tele) solo cuenta personas.
+  - Los bots se paran al volver al menú y se van cuando no queda nadie.
+
 Protocolo completo: comentario al principio de `src/server/hub.js`.
 
 ### Mensajes de los juegos para grupos (0.3)

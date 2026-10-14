@@ -69,6 +69,8 @@ src/games/ejemplo-reflejos/
 | `order` | Posición en el menú (menor = antes). |
 | `howTo` | Opcional: lista de frases «Cómo se juega» (llega a la tele y al móvil en `G2T.gameById(id).howTo`; «El Infiltrado» la enseña con su botón «?»). |
 | `section` | Opcional: la sección del menú donde va el juego. Por ahora solo `"1vs1"` («1 contra 1»). Sin este campo, el juego tiene su propia tarjeta en el menú principal. Ver abajo. |
+| `bots` | Opcional: `true` si el juego trae un rival bot (`bot.js`). Ver [«Rivales bot»](#6-rivales-bot). |
+| `botLevels` | Opcional: los niveles que sabe jugar tu bot si no son los cuatro (p. ej. `["facil", "normal"]`). |
 
 ### Meter un juego en una sección
 
@@ -297,6 +299,13 @@ G2T.phone.register({
 
 - Un botón con la clase **`menuBtn`** ya pregunta «¿Volver al menú?» y avisa al
   servidor. Un elemento con la clase **`meName`** muestra el nombre del jugador.
+- Pon la clase **`g2t-ctl`** en tus mandos (la palanca, los botones, la zona
+  donde se desliza el dedo). En «Solo con el móvil» (`/solo`) el móvil es
+  también la pantalla: mientras se vea algún `g2t-ctl`, el fondo del móvil es
+  transparente, el juego se ve detrás y solo esos mandos se aclaran. Lo demás
+  (paneles de final, «Estás mirando») tapa la tele, y las capas `.over`
+  (pausa, ayuda) también. Si cambias `className` de un mando, conserva
+  `g2t-ctl`.
 - El color del jugador está en la variable CSS `--c` (úsala en tus estilos).
 - `host.slot()` es tu hueco **empezando en 1** (como en los mensajes `rmeta`).
 
@@ -394,7 +403,129 @@ cada uno, y sus pruebas lo comprueban ronda a ronda.
 **8. Probarlo con muchos.** `test/grupo.test.js` juega «Reflejos» con 6 móviles
 falsos (`H_.phone(WS, nombre, cid)`) en pocas líneas: cópialo.
 
-## 6. Probarlo
+## 6. Rivales bot
+
+Con un solo móvil también se juega: en el menú, «🤖 Añadir rival» y un nivel
+(Fácil, Normal, Difícil o Imposible). El hub mete en la sala un jugador más,
+con nombre (Paco, Lola, Maripili…) y color, **en un hueco normal**: cuenta
+para `minPlayers`/`maxPlayers`, `api.players()`, `api.name(i)` y los puntos,
+y siempre está conectado. Mientras haya bots en la sala, los juegos sin bot
+salen en gris («Este juego no admite rivales: quita los bots»).
+
+Tu juego **no cambia**: el bot es un móvil más. Para admitir bots:
+
+1. `"bots": true` en el manifiesto (y `"botLevels"` si no sabe los cuatro
+   niveles: el hub le da el más cercano).
+2. Un archivo **`bot.js`** junto a `index.js`:
+
+```js
+'use strict';
+// Un bot para «Reflejos» (ejemplo): toca cuando la tele dice «¡YA!», con su tiempo de reacción
+const REACT_MS = { facil: 650, normal: 420, dificil: 300, imposible: 190 };
+
+function create(ctx) {
+  let goAt = 0, tapped = -1, meta = null;
+  return {
+    // Lo que ve la tele (todo lo que manda el juego a la tele)
+    onTv: function (m) {
+      if (m.t !== 'rmeta') return;
+      meta = m;
+      if (m.phase === 'go' && !goAt) goAt = ctx.now() + REACT_MS[ctx.level] * (0.8 + 0.4 * ctx.random());
+      if (m.phase !== 'go') goAt = 0;
+    },
+    // Lo que recibe su móvil (mensajes para su hueco)
+    onSlot: function (m) { /* aquí no hace falta */ },
+    // 60 veces por segundo: pensar y actuar
+    tick: function (dt) {
+      if (goAt && ctx.now() >= goAt && tapped !== meta.round) {
+        tapped = meta.round;
+        ctx.send({ t: 'r.tap' });          // el mismo mensaje que manda el móvil
+      }
+    },
+    stop: function () {}
+  };
+}
+module.exports = { create: create };
+```
+
+**El contrato.** `create(ctx)` devuelve `{ onTv(msg), onSlot(msg), tick(dt), stop() }`
+(todas opcionales). `ctx`:
+
+| | |
+|---|---|
+| `ctx.slot` | Su hueco, **desde 1** (como en los mensajes y `host.slot()` del móvil). |
+| `ctx.level` | `'facil'`, `'normal'`, `'dificil'` o `'imposible'`. |
+| `ctx.levelValue` | El nivel de 0 a 1: 0,25 · 0,5 · 0,75 · 1 (para interpolar parámetros). |
+| `ctx.name` | Su nombre («Paco»). `ctx.gameId`: el id del juego. |
+| `ctx.send(msg)` | Manda un mensaje de móvil. Llega a `onMessage(hueco, msg)` del juego **en el tick siguiente**, como si viniera de su móvil (nunca dentro de tu `onTv`/`tick`: sin reentradas). Los del hub (`menu`, `pick`, `bot.add`…) se ignoran. |
+| `ctx.random()` | Números al azar (en las pruebas, con semilla). |
+| `ctx.now()` | La hora en ms (`Date.now()`; en las pruebas, un reloj virtual). Úsala en vez de `Date.now()`. |
+| `ctx.log(texto)` | Al registro del servidor. |
+
+Reglas:
+
+- **Ve lo que ve una persona**: `onTv` recibe cada mensaje que el juego manda
+  a la tele (estado a 30 Hz, `meta`, eventos, el `hub`) y `onSlot` los de su
+  propio móvil. Nada de mirar dentro del juego: así es justo y vale para
+  cualquier juego. Sí puede usar los datos públicos del juego (el mapa que
+  dibuja la tele, la física de `sim.js`).
+- **Juega como un móvil**: solo los mensajes que manda `phone.js`, con sus
+  mismos límites (el ángulo redondeado, la fuerza de la palanca…). Si el juego
+  olvida una entrada al cabo de un rato, repítela (`Kit.inputSender`).
+- **Los mensajes son de solo lectura**: cada texto se convierte una sola vez
+  y el mismo objeto va a todos los bots. No lo modifiques; copia lo que
+  necesites guardar.
+- **Barato**: el servidor puede ir dentro de la tele (Node 12). `tick` se
+  llama 60 veces por segundo: piensa menos a menudo (`Kit.every`) y reparte
+  el trabajo caro entre ticks. Mide el coste en las pruebas (abajo); la media
+  debe quedar muy por debajo de 2 ms por tick. Node 12: nada de `?.`, `??`…
+- **«Otra»**: si al juego le basta con que un jugador la pulse, el bot no la
+  pulsa (decide la persona). Si hiciera falta que todos la pulsaran, el bot
+  la manda al ver la pantalla final.
+- **Ciclo de vida**: el hub crea los bots al empezar el juego (antes de
+  `start()`, así ven el primer estado) y los para (`stop`) al volver al menú.
+  Los bots siguen en la sala de un juego a otro. Si no queda ninguna persona,
+  se van. Solo se añaden y se quitan desde el menú.
+- Si tu juego solo manda el estado de la tele cuando hay teles
+  (`api.tvs.size`), no pasa nada: mientras juegan bots, `api.tvs.size` cuenta
+  una tele más.
+
+**Ayudas** (`src/games/bot-kit.js`, opcionales): `byLevel(ctx.level, tabla)`,
+`lerpLevel(ctx.levelValue, fácil, imposible)`, `inputSender(ctx)` (manda una
+entrada solo si cambia, más un latido), `delayLine(ms)` (lo que ve, con
+retraso: tiempo de reacción), `every(ctx, ms)`, `gauss(random)` y
+`seeded(semilla)`.
+
+**El bot de referencia** es el de Tanques
+([`src/games/tanques/bot.js`](../src/games/tanques/bot.js)): niveles en una
+tabla (`LEVELS`), reacción con `delayLine`, trazas de balas analíticas,
+búsqueda de puntería repartida entre ticks y modos (atacar, flanquear,
+retirarse).
+
+**Probarlo.** [`test/helpers/bot-arena.js`](../test/helpers/bot-arena.js)
+monta el hub de verdad en el mismo proceso con un reloj virtual: un duelo
+entero en uno o dos segundos.
+
+```js
+const arena = require('./helpers/bot-arena');
+const A = arena.create({ game: 'tanques', seed: 7 });   // un móvil «Humano» en el hueco 1
+A.addBot('dificil');                     // { t: 'bot.add' } desde ese móvil: hueco 2
+A.drive(require('../src/games/tanques/bot'), 'facil');   // el «Humano» juega con un bot…
+// …o con un guion: A.drive({ create: function (ctx) { return { tick: function () { … } }; } })
+A.pick();
+A.run(300, function () { return A.last('kmeta').phase === 'end'; });   // segundos virtuales
+A.last('kmeta').scores;  A.events('k.hit');  A.sent;   // lo que mandó el bot del hub
+A.timing().avgTickMs;    // coste medio del bot por tick
+A.close();
+```
+
+[`test/tanques-bot.test.js`](../test/tanques-bot.test.js) es la plantilla:
+contra un blanco quieto (más rápido cuanto más difícil), duelos entre
+niveles, que solo mande mensajes de móvil y el coste por tick. Para verlo en
+una tele de verdad: `node tools/bot.js --juego tanques --nivel dificil --rival imposible --elegir`
+une un bot como móvil, añade otro del hub y elige el juego.
+
+## 7. Probarlo
 
 ```bash
 game-to-tv start
@@ -409,7 +540,7 @@ recargar. Si cambias `index.js`, reinicia el servidor.
 Trucos: `?debug=1` en la tele muestra los FPS; la variable `REFLEJOS_DEBUG_SPEED=8`
 acelera las esperas.
 
-## 7. Escribir las pruebas
+## 8. Escribir las pruebas
 
 [`test/reflejos.test.js`](../test/reflejos.test.js) hace dos cosas, y te
 sirven de plantilla:
@@ -427,7 +558,7 @@ npm run check          # tu tv.js y phone.js deben ser ES2019, y tu index.js com
 npm run test:node12    # las pruebas con Node 12, como en la tele
 ```
 
-## 8. Lista de comprobación
+## 9. Lista de comprobación
 
 - [ ] `manifest.json` con `id` igual a la carpeta, `minPlayers`/`maxPlayers` correctos.
 - [ ] Jugadores con `api.players()` (con saltos), elegidos al empezar; `onPlayerLeft`
@@ -445,3 +576,6 @@ npm run test:node12    # las pruebas con Node 12, como en la tele
       `host.capDpr()` al dimensionar canvas (en webOS el `devicePixelRatio` es 2
       y un canvas de 3840x2160 baja a 8-9 FPS).
 - [ ] Pruebas en `test/<juego>.test.js`.
+- [ ] Los mandos del móvil llevan la clase `g2t-ctl` (para `/solo`).
+- [ ] Si tiene rival bot: `"bots": true`, `bot.js` con el contrato, solo
+      mensajes de móvil y una prueba con `test/helpers/bot-arena.js`.

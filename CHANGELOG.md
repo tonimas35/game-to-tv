@@ -3,6 +3,36 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
+## Sin publicar
+
+### Añadido
+
+- **Rivales bot**: «🤖 Añadir rival» en el menú del móvil y cuatro niveles
+  (Fácil, Normal, Difícil, Imposible). El rival entra en la sala como un
+  jugador más, con nombre al azar (Paco, Lola, Maripili…) y color; la tele lo
+  muestra con un robot y su nivel, y el móvil con «🤖 Paco · Difícil» y una ×
+  para quitarlo. Se quedan en la sala de una partida a otra y se van cuando
+  no queda nadie. Los juegos que aún no los admiten salen en gris («Este
+  juego no admite rivales: quita los bots»); las tarjetas de los que sí,
+  con «🤖 vs bot».
+- **Tanques** contra el ordenador: el bot apunta con rebotes, esquiva, busca
+  camino y elige solo si atacar, flanquear o retirarse. Corre dentro del
+  servidor (también dentro de la tele) y cuesta muy poco por tick.
+- Para los juegos: `"bots": true` y un `bot.js` con `create(ctx)` (ver
+  «Rivales bot» en docs/crear-un-juego.md), ayudas en `src/games/bot-kit.js`
+  y `test/helpers/bot-arena.js` para probar bots con un reloj virtual.
+- `tools/bot.js`: un bot de cualquier juego desde fuera, como un móvil
+  (`--rival NIVEL` para ver bot contra bot). Sustituye a `tools/bot-tanques.js`.
+
+### Cambiado
+
+- `/solo`: solo los mandos (clase `g2t-ctl`) son translúcidos; los paneles
+  del móvil (final, pausa, ayuda) son opacos y tapan la tele, y la barra de
+  arriba es compacta. Antes se mezclaban la pantalla final de la tele y la
+  del móvil.
+- `/info` cuenta aparte las personas (`players`, `connected`) y los bots
+  (`bots`).
+
 ## 0.6.0 - 2026-10-15
 
 ### Añadido
