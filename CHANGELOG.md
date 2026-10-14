@@ -3,6 +3,46 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
+## 0.5.0 - 2026-10-14
+
+### Añadido
+
+- **«2048»** (de 1 a 6 jugadores), inspirado en el 2048 clásico y escrito
+  desde cero (código, colores e icono propios): desliza las fichas y junta
+  números iguales hasta llegar a 2048.
+  - Toda la lógica en el servidor: el tablero, las fichas nuevas (2 el 90 %
+    de las veces, 4 el 10 %, solo tras un movimiento que cambie algo), cada
+    ficha se junta como mucho una vez por movimiento y «Sin movimientos».
+  - A solas: un tablero grande en la tele, puntos y «Récord» (el mejor de cada
+    nombre, en `~/.game-to-tv/records-2048.json`; en modo tele, junto a la
+    galería, y si no hay dónde escribir, en memoria). Al llegar a 2048,
+    «¡Lo conseguiste!» y se puede seguir. «Nueva partida» en el móvil (con
+    confirmación); al atascarse, «Otra» / «Menú».
+  - De 2 a 6: carrera de 3 minutos (o hasta que todos se atasquen), un tablero
+    por jugador en su color (2 en paralelo, 3-4 en 2x2, 5-6 en 3x2); quien se
+    atasca espera con «Sin movimientos»; clasificación con medallas.
+  - Mando en el móvil para mayores: zona grande para deslizar (los gestos
+    diminutos no cuentan), 4 flechas grandes, una copia del tablero, «?» con
+    «Cómo se juega» y nada de desplazar ni ampliar la página.
+  - En la tele, las flechas del teclado o del mando LG mueven el tablero del
+    jugador 1: con un portátil basta con unir un móvil. Fuera del juego las
+    flechas siguen moviendo el menú, y Atrás/Esc vuelve al menú como siempre.
+  - Animaciones con transformaciones CSS (deslizar y «pop»), sin sombras ni
+    filtros: 60 FPS en la tele webOS emulada, también con 4 tableros.
+- `test/2048.test.js` y `test/browser-2048.js` (1 jugador a 1920x1080 y
+  1280x720, carrera de 4, FPS en webOS emulada).
+
+### Cambiado
+
+- El hub admite juegos de 1 jugador: la sala está «lista» en cuanto hay
+  tantos móviles como el mínimo más bajo de los juegos (1 con «2048»), la tele
+  saluda a quien juega a solas y los demás juegos siguen pidiendo su mínimo
+  («Falta 1 jugador»). Si se va el último jugador, se vuelve al menú con un
+  texto claro («… y no queda nadie»); «necesita al menos 1 jugador» en
+  singular.
+- Nueva opción `dataDir` del servidor (`api.dataDir` para los juegos) para
+  datos pequeños que deben durar.
+
 ## 0.4.1 - 2026-10-14
 
 ### Añadido

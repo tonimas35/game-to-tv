@@ -62,6 +62,7 @@ cualquier móvil.
 |---|---|
 | Dibuja y adivina | de 2 a 6 |
 | Pong | de 2 a 4 |
+| 2048 | de 1 a 6 (se puede jugar a solas) |
 | Reflejos | de 2 a 6 |
 | El Infiltrado | de 3 a 6 (con 2 no se puede) |
 

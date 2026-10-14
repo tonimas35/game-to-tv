@@ -1,6 +1,6 @@
 # game-to-tv · Juegos del Salón
 
-**Juegos de grupo para el salón (de 2 a 6 jugadores): la tele es la pantalla y
+**Juegos de grupo para el salón (de 2 a 6 jugadores, y «2048» también a solas): la tele es la pantalla y
 los móviles son los mandos.** Se escanea un QR y a jugar: no hay que instalar nada en los móviles.
 Un pequeño servidor de Node.js reparte el juego. En una **tele LG va dentro de
 la propia tele** (el PC solo hace falta para instalar la app); con cualquier
@@ -37,6 +37,7 @@ juegos en la tele (instalar una app, abrirla, mandar avisos, hacer capturas…).
 | **Dibuja y adivina** | 2 a 6 | Pictionary: uno dibuja en el móvil y los demás adivinan mirando la tele. Con 2, en equipo (8 rondas y un título final). De 3 a 6, todos contra todos: el dibujante rota, todos adivinan a la vez y quien antes acierta, más puntos; clasificación con medallas. Pistas, palabras secretas para los demás y galería de dibujos en PNG. |
 | **El Infiltrado** | 3 a 6 | Deducción: todos ven en el móvil el lugar secreto y su papel… menos el infiltrado. Por turnos os hacéis preguntas en voz alta (la tele dice a quién le toca); cada uno puede acusar una vez por ronda (hace falta que todos digan «Sí») y el infiltrado puede arriesgarse con «¡Sé el lugar!». Si se acaba el tiempo, votación final. Carta tapada en el móvil, 40 lugares más los vuestros, y clasificación. |
 | **Pong** | 2 a 4 | El clásico, con el móvil como pala, a 60 FPS en la tele. Con 3 o 4, por parejas: dos palas por lado, como en el futbolín. |
+| **2048** | 1 a 6 | Inspirado en el 2048 clásico: desliza las fichas y junta números iguales hasta llegar a 2048. A solas, un tablero grande en la tele, con «Récord» por nombre; se juega con el móvil (gestos o flechas grandes) o con las flechas del teclado o del mando. De 2 a 6, una carrera de 3 minutos con un tablero por jugador y clasificación con medallas. |
 | **Reflejos** | 2 a 6 | El juego de ejemplo: la tele dice «¡YA!» y gana el punto quien antes toque su móvil. Al mejor de 5. |
 
 El menú de la tele muestra para cuántos es cada juego y, si no encaja con los
@@ -167,6 +168,10 @@ y se ven en `http://IP-DEL-PC:3000/galeria`. En modo tele se guardan en la tele
 si encuentra una carpeta con permiso de escritura (`tv status` dice cuál) y se
 ven en `http://IP-DE-LA-TELE:8090/galeria`; si no, se ven igualmente al final
 de cada partida.
+
+Los récords de «2048» (el mejor resultado de cada nombre) se guardan en
+`~/.game-to-tv/records-2048.json`; en modo tele, junto a la galería. Si no hay
+dónde escribir, duran mientras el servidor esté encendido.
 
 **Modo ambiente**: `http://IP-DEL-PC:3000/ambiente` muestra un pase de las
 fotos de `~/.game-to-tv/ambiente` con un reloj (hora de Madrid por defecto). Sin

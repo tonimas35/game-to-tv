@@ -26,6 +26,7 @@ app**: el servidor de los juegos va dentro de la tele (modo tele).
 | Dirección de los móviles (QR) | `http://IP-DE-LA-TELE:8090/m` | `http://IP-DEL-PC:3000/m` |
 | Cortafuegos de Windows | No interviene | Hay que abrir el puerto 3000 (`doctor`) |
 | Galería de dibujos | En la tele, si encuentra una carpeta donde escribir (`tv status`) | `~/.game-to-tv/galeria` del PC |
+| Récords de «2048» | Junto a la galería (si no hay dónde escribir, en memoria) | `~/.game-to-tv/records-2048.json` del PC |
 | Instalar | `game-to-tv tv install salon` | `game-to-tv tv install salon --modo pc [--server-url URL]` |
 
 ```
