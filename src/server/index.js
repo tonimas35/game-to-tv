@@ -4,6 +4,7 @@
  *
  *   /                 TV shell (menu + games)          public/tv.html
  *   /m                phone shell (QR target)          public/m.html
+ *   /solo             phone = screen + controller      public/solo.html
  *   /qr.svg           QR pointing at http://<LAN IP>:<port>/m
  *   /info             JSON with the URLs, mode ('pc' | 'tele') and version (debugging,
  *                     `game-to-tv tv status`, `doctor`; the webOS launcher polls /qr.svg)
@@ -217,6 +218,13 @@ function createServer(options) {
       return renderShell(PAGES[pathname], PAGES[pathname] === 'tv.html' ? 'tv' : 'phone', function (err, html) {
         if (err) return send(res, 500, 'text/plain; charset=utf-8', 'Error leyendo ' + PAGES[pathname]);
         send(res, 200, 'text/html; charset=utf-8', html);
+      });
+    }
+    if (pathname === '/solo' || pathname === '/solo/' || pathname === '/solo.html') {
+      // «Solo con el móvil»: the TV page and the phone page together on one phone
+      return fs.readFile(path.join(PUBLIC_DIR, 'solo.html'), function (err, buf) {
+        if (err) return send(res, 500, 'text/plain; charset=utf-8', 'Error leyendo solo.html');
+        send(res, 200, 'text/html; charset=utf-8', buf, { 'Cache-Control': 'no-store' });
       });
     }
     if (REDIRECTS[pathname]) {
