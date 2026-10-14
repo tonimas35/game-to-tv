@@ -1,16 +1,18 @@
 /*
  * «Sumo»: TV view. Loaded by public/tv.html (ES2019).
  *
- * Two layers:
- * - A full-window canvas (below the stage) with the arena. Everything that
- *   does not move is pre-rendered once into offscreen canvases: the floor
- *   and the clay platform (bgLayer), the ring with its straw rope (ringImg:
- *   when the ring shrinks the cached image is drawn scaled, never redrawn),
- *   one shaded ball per colour (sprites) and the name labels. Floor + ring
- *   are merged into one more canvas (arena), rebuilt only when the ring
- *   shrinks, so a frame is ONE full-screen copy plus a handful of small
- *   drawImage calls and the eyes. No shadowBlur, no filters; the backing
- *   store is capped with host.capDpr (1280 wide on webOS).
+ * Three layers:
+ * - Two full-window canvases below the stage. The bottom one (arena) holds
+ *   the floor, the clay platform and the ring; it is repainted only when the
+ *   ring shrinks (every 3 px), from caches: the floor (bgLayer) and the ring
+ *   with its straw rope (ringImg, pre-rendered once and drawn scaled, never
+ *   redrawn). The top one is transparent and holds what moves: each frame
+ *   clears only the rectangle drawn in the previous one and draws the two
+ *   wrestlers (one shaded ball per colour, cached), their eyes, the name
+ *   labels (cached) and the dust puffs (one cached sprite). So a frame never
+ *   copies a full screen. The small screen shake is a CSS transform of both
+ *   canvases (compositor only). No shadowBlur, no filters; the backing
+ *   stores are capped with host.capDpr (1280 wide on webOS).
  * - A transparent DOM view on the 1920x1080 stage for the score at the top,
  *   the countdown, the round result, and the opaque «Pausa» and winner screens.
  *
@@ -29,6 +31,11 @@
   var LW = 1920, LH = 1080;
   var RING = { cx: 960, cy: 612, r0: 420, ball: 60, shrinkAt: 10 };
   var ROPE = 15;                   // half the rope thickness
+  var PLATFORM = 490;              // half the side of the clay platform
+  // The part of the stage the top canvas covers (the platform, the labels above
+  // the ring and a margin): about half the screen, so each frame the browser
+  // re-composites half the pixels
+  var DYN = { x: 360, y: 70, w: 1200, h: 1010 };
   var INTERP = 50;                 // ms in the past
   var MAX_EXTRA = 80;              // ms of extrapolation at most
   var FONT = "'LG Smart UI', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
@@ -88,9 +95,11 @@
   var lastShrink = false;
 
   // ---------------------------------------------------------------- canvas
-  var cv = null, ctx = null;
+  var cv = null, ctx = null, cvA = null, actx = null;
+  var box = null, prevBox = null;  // what the top canvas has drawn (device px)
+  var shakeCss = '';
   var pv = { scale: 1, ox: 0, oy: 0, dpr: 1 };
-  var bgLayer = null, ringImg = null, puffImg = null, arena = null, arenaR = -1;
+  var bgLayer = null, ringImg = null, puffImg = null, arenaR = -1;
   var sprites = {}, labels = {};
 
   function colorOfWrestler(k) {
@@ -104,19 +113,30 @@
 
   function resize(w, h) {
     var d = host.capDpr(w);
-    cv.style.width = w + 'px';
-    cv.style.height = h + 'px';
-    cv.width = Math.round(w * d);
-    cv.height = Math.round(h * d);
+    cvA.style.width = w + 'px';
+    cvA.style.height = h + 'px';
+    cvA.width = Math.round(w * d);
+    cvA.height = Math.round(h * d);
     pv.dpr = d;
     pv.scale = Math.min(w / LW, h / LH);
     pv.ox = (w - LW * pv.scale) / 2;
     pv.oy = (h - LH * pv.scale) / 2;
+    // The top canvas only covers where things move (the platform and a margin)
+    var s = pv.scale;
+    var left = pv.ox + DYN.x * s, top = pv.oy + DYN.y * s;
+    cv.style.left = left + 'px';
+    cv.style.top = top + 'px';
+    cv.style.width = (DYN.w * s) + 'px';
+    cv.style.height = (DYN.h * s) + 'px';
+    cv.width = Math.round(DYN.w * s * d);
+    cv.height = Math.round(DYN.h * s * d);
+    // Shaking zooms both canvases around the same point (the middle of the window)
+    cv.style.transformOrigin = (w / 2 - left) + 'px ' + (h / 2 - top) + 'px';
     bgLayer = null;
     ringImg = null;
     puffImg = null;
-    arena = null;
     arenaR = -1;
+    prevBox = null;
     sprites = {};
     labels = {};
   }
@@ -142,8 +162,8 @@
   function ensureBg() {
     if (bgLayer) return;
     var c = document.createElement('canvas');
-    c.width = cv.width;
-    c.height = cv.height;
+    c.width = cvA.width;
+    c.height = cvA.height;
     var g = c.getContext('2d');
     g.fillStyle = '#1a0f0a';
     g.fillRect(0, 0, c.width, c.height);
@@ -161,7 +181,7 @@
     for (var y = 60; y < LH; y += 120) { g.moveTo(0, y); g.lineTo(LW, y); }
     g.stroke();
     // The clay platform (a raised square), with its darker side
-    var half = 490, top = RING.cy - half;
+    var half = PLATFORM, top = RING.cy - half;
     g.fillStyle = '#6e4224';
     g.fillRect(RING.cx - half, top + 18, half * 2, half * 2);
     var pg = g.createLinearGradient(0, top, 0, top + half * 2);
@@ -313,24 +333,32 @@
     var rw = ringImg.w * k;
     g.drawImage(ringImg.c, RING.cx - rw / 2, RING.cy - rw / 2, rw, rw);
   }
-  // Floor + ring in one canvas: rebuilt when the radius changes by 3 px or more
-  // (every ~9 frames while it shrinks)
+  // The bottom canvas: floor + ring, repainted when the radius changes by 3 px
+  // or more (every ~9 frames while the ring shrinks)
   function ensureArena(R) {
     var q = Math.round(R / 3) * 3;
-    if (arena && arena.width === cv.width && arena.height === cv.height && q === arenaR) return;
-    if (!arena || arena.width !== cv.width || arena.height !== cv.height) {
-      arena = document.createElement('canvas');
-      arena.width = cv.width;
-      arena.height = cv.height;
-    }
+    if (q === arenaR) return;
     arenaR = q;
-    var g = arena.getContext('2d');
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.drawImage(bgLayer, 0, 0);
+    actx.setTransform(1, 0, 0, 1, 0, 0);
+    actx.drawImage(bgLayer, 0, 0);
     var sc = devScale();
-    g.setTransform(sc, 0, 0, sc, pv.ox * pv.dpr, pv.oy * pv.dpr);
-    drawRing(g, q);
+    actx.setTransform(sc, 0, 0, sc, pv.ox * pv.dpr, pv.oy * pv.dpr);
+    drawRing(actx, q);
     host.debug.arena = (host.debug.arena || 0) + 1;
+  }
+  // Dirty rectangle of the top canvas, in world coordinates
+  function addBox(x0, y0, x1, y1) {
+    if (!box) { box = [x0, y0, x1, y1]; return; }
+    if (x0 < box[0]) box[0] = x0;
+    if (y0 < box[1]) box[1] = y0;
+    if (x1 > box[2]) box[2] = x1;
+    if (y1 > box[3]) box[3] = y1;
+  }
+  function setShake(css) {
+    if (css === shakeCss) return;
+    shakeCss = css;
+    cv.style.transform = cvA.style.transform = css;
+    cv.style.webkitTransform = cvA.style.webkitTransform = css;
   }
 
   // ---------------------------------------------------------------- state from the server
@@ -433,8 +461,16 @@
       s = 1 - 0.35 * f;
       alpha = 1 - 0.45 * f;
     }
+    // Past the edge of the clay platform it falls off: smaller and gone
+    // (and never reaches the edge of the top canvas)
+    var off = Math.max(Math.abs(st.x - RING.cx), Math.abs(st.y - RING.cy)) - PLATFORM;
+    if (off > 0) { var g0 = clamp(off / 45, 0, 1); s *= 1 - 0.4 * g0; alpha *= 1 - g0; }
+    if (alpha <= 0.01) return;
+    addBox(st.x - spr.w / 2, st.y - r - 56, st.x + spr.w / 2, st.y + spr.h / 2);
     // Dash: two ghosts behind and a white ring (heavy!)
     if (st.flags & 1) {
+      var gx = st.x - st.vx * 0.07, gy = st.y - st.vy * 0.07;
+      addBox(gx - spr.w / 2, gy - spr.h / 2, gx + spr.w / 2, gy + spr.h / 2);
       for (var gk = 2; gk >= 1; gk--) {
         ctx.globalAlpha = 0.16 * (3 - gk);
         ctx.drawImage(spr.c, st.x - st.vx * 0.035 * gk - spr.w / 2, st.y - st.vy * 0.035 * gk - spr.h / 2, spr.w, spr.h);
@@ -497,11 +533,13 @@
     if (!out) {
       var lb = labelFor(nameOfWrestler(k), color);
       ctx.drawImage(lb.c, st.x - lb.w / 2, st.y - rr - 52, lb.w, lb.h);
+      addBox(st.x - lb.w / 2, st.y - rr - 52, st.x + lb.w / 2, st.y - rr - 52 + lb.h);
     }
     ctx.globalAlpha = 1;
   }
 
   var curRound = -1;
+  var lastKey = '', skipped = 0;
   var lastStatic = 0;
   function draw(t, dt) {
     if (!cv || !M) return;
@@ -517,19 +555,25 @@
     ensurePuff();
     var st = sample();
     var sc = devScale();
-    var sx = 0, sy = 0;
     var R = st ? st.R : RING.r0;
-    // One copy of the floor + ring (rebuilt only when the ring shrinks). A shake
-    // just moves that copy a few pixels: the uncovered strip at the border keeps
-    // the floor of the previous frame, the same dark colour.
-    if (shake > 0.02) {
-      sx = Math.round((Math.random() - 0.5) * 18 * shake);
-      sy = Math.round((Math.random() - 0.5) * 18 * shake);
-    }
     ensureArena(R);
+    // Nothing moves (countdown, the end of a slide): leave the canvas alone
+    var key = shake > 0.02 || parts.length || !st ? '' : st.n + '|' + Math.round(R) + '|' + (st.w[0].x | 0) + ',' + (st.w[0].y | 0) + ',' + Math.round(st.w[0].f * 50) + ',' + st.w[0].flags +
+      '|' + (st.w[1].x | 0) + ',' + (st.w[1].y | 0) + ',' + Math.round(st.w[1].f * 50) + ',' + st.w[1].flags + '|' + M.match + (outAt[0] ? Math.round((t - outAt[0]) / 100) : 0) + (outAt[1] ? Math.round((t - outAt[1]) / 100) : 0);
+    if (key && key === lastKey && prevBox) { skipped++; return; }
+    lastKey = key;
+    // Screen shake: both canvases move a few pixels (a slight zoom hides the edges)
+    if (shake > 0.02) {
+      var sx = Math.round((Math.random() - 0.5) * 18 * shake * pv.scale);
+      var sy = Math.round((Math.random() - 0.5) * 18 * shake * pv.scale);
+      setShake('translate(' + sx + 'px,' + sy + 'px) scale(1.012)');
+    } else setShake('');
+    // Clear only what was drawn last time
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(arena, Math.round(sx * sc), Math.round(sy * sc));
-    ctx.setTransform(sc, 0, 0, sc, (pv.ox + sx * pv.scale) * pv.dpr, (pv.oy + sy * pv.scale) * pv.dpr);
+    if (prevBox) ctx.clearRect(prevBox[0], prevBox[1], prevBox[2] - prevBox[0], prevBox[3] - prevBox[1]);
+    else ctx.clearRect(0, 0, cv.width, cv.height);
+    box = null;
+    ctx.setTransform(sc, 0, 0, sc, -DYN.x * sc, -DYN.y * sc);
     if (st) {
       curRound = st.n;
       // The one that is out goes below
@@ -544,9 +588,17 @@
         var p = parts[i];
         ctx.globalAlpha = clamp(p.life / p.max, 0, 1) * 0.85;
         ctx.drawImage(puffImg.c, p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        addBox(p.x - p.size / 2, p.y - p.size / 2, p.x + p.size / 2, p.y + p.size / 2);
       }
       ctx.globalAlpha = 1;
     }
+    // Next time, clear this (in device pixels, with a margin)
+    if (box) {
+      prevBox = [
+        Math.max(0, Math.floor((box[0] - DYN.x) * sc) - 4), Math.max(0, Math.floor((box[1] - DYN.y) * sc) - 4),
+        Math.min(cv.width, Math.ceil((box[2] - DYN.x) * sc) + 4), Math.min(cv.height, Math.ceil((box[3] - DYN.y) * sc) + 4)
+      ];
+    } else prevBox = [0, 0, 0, 0];
   }
 
   // ---------------------------------------------------------------- DOM: score, countdown, screens
@@ -660,11 +712,16 @@
       show = h.show;
       setText = h.setText;
       fit = h.fit;
+      cvA = document.createElement('canvas');
+      cvA.id = 'suArena';
+      cvA.style.cssText = 'position:absolute;left:0;top:0;display:none;z-index:0;';
+      h.addLayer(cvA);
+      actx = cvA.getContext('2d', { alpha: false }) || cvA.getContext('2d');
       cv = document.createElement('canvas');
       cv.id = 'suCanvas';
       cv.style.cssText = 'position:absolute;left:0;top:0;display:none;z-index:0;';
       h.addLayer(cv);
-      ctx = cv.getContext('2d', { alpha: false }) || cv.getContext('2d');
+      ctx = cv.getContext('2d');
       view = document.createElement('section');
       view.id = 'vSumo';
       view.className = 'view';
@@ -673,9 +730,10 @@
     },
     layout: function (w, h) { resize(w, h); },
     onConnect: function () { buf = []; clockOffset = null; },
-    enter: function () { cv.style.display = 'block'; show(view, true); },
+    enter: function () { cv.style.display = cvA.style.display = 'block'; arenaR = -1; prevBox = null; show(view, true); },
     leave: function () {
-      cv.style.display = 'none';
+      cv.style.display = cvA.style.display = 'none';
+      setShake('');
       show(view, false);
       M = null; buf = []; parts = []; pendingHits = []; shake = 0;
       bigKey = ''; bannerKey = ''; lastCountdown = 0; lastShrink = false;
@@ -702,11 +760,11 @@
       return false;
     },
     frame: function (t, dt) { draw(t, dt); },
-    debugInfo: function () { return cv ? cv.width + 'x' + cv.height : ''; },
+    debugInfo: function () { return cvA ? cvA.width + 'x' + cvA.height + ' (+' + cv.width + 'x' + cv.height + ')' : ''; },
     // For automated tests
     state: function () {
       var s = sample();
-      return { meta: M, states: buf.length, sample: s, canvas: cv ? [cv.width, cv.height] : null, parts: parts.length, shake: shake };
+      return { meta: M, states: buf.length, sample: s, canvas: cvA ? [cvA.width, cvA.height] : null, top: cv ? [cv.width, cv.height] : null, parts: parts.length, shake: shake, skipped: skipped };
     }
   });
 })();

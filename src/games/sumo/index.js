@@ -36,6 +36,7 @@ const ROUNDOVER_S = 2.6;
 const HIT_MIN_SPEED = 200;            // px/s: softer touches (shoving) are not events
 const HIT_GAP_S = 0.12;               // at most one 'hit' event per 120 ms
 const BIG_HIT_SPEED = 700;
+const ROUNDOVER_BRAKE = 6;            // 1/s: the winner stops quickly after a round
 
 function r1(v) { return Math.round(v * 10) / 10; }
 
@@ -184,11 +185,15 @@ function create(api) {
         }
         break;
       }
-      case 'roundover':
-        Ph.stepWorld(S.w, dt, true);     // the loser keeps sliding off
+      case 'roundover': {
+        // The loser keeps sliding off; the winner digs in its heels
+        const brake = Math.exp(-ROUNDOVER_BRAKE * dt);
+        S.w.forEach(function (w) { if (!w.out) { w.vx *= brake; w.vy *= brake; } });
+        Ph.stepWorld(S.w, dt, true);
         S.timer -= dt * SPEED;
         if (S.timer <= 0) afterRound();
         break;
+      }
     }
   }
 

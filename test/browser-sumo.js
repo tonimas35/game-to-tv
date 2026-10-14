@@ -220,8 +220,16 @@ async function main() {
     await overflowAll('En juego');
     const pov = await ana.evaluate(PHONE_OVERFLOW);
     check(!pov.length, 'Móvil: todo cabe en 390x664' + (pov.length ? ': ' + pov.slice(0, 4).join(' | ') : ''));
-    const ready = await waitFor(function () { return ana.evaluate(function () { var b = document.getElementById('spDash'); return b.classList.contains('ready') && document.getElementById('spDashSub').textContent === '¡Lista!'; }); }, 3000, 'botón listo');
-    check(!!ready, 'A los 2 s el botón vuelve a estar listo');
+    // Ready again (lit only while playing: the dash may have ended the round)
+    const ready = await waitFor(function () {
+      return ana.evaluate(function () {
+        var b = document.getElementById('spDash'), sub = document.getElementById('spDashSub').textContent;
+        var play = window.G2T.phone.get('sumo').state().meta.phase === 'playing';
+        return !b.classList.contains('cool') && document.getElementById('spRing').style.strokeDashoffset === '0' &&
+          (play ? b.classList.contains('ready') && sub === '¡Lista!' : sub === 'Espera…');
+      });
+    }, 3000, 'botón listo');
+    check(!!ready, 'A los 2 s el anillo está lleno y el botón vuelve a estar listo');
     // Release: the joystick goes back and 0,0 is sent
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await sleep(150);
@@ -253,7 +261,9 @@ async function main() {
     await berto.goto(bertoUrl);
     const back = await waitFor(function () { return tvMeta(tv).then(function (m) { return m && m.phase === 'countdown' && m.resumed ? m : null; }); }, 5000, 'vuelve');
     const sub = back ? await tv.evaluate(function () { return document.getElementById('suSub').textContent; }) : '';
-    check(remote.since(mk, 'smeta').some(function (m) { return m.phase === 'countdown' && m.resumed; }), 'Berto vuelve (misma pestaña): el servidor sigue con una cuenta atrás');
+    await waitFor(function () { return remote.since(mk, 'smeta').some(function (m) { return m.resumed; }); }, 2000, 'reanuda (mando)');
+    const seen = remote.since(mk, 'smeta').map(function (m) { return m.phase + (m.resumed ? '+' : ''); }).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    check(seen.indexOf('countdown+') >= 0, 'Berto vuelve (misma pestaña): el servidor sigue con una cuenta atrás (' + seen.join(' → ') + ')');
     check(!!back && sub === 'Seguimos…', 'Tele: «' + sub + '»');
     check(!!(await waitFor(function () { return berto.evaluate(function () { var s = window.G2T.phone.get('sumo').state(); return s.meta && s.meta.phase !== 'paused'; }); }, 3000, 'móvil de Berto')), 'El móvil de Berto vuelve al juego');
 
@@ -329,6 +339,10 @@ async function main() {
     const lgS = await tvState(lg);
     check(lgS.states > 5 && !!lgS.sample, 'La tele webOS recibe estados y los interpola');
     await shot(lg, 'sumo-tv-webos.png');
+    if (await waitFor(function () { return tvMeta(tv).then(function (m) { return m && m.phase === 'playing'; }); }, 6000, 'empujando')) {
+      await sleep(1300);
+      await shot(tv, 'sumo-tv-empujando.png');
+    }
     await berto.mouse.up();
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 

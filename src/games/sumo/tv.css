@@ -40,7 +40,8 @@
   background: rgba(36, 20, 12, 0.88); border: 6px solid #f0b04a; color: #fff;
 }
 .suBig.suNum { display: block; left: 830px; top: 482px; width: 260px; height: 260px; border-radius: 50%; font-size: 170px; line-height: 246px; }
-.suBig.suYa { display: block; left: 660px; top: 512px; width: 600px; height: 200px; border-radius: 100px; font-size: 140px; line-height: 186px; color: #ffd23e; }
+/* «¡YA!» goes high, out of the way of the first clash in the middle */
+.suBig.suYa { display: block; left: 720px; top: 236px; width: 480px; height: 160px; border-radius: 80px; font-size: 112px; line-height: 146px; color: #ffd23e; }
 .suPopA, .suPopB { animation: suPop 0.45s ease-out both; }
 .suPopB { animation-name: suPop2; }
 @keyframes suPop { from { transform: scale(1.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }

@@ -202,6 +202,10 @@ function unitGame() {
   check(lastMeta(api).phase === 'roundover' && lastMeta(api).result.w === 1, 'La tele y los móviles saben quién ha ganado la ronda');
   g.onMessage(0, { t: 's.j', x: 1, y: 0 });
   check(S.w[0].ix === 0, 'Entre rondas el joystick no cuenta');
+  S.w[0].vx = 800;
+  S.w[1].vx = 800;
+  run(g, 0.5);
+  check(speed(S.w[0]) < 60 && speed(S.w[1]) > 100, 'La ganadora frena en seco y el que ha caído sigue deslizándose');
   run(g, 4, function () { return S.phase === 'countdown'; });
   check(S.phase === 'countdown' && S.round === 2 && S.w[0].x < P.CX && S.w[1].x > P.CX && !S.w[1].out && S.w[1].cd === 0, 'Ronda 2: otra cuenta atrás, cada uno a su sitio y la recarga a cero');
   toPlaying(g);
