@@ -2,8 +2,9 @@
  * «Hockey de mesa»: TV view (canvas, cheap to draw on the TV).
  * - Everything static (the room, the rails, the ice with its lines, air
  *   holes, goal creases and goal slots, the names) is drawn ONCE into an
- *   offscreen canvas; each frame copies it and draws the scores, the two
- *   mallets, the puck with a short trail and a few effects.
+ *   offscreen canvas. In steady play each frame only copies back the small
+ *   rectangles that change (scores, mallets, puck + trail, hit rings) and
+ *   draws them again; countdown, «¡YA!» and goals redraw the whole table.
  * - No shadowBlur and no filters. The backing store is capped (host.capDpr:
  *   1280 wide on webOS).
  * - The server sends 'hs' states at 30 Hz. The view renders INTERP_MS behind
@@ -47,7 +48,8 @@
   var countdownAt = 0, lastCountdown = 0, goAt = -10000, lastStatic = 0;
   var focusIndex = 0;           // end screen: 0 «Otra», 1 «Menú»
   var lastRender = null;        // { puck, mallets } of the last frame (tests, effects)
-  var stats = { states: 0, frames: 0, bg: 0, drawMs: 0 };
+  var stats = { states: 0, frames: 0, bg: 0, drawMs: 0, full: 0 };
+  var prevRects = [], needFull = true;   // dirty rectangles of the last frame
 
   function colors() { return COLORS(); }
   function slotOf(side) { return meta && meta.players ? meta.players[side] : side + 1; }
@@ -106,7 +108,7 @@
   // ------------------------------------------------------------ static layer
   function ensureBg() {
     var key = pc.width + 'x' + pc.height + '|' + sideName(0) + '|' + sideName(1) + '|' + sideColor(0) + sideColor(1) + '|' + (meta ? meta.toWin : 7);
-    if (bgLayer && key === bgKey) return;
+    if (bgLayer && key === bgKey) return false;
     bgKey = key;
     stats.bg++;
     var c = document.createElement('canvas');
@@ -193,6 +195,7 @@
     g.strokeRect(OX, OY, F.w, F.h);
     g.restore();
     bgLayer = c;
+    return true;
   }
 
   // ------------------------------------------------------------ states
@@ -380,15 +383,38 @@
       outlined(meta.score[0] + ' – ' + meta.score[1], cx, cy + 90, 80, '#ffffff');
     }
   }
+  // Copies a rectangle (stage units) of the static layer back onto the canvas
+  function restore(r) {
+    var sc = pv.scale * pv.dpr;
+    var x0 = Math.max(0, Math.floor(r[0] * sc + pv.ox * pv.dpr) - 1);
+    var y0 = Math.max(0, Math.floor(r[1] * sc + pv.oy * pv.dpr) - 1);
+    var x1 = Math.min(pc.width, Math.ceil((r[0] + r[2]) * sc + pv.ox * pv.dpr) + 1);
+    var y1 = Math.min(pc.height, Math.ceil((r[1] + r[3]) * sc + pv.oy * pv.dpr) + 1);
+    if (x1 > x0 && y1 > y0) ctx.drawImage(bgLayer, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+  }
+  // What this frame draws (stage units): only these parts change in steady play
+  function objectRects(st) {
+    var out = [[700, 0, 200, 170], [1020, 0, 200, 170]];   // the two scores
+    if (st) {
+      var mr = F.malletR + 10;
+      for (var k = 0; k < 2; k++) out.push([tx(st.m[k * 2]) - mr, ty(st.m[k * 2 + 1]) - mr, 2 * mr + 8, 2 * mr + 10]);
+      var x0 = st.puck.x, x1 = x0, y0 = st.puck.y, y1 = y0;
+      for (var i = 0; i < trail.length; i++) {
+        x0 = Math.min(x0, trail[i].x); x1 = Math.max(x1, trail[i].x);
+        y0 = Math.min(y0, trail[i].y); y1 = Math.max(y1, trail[i].y);
+      }
+      var pr = F.puckR + 4;
+      out.push([tx(x0) - pr, ty(y0) - pr, x1 - x0 + 2 * pr, y1 - y0 + 2 * pr]);
+    }
+    var rr2 = F.puckR + 76;
+    for (var j = 0; j < rings.length; j++) out.push([tx(rings[j].x) - rr2, ty(rings[j].y) - rr2, 2 * rr2, 2 * rr2]);
+    return out;
+  }
   function drawPlay(t, dt) {
     goalFlash = Math.max(0, goalFlash - dt * 1.4);
     scoreFlash[0] = Math.max(0, scoreFlash[0] - dt * 2);
     scoreFlash[1] = Math.max(0, scoreFlash[1] - dt * 2);
-    ensureBg();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(bgLayer, 0, 0);
-    stageTransform(ctx);
-    drawScores();
+    var fresh = ensureBg();
     var st = sample();
     if (st) {
       if (st.r !== trailReset) { trail = []; trailReset = st.r; }
@@ -399,6 +425,24 @@
         if (!lp || Math.abs(lp.x - st.puck.x) + Math.abs(lp.y - st.puck.y) > 4) trail.push({ x: st.puck.x, y: st.puck.y, t: t });
         while (trail.length && (t - trail[0].t > TRAIL_MS || trail.length > 6)) trail.shift();
       } else if (trail.length) trail.shift();
+    }
+    // Steady play: restore only what changed (last frame's and this frame's
+    // objects). Countdown, «¡YA!», goals and flashes: the whole table.
+    var overlay = !meta || meta.phase !== 'playing' || goalFlash > 0 || scoreFlash[0] > 0 || scoreFlash[1] > 0 || t - goAt < 700;
+    var rects = objectRects(st);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (overlay || needFull || fresh) {
+      ctx.drawImage(bgLayer, 0, 0);
+      stats.full++;
+    } else {
+      for (var i = 0; i < prevRects.length; i++) restore(prevRects[i]);
+      for (var j = 0; j < rects.length; j++) restore(rects[j]);
+    }
+    prevRects = rects;
+    needFull = overlay;
+    stageTransform(ctx);
+    drawScores();
+    if (st) {
       drawMallet(st.m[0], st.m[1], sideColor(0));
       drawMallet(st.m[2], st.m[3], sideColor(1));
       drawPuck(st.puck.x, st.puck.y);
@@ -471,6 +515,7 @@
     if (ph === 'paused' || ph === 'end') {
       if (t - lastStatic < 100) return;
       lastStatic = t;
+      needFull = true;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = '#05060f';
       ctx.fillRect(0, 0, pc.width, pc.height);
@@ -482,6 +527,8 @@
   }
 
   function reset() {
+    needFull = true;
+    prevRects = [];
     meta = null;
     buf = [];
     trail = [];
@@ -525,7 +572,7 @@
     canvas: function () { return pc; },
     // For automated tests
     state: function () {
-      return { meta: meta, states: stats.states, frames: stats.frames, bgBuilds: stats.bg, drawMs: Math.round(stats.drawMs), buffered: buf.length, render: lastRender, w: pc.width, h: pc.height, focus: focusIndex };
+      return { meta: meta, states: stats.states, frames: stats.frames, bgBuilds: stats.bg, fullFrames: stats.full, drawMs: Math.round(stats.drawMs), buffered: buf.length, render: lastRender, w: pc.width, h: pc.height, focus: focusIndex };
     }
   });
 })();
