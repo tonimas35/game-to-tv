@@ -35,6 +35,20 @@ function quoteWin(a) {
 }
 
 /**
+ * Stops a child started by run() and everything it started. On Windows the
+ * child is the cmd.exe shell: child.kill() only stops the shell and leaves the
+ * real program (node ares-inspect.js) running. Seen on a real PC: `tv perf`
+ * measured fine but never returned and left ares-inspect behind.
+ */
+function killTree(child) {
+  if (!child || child.exitCode !== null) return;
+  if (IS_WIN && child.pid) {
+    try { spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }); return; } catch (e) { /* fall back */ }
+  }
+  try { child.kill(); } catch (e) { /* noop */ }
+}
+
+/**
  * Runs an ares command. Resolves { code, stdout, stderr }.
  * On Windows the .cmd shims need a shell (Node refuses to spawn .cmd directly).
  */
@@ -51,7 +65,7 @@ function run(cmd, args, opts) {
     let stdout = '', stderr = '';
     child.stdout.on('data', function (d) { stdout += d; if (opts.onStdout) opts.onStdout(String(d), child); });
     child.stderr.on('data', function (d) { stderr += d; });
-    const t = opts.timeout ? setTimeout(function () { try { child.kill(); } catch (e) { /* noop */ } }, opts.timeout) : null;
+    const t = opts.timeout ? setTimeout(function () { killTree(child); }, opts.timeout) : null;
     child.on('error', function (e) { if (t) clearTimeout(t); reject(e); });
     child.on('exit', function (code) { if (t) clearTimeout(t); resolve({ code: code, stdout: stdout, stderr: stderr }); });
     if (opts.onSpawn) opts.onSpawn(child);
@@ -94,4 +108,4 @@ function setupSteps(tv) {
   ].join('\n');
 }
 
-module.exports = { which: which, available: available, run: run, listDevices: listDevices, setupSteps: setupSteps };
+module.exports = { which: which, available: available, run: run, killTree: killTree, listDevices: listDevices, setupSteps: setupSteps };

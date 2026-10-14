@@ -258,7 +258,7 @@ const driver = {
       // ares-inspect keeps running (it is a proxy): stop it and its pipes
       if (child) {
         try { child.stdout.destroy(); child.stderr.destroy(); } catch (e) { /* noop */ }
-        try { child.kill(); } catch (e) { /* noop */ }
+        ares.killTree(child);
       }
       await runP.catch(function () {});
     }

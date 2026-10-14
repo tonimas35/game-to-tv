@@ -303,6 +303,16 @@ function makeFakeAres(dir, opts) {
 }
 
 async function aresTests() {
+  // killTree stops a long-running child (ares-inspect is a proxy that never exits by itself)
+  {
+    const { spawn } = require('child_process');
+    const aresMod = require('../src/drivers/webos/ares');
+    const ch = spawn(process.execPath, ['-e', 'setInterval(function(){}, 1000)'], { stdio: 'ignore' });
+    const exited = new Promise(function (r) { ch.on('exit', function () { r(true); }); setTimeout(function () { r(false); }, 5000); });
+    aresMod.killTree(ch);
+    check(await exited, 'killTree para un proceso que no acaba solo (como ares-inspect)');
+    aresMod.killTree(ch);   // already stopped: must not throw
+  }
   console.log('\n[ares-cli (comandos falsos) y FPS por CDP]');
   if (process.platform === 'win32') { console.log('  (se omite en Windows)'); return; }
   const cdpServer = await startFakeCdp({ frames: 240, ms: 4001, fps: 60, worstMs: 18, width: 1920, height: 1080, dpr: 2, screen: 'pong', canvas: '1280x720', url: 'http://192.168.1.50:3000/' });

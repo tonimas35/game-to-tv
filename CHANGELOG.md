@@ -3,6 +3,13 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
+## Sin publicar
+
+### Corregido
+
+- `tv perf` en Windows medía bien pero no terminaba y dejaba `ares-inspect`
+  en marcha: ahora se para todo el árbol de procesos (`taskkill /T`).
+
 ## 0.5.0 - 2026-10-14
 
 ### Añadido
