@@ -40,6 +40,22 @@ juegos en la tele (instalar una app, abrirla, mandar avisos, hacer capturas…).
 | **2048** | 1 a 6 | Inspirado en el 2048 clásico: desliza las fichas y junta números iguales hasta llegar a 2048. A solas, un tablero grande en la tele, con «Récord» por nombre; se juega con el móvil (gestos o flechas grandes) o con las flechas del teclado o del mando. De 2 a 6, una carrera de 3 minutos con un tablero por jugador y clasificación con medallas. |
 | **Reflejos** | 2 a 6 | El juego de ejemplo: la tele dice «¡YA!» y gana el punto quien antes toque su móvil. Al mejor de 5. |
 
+### 1 contra 1
+
+Duelos rápidos para dos, agrupados en la tarjeta «1 contra 1» del menú:
+
+| Juego | De qué va |
+|---|---|
+| **Tanques** | Tanques en un pequeño laberinto; las balas rebotan en las paredes… y también te pueden dar a ti. Palanca y «¡Fuego!» en el móvil (en horizontal). A 5. |
+| **Motos de neón** | Cada moto deja una estela: choca contra una pared o una estela y pierdes la ronda. Desliza el dedo o usa la cruceta. A 5. |
+| **Sumo** | Dos bolas gorditas en un círculo que encoge: empuja, embiste con «¡Embestida!» y saca a tu rival. Al mejor de 5. |
+| **Hockey de mesa** | Mueve la maza arrastrando el dedo por tu mitad de la mesa (móvil en horizontal) y mete el disco en la portería contraria. A 7. |
+
+**Solo con el móvil:** abre `http://IP:PUERTO/solo` y el móvil es a la vez
+pantalla y mando (el juego detrás, los mandos medio transparentes delante).
+Para practicar Tanques sin rival hay un bot experimental:
+`node tools/bot-tanques.js --server ws://IP:PUERTO/ws` (se dirige con `orden.json`).
+
 El menú de la tele muestra para cuántos es cada juego y, si no encaja con los
 que sois, lo pone en gris con el motivo («De 2 a 4 jugadores · sois 6»).
 

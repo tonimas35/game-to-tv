@@ -3,9 +3,32 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
-## Sin publicar
+## 0.6.0 - 2026-10-15
+
+### Añadido
+
+- **Sección «1 contra 1»** en el menú (campo `section` del manifiesto): una
+  tarjeta en la fila principal que abre una fila con sus juegos; en el móvil,
+  un grupo que se abre solo cuando sois 2.
+- Cuatro duelos para 2 jugadores: **Tanques** (balas que rebotan, a 5),
+  **Motos de neón** (estelas, a 5), **Sumo** (empujones en un círculo que
+  encoge, al mejor de 5) y **Hockey de mesa** (maza con el dedo, a 7). Todo el
+  juego en el servidor a 60 Hz, estado a 30 Hz e interpolación en la tele.
+- **«Solo con el móvil»** (`/solo`): el móvil hace de pantalla y de mando.
+- `tools/bot-tanques.js`: rival experimental para Tanques (conduce, apunta
+  con rebotes y esquiva; se dirige con `orden.json`).
+- Tele: `?escala=N` para encoger la pantalla a mano (se recuerda) y `?info`
+  para ver tamaños, zoom y navegador.
+
+### Cambiado
+
+- Las descripciones de las tarjetas del menú se encogen hasta caber en 3 líneas.
+- Las pruebas ya no dependen del número de juegos.
 
 ### Corregido
+
+- La tele escala con el *visual viewport*: Amazon Silk (Fire TV) mostraba la
+  pantalla con mucho zoom.
 
 - `tv perf` en Windows medía bien pero no terminaba y dejaba `ares-inspect`
   en marcha: ahora se para todo el árbol de procesos (`taskkill /T`).
