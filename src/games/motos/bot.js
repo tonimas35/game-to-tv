@@ -290,7 +290,7 @@ function bearable(alt, best, apart) {
 
 function create(ctx) {
   const P = Kit.byLevel(ctx.level, LEVELS) || LEVELS.normal;
-  const random = ctx.random || Math.random;
+  const random = ctx.random;
   let stopped = false;
   let meta = null, mySide = 0;
   // What the TV knows (board cells)
