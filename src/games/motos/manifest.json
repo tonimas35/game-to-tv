@@ -1,0 +1,22 @@
+{
+  "id": "motos",
+  "title": "Motos de neón",
+  "section": "1vs1",
+  "description": "Tu moto deja una estela de neón sólida. Gira a tiempo y encierra a tu rival: gana la ronda quien siga en pie. A 5 rondas.",
+  "phoneDescription": "Gira tu moto de neón y encierra a tu rival",
+  "howTo": [
+    "Cada uno lleva una moto que avanza sola y deja detrás una estela de neón sólida.",
+    "Desliza el dedo en cualquier parte del móvil, o toca las flechas, para girar: arriba, abajo, izquierda o derecha. No se puede dar media vuelta.",
+    "Si chocas contra el muro, contra cualquier estela (también la tuya) o contra la otra moto, pierdes la ronda.",
+    "Si chocáis de frente o los dos a la vez, es empate y nadie suma.",
+    "Gana la ronda quien sigue en pie. Quien gane antes 5 rondas se lleva la partida.",
+    "Puedes encadenar dos giros rápidos (por ejemplo, arriba y luego izquierda) para cerrar una curva.",
+    "Cuanto más dura la ronda, más rápido van las motos."
+  ],
+  "minPlayers": 2,
+  "maxPlayers": 2,
+  "tags": ["A 5 rondas", "Reflejos"],
+  "icon": "icon.svg",
+  "accent": "#c8ff3e",
+  "order": 50
+}

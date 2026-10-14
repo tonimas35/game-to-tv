@@ -1,0 +1,61 @@
+/* «Motos de neón»: phone controller (portrait). The whole area below the bar takes swipes. */
+#scr-motos { touch-action: none; -webkit-user-select: none; user-select: none; }
+#scr-motos .mpScore { flex: 1; min-width: 0; text-align: center; font-size: 24px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.mpHelpBtn { width: 38px; padding: 8px 0; font-size: 17px; font-weight: 900; }
+
+.mpPad {
+  position: relative; flex: 1; min-height: 0; margin-top: 10px; padding: 12px; border-radius: 28px;
+  border: 3px solid var(--c); background: linear-gradient(180deg, var(--c-soft), rgba(0, 0, 0, 0.2) 45%, var(--c-soft));
+  display: flex; flex-direction: column; align-items: center; overflow: hidden; touch-action: none;
+}
+.mpPad.crash { animation: mpShake 0.45s linear; background: rgba(255, 77, 94, 0.22); border-color: var(--bad); }
+@keyframes mpShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(9px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(4px); }
+}
+.mpBand {
+  flex: 0 0 auto; max-width: 100%; padding: 7px 16px; border-radius: 999px; background: var(--c); color: #070915;
+  font-size: 16px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mpStatus { flex: 0 0 auto; margin: 12px 0 6px; min-height: 1.3em; max-width: 100%; text-align: center; font-size: 21px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mpStatus.win { color: var(--ok); }
+.mpStatus.bad { color: var(--bad); }
+
+/* The D-pad: a square cross of four big buttons */
+.mpCross {
+  flex: 0 0 auto; margin: auto 0; width: calc(100vw - 64px); height: calc(100vw - 64px); max-width: 54vh; max-height: 54vh;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; gap: 8px;
+  grid-template-areas: ". up ." "left mid right" ". down .";
+}
+.mpArrow {
+  padding: 0; border-radius: 22px; font-size: 42px; line-height: 1; color: #fff;
+  background: rgba(7, 9, 21, 0.55); border: 3px solid var(--c); touch-action: none;
+}
+.mpArrow:active, .mpArrow.hit { background: var(--c); color: #070915; transform: none; }
+.mpUp { grid-area: up; }
+.mpDown { grid-area: down; }
+.mpLeft { grid-area: left; }
+.mpRight { grid-area: right; }
+.mpMid {
+  grid-area: mid; display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--c-soft); color: var(--c); font-size: 34px; font-weight: 900; pointer-events: none;
+}
+.mpHint { flex: 0 0 auto; margin: 6px 0 0; text-align: center; font-size: 15px; color: var(--muted); pointer-events: none; }
+
+.mpWatch { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.mpT2 { font-size: 28px; font-weight: 900; }
+.mpT3 { font-size: 18px; color: var(--muted); }
+
+/* End, pause and help overlays */
+.mpOverS { font-size: 56px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.mpSecond { font-size: 22px; padding: 16px; }
+.mpPauseWho { font-size: 24px; font-weight: 800; color: #fff; }
+#mpHelp { z-index: 15; justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.mpHelpBox { width: 100%; max-width: 380px; text-align: left; }
+.mpHelpBox h2 { margin: 6px 0 12px; font-size: 28px; color: #c8ff3e; }
+.mpHelpBox ol { margin: 0 0 18px; padding-left: 22px; }
+.mpHelpBox li { margin-bottom: 9px; font-size: 17px; line-height: 1.35; }
+.mpHelpBox .bigbtn { width: 100%; }
