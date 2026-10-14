@@ -27,7 +27,7 @@
     '    <div class="hkBtns"><button class="mini ghost hkHelpBtn" type="button" aria-label="Cómo se juega">?</button>' +
     '    <button class="mini ghost menuBtn" type="button">Menú</button></div>' +
     '  </div>' +
-    '  <div class="hkPad" id="hkPad"><canvas id="hkCv"></canvas></div>' +
+    '  <div class="hkPad g2t-ctl" id="hkPad"><canvas id="hkCv"></canvas></div>' +
     '  <div class="hkWatch hidden" id="hkWatch"><b>Estás mirando</b><span>Juegan dos. Entrarás si alguien deja su sitio. ¡Mira la tele!</span></div>' +
     '</div>' +
     '<div class="hkRotate" id="hkRotate">' +

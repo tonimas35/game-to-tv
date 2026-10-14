@@ -16,7 +16,7 @@
     var me = host.slot();
     var pad = $('rxPad');
     var early = meta.early.indexOf(me) >= 0;
-    pad.className = meta.phase === 'go' && !early ? 'go' : (early ? 'early' : '');
+    pad.className = 'g2t-ctl' + (meta.phase === 'go' && !early ? ' go' : (early ? ' early' : ''));
     var msg = '', info = '';
     if (meta.paused) { msg = 'Pausa'; info = 'Esperando a que vuelvan todos…'; }
     else if (meta.phase === 'ready') {
@@ -56,7 +56,7 @@
         '  <span id="rxScore"></span>' +
         '  <button class="mini ghost menuBtn" type="button">Menú</button>' +
         '</div>' +
-        '<div id="rxPad"><div id="rxMsg">Espera…</div><div id="rxInfo"></div>' +
+        '<div id="rxPad" class="g2t-ctl"><div id="rxMsg">Espera…</div><div id="rxInfo"></div>' +
         '  <div id="rxEnd" class="hidden"><button class="bigbtn c" id="rxAgain" type="button">Otra partida</button></div>' +
         '</div>';
       $('rxPad').addEventListener('touchstart', function (e) {

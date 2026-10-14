@@ -26,7 +26,7 @@
     '  <button class="mini ghost mpHelpBtn" type="button" aria-label="Cómo se juega">?</button>' +
     '  <button class="mini ghost menuBtn" type="button">Menú</button>' +
     '</div>' +
-    '<div class="mpPad" id="mpPad">' +
+    '<div class="mpPad g2t-ctl" id="mpPad">' +
     '  <div class="mpBand" id="mpBand">Tu moto</div>' +
     '  <div class="mpStatus" id="mpStatus">Preparados…</div>' +
     '  <div class="mpCross" id="mpCross">' +

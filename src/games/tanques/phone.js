@@ -32,7 +32,7 @@
     '<div class="kpRotate" id="kpRotate">Gira el móvil: se juega mejor en horizontal</div>' +
     '<div class="kpStatus" id="kpStatus">Preparados…</div>' +
     '<div class="kpMain" id="kpMain">' +
-    '  <div class="kpLeft">' +
+    '  <div class="kpLeft g2t-ctl">' +
     '    <div class="kpStick" id="kpStick">' +
     '      <div class="kpBase" id="kpBase"><div class="kpKnob" id="kpKnob"></div></div>' +
     '      <p class="kpHint">Arrastra el dedo: el tanque va hacia allí</p>' +
@@ -44,7 +44,7 @@
     '      <button type="button" class="kpKey kpDown" data-k="down" aria-label="Retroceder">▼</button>' +
     '    </div>' +
     '  </div>' +
-    '  <div class="kpRight"><button type="button" class="kpFire" id="kpFire">¡Fuego!</button></div>' +
+    '  <div class="kpRight g2t-ctl"><button type="button" class="kpFire" id="kpFire">¡Fuego!</button></div>' +
     '</div>' +
     '<div class="pn kpPanel hidden" id="kpWatch">' +
     '  <div class="kpT2">Estás mirando</div>' +

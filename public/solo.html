@@ -7,48 +7,74 @@
 <title>Juegos del Salón · solo con el móvil</title>
 <style>
   /* «Solo con el móvil»: the phone is the screen AND the controller.
-     Back layer: the TV page (it shows the game). Front layer: the phone page
-     (the controls), see-through while a game is on, solid in the menus. */
+     Back layer: the TV page (it shows the game). Front layer: the phone page.
+     While a game shows its controls (elements with the class g2t-ctl in the
+     game's phone view), the phone page is see-through and only those
+     controls are translucent; anything else the phone shows (the end panel,
+     «Estás mirando», pause, help, «¿Volver al menú?») is opaque and covers
+     the TV layer, so only one of the two is ever readable. */
   html, body { margin: 0; height: 100%; background: #070915; overflow: hidden; overscroll-behavior: none; }
   iframe { position: fixed; left: 0; top: 0; width: 100%; height: 100%; border: 0; }
   #tele { z-index: 1; pointer-events: none; }
   #mando { z-index: 2; background: transparent; }
-  body.menu #tele { visibility: hidden; }
+  body:not(.ctl) #tele { visibility: hidden; }
 </style>
 </head>
-<body class="menu">
+<body>
 <iframe id="tele" title="Pantalla" src="/"></iframe>
 <iframe id="mando" title="Mando" src="/m" allowtransparency="true"></iframe>
 <script>
 (function () {
   var tele = document.getElementById('tele');
   var mando = document.getElementById('mando');
-  var CSS = 'html,body,#app{background:transparent!important}' +
-    'body.g2t-solo-juego #app>*:not(#modal):not(#banner):not(#toast){background-color:transparent!important}';
-  function inject() {
-    try {
-      var d = mando.contentDocument;
-      if (!d || d.getElementById('g2t-solo')) return;
-      var s = d.createElement('style');
-      s.id = 'g2t-solo';
-      s.textContent = CSS;
-      d.head.appendChild(s);
-    } catch (e) { /* noop */ }
+  // Injected into the phone page; it only acts with body.g2t-solo-ctl
+  var CSS =
+    'html.g2t-solo-ctl,html.g2t-solo-ctl body,body.g2t-solo-ctl #app,body.g2t-solo-ctl #app>.screen{background:transparent!important}' +
+    // The controls: translucent (their own look, just see-through)
+    'body.g2t-solo-ctl .g2t-ctl{opacity:.45}' +
+    // Overlays (pause, help, end, confirm) stay opaque: they hide the TV layer
+    'body.g2t-solo-ctl #app>.over{background:#070915!important}' +
+    // The top bar: compact and half transparent (the TV score is under it)
+    'body.g2t-solo-ctl #app>.screen>.bar{min-height:0;opacity:.55}' +
+    'body.g2t-solo-ctl #app>.screen>.bar .chip{padding:2px 9px;font-size:13px;border-width:1px}' +
+    'body.g2t-solo-ctl #app>.screen>.bar .mini{padding:3px 9px;font-size:12px;border-radius:9px}' +
+    'body.g2t-solo-ctl #app>.screen>.bar .info,body.g2t-solo-ctl #app>.screen>.bar .kpScore{font-size:14px}' +
+    'body.g2t-solo-ctl #app{padding-top:4px}';
+  function inject(d) {
+    if (!d || !d.head || d.getElementById('g2t-solo')) return;
+    var s = d.createElement('style');
+    s.id = 'g2t-solo';
+    s.textContent = CSS;
+    d.head.appendChild(s);
   }
-  mando.addEventListener('load', inject);
-  // Menu or game? The phone page shows its game list only in the menu
-  setInterval(function () {
-    inject();
-    var inMenu = true;
+  // Is a game showing its controls right now? (a visible .g2t-ctl that no
+  // overlay of the phone page covers)
+  function controlsOn(d) {
+    var list = d.getElementById('gameList');
+    if (list && list.offsetParent !== null) return false;            // the menu
+    var overs = d.querySelectorAll('#app > .over');
+    for (var i = 0; i < overs.length; i++) {
+      if (!overs[i].classList.contains('hidden') && overs[i].offsetParent !== null) return false;
+    }
+    var ctl = d.querySelectorAll('.g2t-ctl');
+    for (var k = 0; k < ctl.length; k++) if (ctl[k].offsetParent !== null && ctl[k].getClientRects().length) return true;
+    return false;
+  }
+  function update() {
+    var on = false;
     try {
       var d = mando.contentDocument;
-      var list = d && d.getElementById('gameList');
-      inMenu = !!(list && list.offsetParent !== null);
-      if (d && d.body) d.body.classList.toggle('g2t-solo-juego', !inMenu);
+      inject(d);
+      on = !!(d && d.body && controlsOn(d));
+      if (d && d.body) { d.body.classList.toggle('g2t-solo-ctl', on); d.documentElement.classList.toggle('g2t-solo-ctl', on); }
     } catch (e) { /* noop */ }
-    document.body.classList.toggle('menu', inMenu);
-    mando.style.opacity = inMenu ? '1' : '0.4';   // in a game: see the arena through the controls
-  }, 300);
+    document.body.classList.toggle('ctl', on);
+  }
+  mando.addEventListener('load', update);
+  setInterval(update, 150);
+  // For automated tests
+  window.__solo = { controls: function () { return document.body.classList.contains('ctl'); } };
+  void tele;
 })();
 </script>
 </body>

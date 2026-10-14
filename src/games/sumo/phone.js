@@ -27,13 +27,13 @@
     '</div>' +
     '<div class="spStatus fit" id="spStatus">Preparados…</div>' +
     '<div class="spPlay" id="spPlay">' +
-    '  <div class="spDashRow">' +
+    '  <div class="spDashRow g2t-ctl">' +
     '    <button type="button" class="spDash" id="spDash">' +
     '      <svg viewBox="0 0 200 200" aria-hidden="true"><circle class="spRingBg" cx="100" cy="100" r="92"></circle><circle class="spRing" id="spRing" cx="100" cy="100" r="92"></circle></svg>' +
     '      <span class="spDashIn"><b>¡Embestida!</b><small id="spDashSub">¡Lista!</small></span>' +
     '    </button>' +
     '  </div>' +
-    '  <div class="spJoy" id="spJoy">' +
+    '  <div class="spJoy g2t-ctl" id="spJoy">' +
     '    <div class="spBase" id="spBase"><div class="spKnob" id="spKnob"></div></div>' +
     '    <div class="spHint" id="spHint">Arrastra el dedo para empujar</div>' +
     '  </div>' +

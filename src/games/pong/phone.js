@@ -19,7 +19,7 @@
     '</div>' +
     '<div id="pStatus">Preparados…</div>' +
     '<div id="pMine" class="hidden"><div id="pField"></div><div id="pMineTxt"></div></div>' +
-    '<div id="pad">' +
+    '<div id="pad" class="g2t-ctl">' +
     '  <div id="thumb"></div>' +
     '  <div class="padhint">Desliza el dedo arriba y abajo</div>' +
     '</div>';

@@ -27,7 +27,7 @@
     '</div>' +
     // Main: the pad
     '<div class="npMain" id="npMain">' +
-    '  <div class="npPad" id="npPad">' +
+    '  <div class="npPad g2t-ctl" id="npPad">' +
     '    <button type="button" class="npArrow npUp" data-dir="up" aria-label="Arriba">▲</button>' +
     '    <button type="button" class="npArrow npLeft" data-dir="left" aria-label="Izquierda">◀</button>' +
     '    <div class="npBoard" id="npBoard"></div>' +
