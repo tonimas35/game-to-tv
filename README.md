@@ -53,14 +53,15 @@ Duelos rápidos para dos, agrupados en la tarjeta «1 contra 1» del menú:
 
 **Rivales bot:** ¿no hay con quién jugar? En el menú del móvil, «🤖 Añadir
 rival» y elige su nivel (Fácil, Normal, Difícil o Imposible): entra en la sala
-un jugador más, con nombre (Paco, Lola, Maripili…) y color, que juega solo. Por
-ahora en **Tanques**; los juegos que aún no los admiten salen en gris mientras
+un jugador más, con nombre (Paco, Lola, Maripili…) y color, que juega solo. Hay
+rivales en Tanques, Motos de neón, Sumo, Hockey de mesa, Pong, Reflejos y 2048;
+Dibuja y adivina y El Infiltrado no los admiten y salen en gris mientras
 haya bots («Este juego no admite rivales: quita los bots»). Se quitan con la ×
 de la lista de jugadores y se van solos cuando no queda nadie.
 
 **Solo con el móvil:** abre `http://IP:PUERTO/solo` y el móvil es a la vez
 pantalla y mando (el juego detrás y los mandos medio transparentes delante).
-Con un rival bot, se puede jugar a Tanques con un solo móvil.
+Con un rival bot, cualquiera de esos juegos se puede jugar con un solo móvil.
 
 El menú de la tele muestra para cuántos es cada juego y, si no encaja con los
 que sois, lo pone en gris con el motivo («De 2 a 4 jugadores · sois 6»).

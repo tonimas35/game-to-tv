@@ -3,7 +3,7 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
-## Sin publicar
+## 0.7.0 - 2026-10-15
 
 ### Añadido
 
@@ -18,6 +18,13 @@ Versiones según [SemVer](https://semver.org/lang/es/).
 - **Tanques** contra el ordenador: el bot apunta con rebotes, esquiva, busca
   camino y elige solo si atacar, flanquear o retirarse. Corre dentro del
   servidor (también dentro de la tele) y cuesta muy poco por tick.
+- Rivales también en **Motos de neón** (territorio y encierros), **Sumo**
+  (simula empujones y esquiva embestidas), **Hockey de mesa** (predice el
+  disco con rebotes y tira a puerta), **Pong** (calcula dónde llega la bola y
+  juega con los ángulos; en parejas, cada bot defiende su pala), **Reflejos**
+  (tiempo de reacción por nivel) y **2048** (carrera; de azar a expectimax).
+  Dibuja y adivina y El Infiltrado no tienen rivales (dibujar o preguntar en
+  voz alta no es cosa de bots).
 - Para los juegos: `"bots": true` y un `bot.js` con `create(ctx)` (ver
   «Rivales bot» en docs/crear-un-juego.md), ayudas en `src/games/bot-kit.js`
   y `test/helpers/bot-arena.js` para probar bots con un reloj virtual.
