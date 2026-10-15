@@ -5,6 +5,7 @@
   "phoneDescription": "Tu móvil es el mazo: mete el disco en la portería rival",
   "section": "1vs1",
   "minPlayers": 2,
+  "bots": true,
   "maxPlayers": 2,
   "tags": ["A 7", "Mesa de aire"],
   "howTo": [
