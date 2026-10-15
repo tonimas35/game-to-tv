@@ -4,6 +4,7 @@
   "description": "El clásico: tu móvil es la pala. Con 3 o 4, por parejas y dos palas por lado, como en el futbolín. A 7.",
   "phoneDescription": "El clásico: tu móvil es la pala",
   "minPlayers": 2,
+  "bots": true,
   "maxPlayers": 4,
   "tags": ["A 7", "Por parejas"],
   "icon": "icon.svg",
