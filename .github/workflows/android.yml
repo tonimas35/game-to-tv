@@ -32,18 +32,18 @@ env:
 
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
       - run: npm ci
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -65,35 +65,13 @@ jobs:
 
       - name: Compilar (pruebas de Java + APKs)
         working-directory: apps/android-tv
-        run: gradle --no-daemon --stacktrace :app:testReleaseUnitTest :app:assembleRelease
+        run: bash ci/run.sh "Gradle" gradle --no-daemon --stacktrace :app:testReleaseUnitTest :app:assembleRelease
 
       - name: APKs con nombre y versión
         env:
-          V: ${{ steps.v.outputs.version }}
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          for abi in armeabi-v7a arm64-v8a universal; do
-            cp "apps/android-tv/app/build/outputs/apk/release/app-$abi-release.apk" "dist/juegos-del-salon-$V-$abi.apk"
-          done
-          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
-          for f in dist/*.apk; do
-            echo "== $f ($(du -h "$f" | cut -f1))"
-            unzip -l "$f" | grep -E 'lib/|assets/nodejs-project/(main\.js|files\.txt|bundle\.json)' || true
-            unzip -l "$f" | grep -q 'assets/nodejs-project/main.js'
-            "$BT/apksigner" verify --print-certs "$f" | grep -E 'Signer #1 certificate (DN|SHA-256)'
-            "$BT/aapt2" dump badging "$f" | grep -E "^(package|sdkVersion|targetSdkVersion|native-code|application-label|leanback)" || true
-          done
-          (cd dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
-          {
-            echo "### Juegos del Salón $V para Android TV"
-            echo
-            echo "| APK | Tamaño |"
-            echo "|---|---|"
-            for f in dist/*.apk; do echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |"; done
-            echo
-            echo 'Instalar: `game-to-tv tv install NOMBRE --apk <zip o carpeta>` o `adb install -r juegos-del-salon-'"$V"'-armeabi-v7a.apk`'
-          } >> "$GITHUB_STEP_SUMMARY"
+          G2T_NOTICE: '1'
+          G2T_NOTICE_LINES: '40'
+        run: bash apps/android-tv/ci/run.sh "APKs" bash apps/android-tv/ci/package-apks.sh "${{ steps.v.outputs.version }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -105,18 +83,18 @@ jobs:
           retention-days: 90
 
   emulador:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
       - run: npm ci
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -134,7 +112,7 @@ jobs:
 
       - name: Compilar para x86_64 (emulador)
         working-directory: apps/android-tv
-        run: gradle --no-daemon -Pg2tAbis=x86_64 :app:assembleRelease
+        run: bash ci/run.sh "Gradle x86_64" gradle --no-daemon -Pg2tAbis=x86_64 :app:assembleRelease
 
       - name: KVM
         run: |
@@ -151,7 +129,7 @@ jobs:
           profile: tv_1080p
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 2048
-          script: bash apps/android-tv/ci/emulator-test.sh apps/android-tv/app/build/outputs/apk/release/app-x86_64-release.apk emulador
+          script: G2T_NOTICE=1 G2T_NOTICE_LINES=70 bash apps/android-tv/ci/run.sh "Emulador" bash apps/android-tv/ci/emulator-test.sh apps/android-tv/app/build/outputs/apk/release/app-x86_64-release.apk emulador
 
       - uses: actions/upload-artifact@v4
         if: always()

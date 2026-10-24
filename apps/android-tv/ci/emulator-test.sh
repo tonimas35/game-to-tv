@@ -16,12 +16,15 @@ adb shell dumpsys package com.google.android.webview | grep -m1 versionName || t
 adb logcat -c || true
 adb install -r "$APK"
 
-node "$HERE/emulator-check.js" "$OUT"
-code=$?
+node "$HERE/emulator-check.js" "$OUT" 2>&1 | tee "$OUT/resultado.txt"
+code=${PIPESTATUS[0]}
 
 adb exec-out screencap -p > "$OUT/final.png" || true
 adb logcat -d -s g2t g2t-node chromium AndroidRuntime ActivityManager:W > "$OUT/logcat.txt" || true
 adb shell dumpsys meminfo io.gametotv.android > "$OUT/meminfo-app.txt" || true
 adb shell dumpsys meminfo io.gametotv.android:node > "$OUT/meminfo-node.txt" || true
-tail -n 60 "$OUT/logcat.txt" || true
+echo "---- logcat (final) ----"
+grep -E " (g2t|g2t-node)" "$OUT/logcat.txt" | tail -n 25 || true
+echo "---- resultado ----"
+grep -E "OK|FALLO|Resultado|^    |===" "$OUT/resultado.txt" | cut -c1-300
 exit $code
