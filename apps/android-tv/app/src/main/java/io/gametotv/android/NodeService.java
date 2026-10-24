@@ -36,7 +36,10 @@ import java.util.List;
  * On Android TV the notification is not normally visible.
  *
  * Intents:
- *   ACTION_START  (extras: hostIp, net, idleMin) start Node if it is not running yet (idempotent)
+ *   ACTION_START  (extras: hostIp, net, idleMin, bundleDir, bundleVersion) start Node if it
+ *                 is not running yet (idempotent). bundleDir: a downloaded game bundle
+ *                 (files/bundles/<version>, chosen by MainActivity through BundleStore);
+ *                 without it, the APK's own one (NodeBundle)
  *   ACTION_STOP   stop: the app asks for it when the TV's IP changed or to retry
  */
 public class NodeService extends Service {
@@ -46,6 +49,8 @@ public class NodeService extends Service {
     static final String EXTRA_HOST_IP = "hostIp";
     static final String EXTRA_NET = "net";
     static final String EXTRA_IDLE_MIN = "idleMin";
+    static final String EXTRA_BUNDLE_DIR = "bundleDir";
+    static final String EXTRA_BUNDLE_VERSION = "bundleVersion";
     static final int PORT = 8090;
     static final int IDLE_MINUTES = 15;
     static final int MAX_OLD_SPACE_MB = 128;   // the Philips TV has ~350 MB free in total
@@ -87,22 +92,36 @@ public class NodeService extends Service {
             final String netKind = net;
             int idle = intent != null ? intent.getIntExtra(EXTRA_IDLE_MIN, IDLE_MINUTES) : IDLE_MINUTES;
             final int idleMin = idle >= 1 && idle <= 1440 ? idle : IDLE_MINUTES;
+            final String bundleDir = intent != null ? intent.getStringExtra(EXTRA_BUNDLE_DIR) : null;
+            final String bundleVersion = intent != null ? intent.getStringExtra(EXTRA_BUNDLE_VERSION) : null;
             // node::Start blocks until Node ends: its own thread with a big stack
             Thread t = new Thread(null, new Runnable() {
-                @Override public void run() { runNode(hostIp, netKind, idleMin); }
+                @Override public void run() { runNode(hostIp, netKind, idleMin, bundleDir, bundleVersion); }
             }, "nodejs", 16L * 1024 * 1024);
             t.start();
         }
         return START_NOT_STICKY;
     }
 
-    private void runNode(String hostIp, String net, int idleMin) {
+    private void runNode(String hostIp, String net, int idleMin, String bundleDir, String bundleVersion) {
         Context c = getApplicationContext();
         File data = NodeBundle.dataDir(c);
         //noinspection ResultOfMethodCallIgnored
         data.mkdirs();
+        File main;
+        String source;
         try {
-            NodeBundle.ensureExtracted(c);
+            File downloaded = bundleDir != null ? new File(bundleDir, "main.js") : null;
+            if (downloaded != null && downloaded.isFile()) {
+                main = downloaded;
+                source = BundlePolicy.DOWNLOADED;
+                Log.i(TAG, "Juegos descargados " + bundleVersion + " (" + bundleDir + ")");
+            } else {
+                if (bundleDir != null) Log.w(TAG, "No está el paquete " + bundleDir + ": se usa el del APK");
+                NodeBundle.ensureExtracted(c);
+                main = NodeBundle.mainScript(c);
+                source = BundlePolicy.APK;
+            }
             NodeJni.load();
         } catch (Throwable e) {
             Log.e(TAG, "No se pudo preparar Node", e);
@@ -112,7 +131,7 @@ public class NodeService extends Service {
         List<String> argv = new ArrayList<>();
         argv.add("node");
         argv.add("--max-old-space-size=" + MAX_OLD_SPACE_MB);
-        argv.add(NodeBundle.mainScript(c).getAbsolutePath());
+        argv.add(main.getAbsolutePath());
         argv.add("--port"); argv.add(String.valueOf(PORT));
         argv.add("--idle-min"); argv.add(String.valueOf(idleMin));
         if (hostIp != null) { argv.add("--host-ip"); argv.add(hostIp); }
@@ -120,6 +139,8 @@ public class NodeService extends Service {
         argv.add("--data-dir"); argv.add(data.getAbsolutePath());
         argv.add("--tmp-dir"); argv.add(getCacheDir().getAbsolutePath());
         argv.add("--app-version"); argv.add(versionName());
+        argv.add("--app-code"); argv.add(String.valueOf(BuildConfig.VERSION_CODE));
+        argv.add("--bundle-source"); argv.add(source);
         argv.add("--sdk"); argv.add(String.valueOf(Build.VERSION.SDK_INT));
         argv.add("--abi"); argv.add(Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : "?");
         argv.add("--device"); argv.add((Build.MANUFACTURER + " " + Build.MODEL).trim());

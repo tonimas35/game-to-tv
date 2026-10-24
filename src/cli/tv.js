@@ -33,6 +33,15 @@ const TV_HELP = [
   ''
 ].join('\n');
 
+/** `tv status` (Android): which game bundle runs, the APK's or an automatic update. */
+function bundleLine(t) {
+  const b = t.bundle;
+  const app = t.app && t.app.version ? ' · app ' + t.app.version + (t.app.code ? ' (' + t.app.code + ')' : '') : '';
+  if (!b) return 'Juegos: versión del paquete desconocida (app anterior a las actualizaciones automáticas)' + app;
+  const src = b.source === 'descargado' ? 'descargado (actualización automática)' : b.source === 'apk' ? 'apk (el que trae la app)' : 'origen desconocido';
+  return 'Juegos: ' + b.version + ' · ' + src + (b.commit ? ' · commit ' + b.commit.slice(0, 7) : '') + app;
+}
+
 function defaultServerUrl(flags) {
   if (typeof flags['server-url'] === 'string') return require('../drivers/webos/launcher').normalizeServerUrl(flags['server-url']);
   const cfg = config.load();
@@ -302,6 +311,7 @@ async function run(args, flags) {
       ui.info('Ahora: ' + (a.tvs || 0) + ' pantalla(s), ' + (a.players || 0) + ' jugador(es)' + (a.slots ? ' de ' + a.slots : '') + (a.screen ? ' · ' + a.screen : ''));
       if (i.mode === 'tele') {
         if (t.platform === 'android') ui.info('Android ' + (t.sdk ? '(API ' + t.sdk + ')' : '') + ' · ' + (t.device || '?') + ' · ' + (t.abi || '?') + (t.net ? ' · red: ' + t.net : '') + (t.rssMB ? ' · memoria del servidor: ' + t.rssMB + ' MB' : ''));
+        if (t.platform === 'android') ui.info(bundleLine(t));
         ui.info('Node ' + (t.node || '?') + ' · encendido hace ' + (t.uptime != null ? Math.round(t.uptime / 60) + ' min' : '?') +
           ' · se apaga tras ' + (t.idleMinutes || '?') + ' min sin uso' + (t.idleFor ? ' (sin uso desde hace ' + Math.round(t.idleFor / 60) + ' min)' : ''));
         ui.info('Galería: ' + (t.gallerySaving ? t.galleryDir : 'no se guardan dibujos (ninguna carpeta con permiso de escritura)'));

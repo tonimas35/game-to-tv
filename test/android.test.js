@@ -10,12 +10,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const http = require('http');
-const zlib = require('zlib');
+const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 const { spawn } = require('child_process');
 const QRCode = require('qrcode');
 const H_ = require('./helpers');
 const android = require('../src/tv-service/android');
-const { buildAndroidBundle } = require('../src/drivers/android/bundle');
+const bundleMod = require('../src/drivers/android/bundle');
+const { buildAndroidBundle } = bundleMod;
 const artifact = require('../src/drivers/android/artifact');
 const adb = require('../src/drivers/android/adb');
 const PKG = require('../package.json');
@@ -26,37 +28,7 @@ const PORT = 18190;
 
 function readConfig(home) { return JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8')); }
 
-// ---------------------------------------------------------------- tiny zip writer (tests only)
-const CRC_TABLE = (function () {
-  const t = [];
-  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t.push(c >>> 0); }
-  return t;
-})();
-function crc32(buf) { let c = 0xffffffff; for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
-function makeZip(entries) {
-  const locals = [], centrals = [];
-  let offset = 0;
-  entries.forEach(function (e) {
-    const name = Buffer.from(e.name, 'utf8');
-    const data = Buffer.isBuffer(e.data) ? e.data : Buffer.from(e.data);
-    const method = e.store ? 0 : 8;
-    const comp = method ? zlib.deflateRawSync(data) : data;
-    const lh = Buffer.alloc(30);
-    lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4); lh.writeUInt16LE(method, 8);
-    lh.writeUInt32LE(crc32(data), 14); lh.writeUInt32LE(comp.length, 18); lh.writeUInt32LE(data.length, 22); lh.writeUInt16LE(name.length, 26);
-    const ch = Buffer.alloc(46);
-    ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(20, 4); ch.writeUInt16LE(20, 6); ch.writeUInt16LE(method, 10);
-    ch.writeUInt32LE(crc32(data), 16); ch.writeUInt32LE(comp.length, 20); ch.writeUInt32LE(data.length, 24); ch.writeUInt16LE(name.length, 28); ch.writeUInt32LE(offset, 42);
-    locals.push(lh, name, comp);
-    centrals.push(ch, name);
-    offset += 30 + name.length + comp.length;
-  });
-  const cd = Buffer.concat(centrals);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10);
-  end.writeUInt32LE(cd.length, 12); end.writeUInt32LE(offset, 16);
-  return Buffer.concat(locals.concat([cd, end]));
-}
+const { makeZip } = require('../src/drivers/android/zip');
 
 function get(port, p) { return H_.httpGet('http://127.0.0.1:' + port, p); }
 
@@ -127,11 +99,18 @@ async function bundleTests() {
   check(!files.some(function (f) { return f.split('/').some(function (s) { return s.charAt(0) === '.'; }); }), 'Ningún archivo oculto (aapt los descartaría)');
   const pkg = JSON.parse(fs.readFileSync(path.join(out, 'package.json'), 'utf8'));
   const meta = JSON.parse(fs.readFileSync(path.join(out, 'bundle.json'), 'utf8'));
-  check(pkg.name === 'io.gametotv.android' && pkg.version === PKG.version && pkg.main === 'main.js' && meta.commit === 'abc123' && meta.files === files.length - 1, 'package.json (io.gametotv.android ' + PKG.version + ') y bundle.json');
+  const minApp = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'apps', 'android-tv', 'bundle-contract.json'), 'utf8')).minApp;
+  check(pkg.name === 'io.gametotv.android' && pkg.version === PKG.version && pkg.main === 'main.js' && meta.commit === 'abc123' && meta.files === files.length - 1 &&
+    meta.pkg === PKG.version && meta.version === PKG.version + '+' + meta.build && meta.minApp === minApp && minApp >= 80000,
+    'package.json (io.gametotv.android ' + PKG.version + ') y bundle.json (' + meta.version + ', minApp ' + meta.minApp + ')');
+  const git = bundleMod.gitBuild();
+  check(git.build === null || (meta.build === git.build && /^\d{14}$/.test(String(meta.build))), 'build = hora UTC del commit (AAAAMMDDhhmmss): ' + meta.build);
+  check(bundleMod.buildNumber('2026-10-24T15:30:12Z') === 20261024153012 && bundleMod.buildNumber(Date.UTC(2027, 0, 1)) > 20261231235959, 'Los builds crecen con la fecha del commit');
   check(b.bytes < 4 * 1024 * 1024, 'Pequeño: ' + Math.round(b.bytes / 1024) + ' KB');
 
   // Boot it like the app does (node main.js --host-ip … --data-dir …)
-  const p = spawn(process.execPath, [path.join(out, 'main.js'), '--host-ip', '10.0.0.42', '--port', String(PORT + 3), '--data-dir', path.join(TMP, 'datos-bundle'), '--idle-min', '0.01'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const p = spawn(process.execPath, [path.join(out, 'main.js'), '--host-ip', '10.0.0.42', '--port', String(PORT + 3), '--data-dir', path.join(TMP, 'datos-bundle'), '--idle-min', '0.01',
+    '--bundle-source', 'apk', '--app-version', '0.7.9', '--app-code', '70900'], { stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';
   p.stdout.on('data', function (d) { log += d; });
   p.stderr.on('data', function (d) { log += d; });
@@ -139,11 +118,56 @@ async function bundleTests() {
   await H_.waitUntil(function () { return /Servidor listo/.test(log); }, 8000, 'arranque del paquete');
   const info = JSON.parse((await get(PORT + 3, '/info')).body);
   check(info.ip === '10.0.0.42' && info.tele && info.tele.platform === 'android' && info.version === PKG.version, 'node main.js arranca el servidor del paquete (IP 10.0.0.42, versión ' + info.version + ')');
+  const tb = info.tele.bundle || {};
+  check(tb.version === meta.version && tb.build === meta.build && tb.commit === 'abc123' && tb.source === 'apk' && info.tele.app && info.tele.app.version === '0.7.9' && info.tele.app.code === 70900,
+    '/info.tele.bundle: versión del paquete (' + tb.version + '), origen apk; tele.app: versión del APK');
   const tvPage = await get(PORT + 3, '/');
   check(tvPage.status === 200 && /atMainMenu/.test(tvPage.body) && /G2T_BOOT/.test(tvPage.body), 'La página de la tele del paquete tiene window.__tv.atMainMenu (lo usa «Atrás»)');
   const sig = await Promise.race([exited, H_.sleep(6000).then(function () { return 'sigue vivo'; })]);
   check(sig === 'SIGKILL', 'Tras el apagado por inactividad el proceso se mata a sí mismo (SIGKILL, como Process.killProcess): ' + sig);
   if (sig !== 'SIGKILL') { try { p.kill('SIGKILL'); } catch (e) { /* noop */ } }
+}
+
+// ---------------------------------------------------------------- automatic updates (bundle.zip + bundle.json)
+async function otaTests() {
+  console.log('\n[Actualizaciones automáticas: bundle.zip + bundle.json para la rama «apk»]');
+  const proj = path.join(TMP, 'bundle', 'nodejs-project');
+  const meta = JSON.parse(fs.readFileSync(path.join(proj, 'bundle.json'), 'utf8'));
+  const outDir = path.join(TMP, 'ota');
+  const m = bundleMod.packOta({ projectDir: proj, outDir: outDir });
+  const zipFile = path.join(outDir, 'bundle.zip');
+  const body = fs.readFileSync(zipFile);
+  const onDisk = JSON.parse(fs.readFileSync(path.join(outDir, 'bundle.json'), 'utf8'));
+  check(m.version === meta.version && m.build === meta.build && m.minApp === meta.minApp && m.pkg === PKG.version && m.commit === 'abc123' && typeof m.built === 'string' &&
+    JSON.stringify(onDisk) === JSON.stringify(m), 'bundle.json: { version, build, built, sha256, size, minApp } del mismo proyecto que va en el APK (' + m.version + ')');
+  check(m.sha256 === crypto.createHash('sha256').update(body).digest('hex') && m.size === body.length, 'sha256 y tamaño del zip (' + Math.round(m.size / 1024) + ' KB)');
+  const again = bundleMod.packOta({ projectDir: proj, outDir: path.join(TMP, 'ota2') });
+  check(again.sha256 === m.sha256, 'El mismo proyecto da exactamente el mismo zip (fechas fijas)');
+
+  const unz = path.join(TMP, 'ota-unzip');
+  artifact.unzip(zipFile, unz);
+  const files = bundleMod.listFiles(proj).sort();
+  const same = files.every(function (f) { return fs.readFileSync(path.join(proj, f)).equals(fs.readFileSync(path.join(unz, f))); });
+  check(same && bundleMod.listFiles(unz).length === files.length && files.indexOf('main.js') >= 0 && files.indexOf('bundle.json') >= 0, 'El zip tiene exactamente el proyecto (' + files.length + ' archivos, main.js y bundle.json incluidos)');
+  let sys = null;
+  try { sys = execFileSync('unzip', ['-tq', zipFile], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); } catch (e) { sys = e.code === 'ENOENT' ? 'sin unzip' : 'ERROR ' + (e.stdout || e.message); }
+  check(sys === 'sin unzip' || /No errors/.test(sys), 'unzip -t lo da por bueno (' + String(sys).trim() + ')');
+
+  // The CLI form used by CI
+  const cli = path.join(TMP, 'ota-cli');
+  const out = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'android-bundle.js'), '--ota', cli, '--from', proj], { encoding: 'utf8' });
+  check(/Paquete de juegos para actualizar la app/.test(out) && JSON.parse(fs.readFileSync(path.join(cli, 'bundle.json'), 'utf8')).sha256 === m.sha256, 'node scripts/android-bundle.js --ota SALIDA --from PROYECTO');
+  const fake = path.join(TMP, 'np-fake');
+  execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'android-bundle.js'), fake, '--build', '29990101000000', '--min-app', '123', '--commit', 'fff'], { encoding: 'utf8' });
+  const fm = JSON.parse(fs.readFileSync(path.join(fake, 'bundle.json'), 'utf8'));
+  check(fm.version === PKG.version + '+29990101000000' && fm.build === 29990101000000 && fm.minApp === 123 && fm.commit === 'fff', '--build, --min-app y --commit (paquetes falsos para la prueba del emulador)');
+  let bad = null;
+  try { bundleMod.packOta({ projectDir: path.join(TMP, 'nada'), outDir: path.join(TMP, 'ota3') }); } catch (e) { bad = e; }
+  check(!!bad, 'Sin proyecto no publica nada');
+
+  // android.js: bundle info
+  check(android.bundleInfo(null, 'apk') === null && android.bundleInfo({ version: '1+2', build: 2 }, 'otro').source === null && android.bundleInfo({ version: '1+2', build: 2, commit: '0123456789abcdef' }, 'descargado').commit === '0123456789ab',
+    'tele.bundle: nulo sin bundle.json; origen solo apk/descargado');
 }
 
 // ---------------------------------------------------------------- artifact helpers
@@ -322,11 +346,15 @@ async function driverTests() {
     info.screen.size === '1920x1080' && info.app.version === '0.7.0' && /4321/.test(info.app.serverProcess), 'tv info: modelo, Android 12 (API 31), ABIs, memoria libre, pantalla, versión de la app y proceso :node');
 
   // status: the server inside the TV (here, android.js on this PC)
-  const app = android.main(['--host-ip', '127.0.0.1', '--port', String(PORT + 4), '--data-dir', path.join(TMP, 'datos-status'), '--idle-min', '0', '--sdk', '31', '--abi', 'armeabi-v7a', '--device', 'Philips 50PUS7354/12'], { console: null, exit: function () {} });
+  const app = android.main(['--host-ip', '127.0.0.1', '--port', String(PORT + 4), '--data-dir', path.join(TMP, 'datos-status'), '--idle-min', '0', '--sdk', '31', '--abi', 'armeabi-v7a', '--device', 'Philips 50PUS7354/12',
+    '--app-version', '0.8.0', '--app-code', '80000', '--bundle-source', 'descargado'],
+  { console: null, exit: function () {}, bundle: { version: '0.8.1+20261101120000', pkg: '0.8.1', build: 20261101120000, commit: 'abcdef1234567890' } });
   await app.ready;
   await H_.runCli(['tv', 'add', 'local', '127.0.0.1', '--driver', 'android'], env);
   r = await H_.runCli(['tv', 'status', 'local', '--puerto', String(PORT + 4), '--logs'], env);
   check(r.code === 0 && /respondiendo/.test(r.out) && /Android \(API 31\)/.test(r.out) && /Philips 50PUS7354\/12/.test(r.out) && /Registro del servidor/.test(r.out), 'tv status: el servidor de dentro de la tele (Android, API, aparato) y su registro');
+  check(/Juegos: 0\.8\.1\+20261101120000 · descargado \(actualización automática\) · commit abcdef1 · app 0\.8\.0 \(80000\)/.test(r.out) && /versión 0\.8\.1/.test(r.out),
+    'tv status: versión del paquete de juegos y su origen (descargado), y la de la app');
   await app.tvService.stop('prueba');
   r = await H_.runCli(['tv', 'status', 'local', '--puerto', String(PORT + 4)], env);
   check(r.code === 1 && /no responde/.test(r.out) && /15 min/.test(r.out), 'tv status con la app cerrada: explica el apagado tras 15 min');
@@ -359,6 +387,7 @@ async function driverTests() {
   try {
     await serverTests();
     await bundleTests();
+    await otaTests();
     servers = await artifactTests();
     await driverTests();
   } catch (e) {

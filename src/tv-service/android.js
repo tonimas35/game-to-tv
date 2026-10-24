@@ -24,7 +24,15 @@
  *                       ambiente/ and estado.json
  *   --tmp-dir DIR       the app's cache dir (os.tmpdir() has no /tmp on Android)
  *   --port 8090  --idle-min 15  --players 6
- *   --app-version V  --sdk N  --abi ABI  --device "Philips …"  --net ethernet|wifi
+ *   --app-version V  --app-code N (the APK's versionName / versionCode)
+ *   --sdk N  --abi ABI  --device "Philips …"  --net ethernet|wifi
+ *   --bundle-source apk|descargado  where this game bundle comes from: the
+ *                       APK's own assets or an automatic update (BundleStore.java)
+ *
+ * The bundle's own bundle.json (next to main.js, src/drivers/android/bundle.js)
+ * gives the game version: /info.version is its package version and
+ * /info.tele.bundle { version, build, commit, source } says which bundle runs
+ * (the app checks it to accept an update, docs/tele-android.md).
  *
  * estado.json (in --data-dir) says { state: 'starting' | 'running' | 'error'
  * | 'stopped', error, pid, url } so the app can show why the server did not
@@ -40,6 +48,19 @@ const path = require('path');
 const core = require('./core');
 
 const SERVICE_ID = 'io.gametotv.android';
+// Root of the game bundle (assets/nodejs-project or files/bundles/<version>)
+const BUNDLE_DIR = path.join(__dirname, '..', '..');
+const SOURCES = ['apk', 'descargado'];
+
+/** The bundle's bundle.json, or null (e.g. running from the repository). */
+function readBundleMeta(dir) {
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(dir || BUNDLE_DIR, 'bundle.json'), 'utf8'));
+    return m && typeof m === 'object' && typeof m.version === 'string' ? m : null;
+  } catch (e) {
+    return null;
+  }
+}
 
 /** Minimal --flag value parser (also accepts --flag=value). */
 function parseArgs(argv) {
@@ -60,8 +81,19 @@ function validIp(s) {
     s.split('.').every(function (n) { return Number(n) <= 255; });
 }
 
+/** /info.tele.bundle: { version, build, commit, source } or null. */
+function bundleInfo(meta, source) {
+  if (!meta) return null;
+  return {
+    version: meta.version,
+    build: typeof meta.build === 'number' ? meta.build : null,
+    commit: typeof meta.commit === 'string' ? meta.commit.slice(0, 12) : null,
+    source: SOURCES.indexOf(source) >= 0 ? source : null
+  };
+}
+
 /**
- * Starts the server. deps (tests): { createServer, exit(), console, serverOptions, version }
+ * Starts the server. deps (tests): { createServer, exit(), console, serverOptions, version, bundle }
  * Returns { tvService, ready: Promise<startResponse>, opts }.
  */
 function main(argv, deps) {
@@ -74,7 +106,11 @@ function main(argv, deps) {
   try { fs.mkdirSync(dataDir, { recursive: true }); } catch (e) { /* reported by the gallery probe */ }
 
   const hostIp = validIp(a['host-ip']) ? a['host-ip'] : null;
-  const version = deps.version || (typeof a['app-version'] === 'string' ? a['app-version'] : null) ||
+  const meta = deps.bundle !== undefined ? deps.bundle : readBundleMeta(BUNDLE_DIR);
+  const bundle = bundleInfo(meta, a['bundle-source']);
+  const appVersion = typeof a['app-version'] === 'string' ? a['app-version'] : null;
+  // The games' version is the bundle's (an automatic update may be newer than the APK)
+  const version = deps.version || (meta && typeof meta.pkg === 'string' ? meta.pkg : null) || appVersion ||
     (function () { try { return require('../../package.json').version; } catch (e) { return '0.0.0'; } })();
   const statusFile = path.join(dataDir, 'estado.json');
   const out = deps.console === undefined ? console : deps.console;
@@ -112,6 +148,8 @@ function main(argv, deps) {
         abi: typeof a.abi === 'string' ? a.abi : process.arch,
         device: typeof a.device === 'string' ? a.device : null,
         net: typeof a.net === 'string' ? a.net : null,
+        app: appVersion ? { version: appVersion, code: a['app-code'] ? Number(a['app-code']) : null } : null,
+        bundle: bundle,
         pid: process.pid,
         rssMB: Math.round(process.memoryUsage().rss / 1048576)
       };
@@ -124,10 +162,11 @@ function main(argv, deps) {
       }
     }
   });
+  if (bundle) tvService.log('Juegos ' + bundle.version + (bundle.source ? ' (' + bundle.source + ')' : '') + (appVersion ? ', app ' + appVersion : ''));
   if (!hostIp) tvService.log('Sin --host-ip válida (' + (a['host-ip'] || 'ninguna') + '): se busca la IP con os.networkInterfaces()');
 
   const ready = tvService.start().then(function (r) {
-    if (r && r.returnValue !== false) writeStatus({ state: 'running', url: r.url, ip: r.ip, port: r.port, version: r.version });
+    if (r && r.returnValue !== false) writeStatus({ state: 'running', url: r.url, ip: r.ip, port: r.port, version: r.version, bundle: bundle ? bundle.version : null });
     else writeStatus({ state: 'error', error: r && r.errorText, code: r && r.errorCode });
     return r;
   });
@@ -152,6 +191,6 @@ function run(argv) {
   return app;
 }
 
-module.exports = { main: main, run: run, parseArgs: parseArgs, validIp: validIp, SERVICE_ID: SERVICE_ID };
+module.exports = { main: main, run: run, parseArgs: parseArgs, validIp: validIp, readBundleMeta: readBundleMeta, bundleInfo: bundleInfo, SERVICE_ID: SERVICE_ID };
 
 if (require.main === module) run(process.argv.slice(2));

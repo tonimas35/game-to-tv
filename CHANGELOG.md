@@ -3,10 +3,31 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
-## Sin publicar
+## 0.8.0 - 2026-10-24
 
 ### Añadido
 
+- **Actualizaciones automáticas de los juegos en la app de Android TV**: lo
+  que se sube a `main` llega solo a las teles, sin reinstalar el APK. Al
+  abrirse, la app pregunta (como mucho 4 s; sin red o si GitHub tarda, arranca
+  igual) por `bundle.json` en la rama `apk`; si hay un paquete de juegos más
+  nuevo para su versión, lo descarga («Actualizando los juegos… 45 %»),
+  comprueba su SHA-256 y lo prueba. Si el servidor responde con esa versión en
+  30 s se queda; si Node se cierra o no responde, vuelve al anterior (o al que
+  trae el APK) y no vuelve a usar esa versión. Si la comprobación no llega a
+  tiempo, se repite en segundo plano y la descarga se usa la siguiente vez. Un
+  APK más nuevo que lo descargado manda. Solo los cambios en la parte Java
+  necesitan instalar un APK nuevo (`minApp` en
+  `apps/android-tv/bundle-contract.json`).
+- GitHub Actions publica `bundle.zip` (el mismo `nodejs-project` del APK) y
+  `bundle.json` (`version`, `build`, `sha256`, `size`, `minApp`…) junto a los
+  APK, solo desde `main` y solo si pasan `npm test`, `npm run check`, las
+  pruebas de Java y las del emulador (que ahora prueban también la
+  actualización, la vuelta atrás con un paquete roto o que no responde, un
+  SHA-256 incorrecto y el arranque sin conexión).
+- `/info` y `game-to-tv tv status` dicen qué paquete de juegos corre y de
+  dónde viene (`apk` o `descargado`); el menú de la tele lo enseña en pequeño
+  en el pie («v0.8.0 · 24/10/2026 ↓»).
 - **Android TV, Google TV y Fire TV con el servidor dentro de la tele**: la
   app «Juegos del Salón» (`apps/android-tv/`, `io.gametotv.android`) lleva
   Node.js 18 (nodejs-mobile) y arranca el mismo servidor que el modo tele de

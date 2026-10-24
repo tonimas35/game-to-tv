@@ -194,7 +194,10 @@ Google TV y Fire TV; también hay `tv-arm64.apk` y `tv-universal.apk`.)
    instalador. Pulsa **Instalar** y luego **Abrir**.
 4. Desde entonces, «Juegos del Salón» está en la lista de apps de la tele.
 
-Para actualizar, repite los pasos: la versión nueva se instala encima.
+Desde la versión 0.8.0 **no hace falta repetirlo para tener juegos nuevos**:
+la app se los descarga sola ([Actualizaciones automáticas](#actualizaciones-automáticas)).
+Solo hay que instalar un `tv.apk` nuevo cuando cambia la parte Java de la app
+(se instala encima con los mismos pasos y se conservan los dibujos y récords).
 
 ## 4. Jugar
 
@@ -244,6 +247,86 @@ desde el PC con `game-to-tv tv open salon`.
   propio proceso y la app lo termina y lo vuelve a arrancar cuando hace falta
   (por ejemplo, tras un error, con OK en la pantalla del error).
 
+## Actualizaciones automáticas
+
+La app (desde la 0.8.0) se actualiza **los juegos** sola: lo que se sube a
+`main` llega a las teles sin tocar nada en ellas. El APK solo hay que volver a
+instalarlo cuando cambia su parte Java.
+
+**Qué se publica.** Cada vez que `main` pasa todas las pruebas (`npm test`,
+`npm run check`, las de Java y las del emulador), GitHub Actions deja en la
+rama `apk`, junto a los APK:
+
+- `bundle.zip`: el paquete de juegos, exactamente la carpeta
+  `nodejs-project` que va dentro del APK (servidor, juegos, `public/`,
+  `node_modules` de producción, `main.js`…), unos 500 KB.
+- `bundle.json`: `{ version, build, built, sha256, size, minApp, commit }`.
+  `version` es la de `package.json` más el *build*, la hora UTC del commit
+  (`0.8.0+20261024153012`): un commit posterior siempre da un número mayor.
+
+Si una prueba falla, no se publica nada y las teles siguen con lo que tenían.
+
+**Qué hace la app al abrirse** (si el servidor no estaba ya en marcha):
+
+1. Pregunta por `https://raw.githubusercontent.com/tonimas35/game-to-tv/apk/bundle.json`,
+   **como mucho 4 segundos**. Sin red, o si GitHub tarda, arranca los juegos
+   que ya tiene al momento.
+2. Si hay un paquete más nuevo que el suyo, que no haya fallado antes en esa
+   tele y cuyo `minApp` admita su versión de la app, lo descarga enseñando
+   «Actualizando los juegos… 45 %», comprueba el tamaño y el **SHA-256** y lo
+   descomprime en `files/bundles/<versión>/`. Si algo no cuadra, lo descarta y
+   arranca lo de antes (lo intentará otra vez la próxima vez).
+3. Arranca el servidor con el paquete nuevo **a prueba**: si en **30 s**
+   `/info` contesta con esa versión, se queda como bueno y se borran los
+   viejos (se guarda el anterior bueno por si acaso). Si Node se cierra o no
+   contesta, la app **vuelve al anterior** (el último bueno descargado o, si no
+   hay, el que trae el APK) y apunta esa versión como mala: **nunca la vuelve a
+   descargar ni a probar**. Lo arregla el siguiente commit.
+
+Si al abrir la app el servidor seguía encendido (se apaga 15 min después de
+salir), se usa tal cual y la comprobación se hace **en segundo plano**: si hay
+algo nuevo se descarga sin avisar y se usa la siguiente vez que arranque el
+servidor. Lo mismo si los 4 s no bastaron. Por eso, después de subir un
+arreglo, lo seguro es pedir que **salgan de la app, esperen un rato** (o
+reinicien la tele) y la vuelvan a abrir.
+
+Se eligió preguntar antes de arrancar (y no solo en segundo plano) para que
+un arreglo se vea **la primera vez** que abren la app, no la siguiente; el
+límite de 4 s y el arranque inmediato sin red hacen que nunca impida jugar.
+
+**El APK manda si es más nuevo.** El APK lleva su propio paquete de juegos
+(nunca se borra: es la vuelta atrás de fábrica). Si se instala un APK cuyo
+paquete es más nuevo que lo descargado, se usa el del APK y se borran las
+descargas viejas.
+
+**`minApp`** (en [`apps/android-tv/bundle-contract.json`](../apps/android-tv/bundle-contract.json))
+es el `versionCode` mínimo de la app que puede ejecutar el paquete. **Súbelo
+solo cuando cambie el contrato entre Java y Node** (argumentos de
+`NodeService`, `main.js`, `/info`, `estado.json`, el puerto…), al `versionCode`
+de la app que trae el cambio (0.9.0 → 90000). Las teles con una app más vieja
+se quedan con su último paquete hasta que se les instale el APK nuevo.
+
+**Comprobarlo.** `game-to-tv tv status salon` dice `Juegos: 0.8.0+20261024153012 ·
+descargado (actualización automática)` o `apk (el que trae la app)`, y lo mismo
+`/info` en `tele.bundle`. El menú de la tele lo enseña en pequeño abajo a la
+derecha («v0.8.0 · 24/10/2026», con «↓» si es descargado). Registro:
+`adb logcat -s g2t` (busca «Actualizaciones», «Descargado», «confirmada»,
+«ha fallado»).
+
+**Para pruebas** (solo con adb), el origen se cambia con una propiedad del
+sistema, que ninguna app puede tocar:
+
+```bash
+adb shell setprop debug.g2t.update_url http://10.0.2.2:8765/ok/   # otro servidor (emulador → PC)
+adb shell setprop debug.g2t.update_url off                       # sin actualizaciones
+adb shell setprop debug.g2t.update_url ""                        # vuelta a GitHub (o reiniciar la tele)
+```
+
+La prueba del emulador (`apps/android-tv/ci/ota-check.js`) sirve paquetes
+falsos así y comprueba la actualización, la vuelta atrás con un paquete que
+se cierra y con otro que no contesta, el SHA-256 incorrecto, `minApp` y el
+arranque sin conexión.
+
 ## Comprobarlo desde el PC
 
 ```bash
@@ -270,7 +353,9 @@ game-to-tv doctor                   # adb, puerto 5555 y servidor de cada tele A
   app arranca otro. Cierra otras apps pesadas si pasa a menudo.
 - Algunas teles desactivan la depuración al actualizar el sistema: si `tv
   pair` deja de conectar, revisa las opciones para desarrolladores.
-- El APK no está en ninguna tienda: se instala a mano (adb).
+- El APK no está en ninguna tienda: se instala a mano (adb o el navegador de
+  la tele). Los juegos se actualizan solos, pero un cambio en la parte Java
+  necesita instalar el APK otra vez.
 
 ## Solución de problemas
 
@@ -282,4 +367,5 @@ game-to-tv doctor                   # adb, puerto 5555 y servidor de cada tele A
 | `INSTALL_FAILED_INSUFFICIENT_STORAGE` | Libera espacio en la tele (Ajustes → Almacenamiento). |
 | La app se queda en «Preparando los juegos…» y da error | OK para reintentar. Desde el PC: `adb logcat -s g2t g2t-node`. Si dice que el puerto 8090 está ocupado, otra app lo usa: reinicia la tele. |
 | Los móviles no abren el QR | Comprueba con `game-to-tv tv status salon` la IP que usa (`Móviles (QR)`). Desde un móvil, abre `http://IP-DE-LA-TELE:8090/m` a mano. Revisa que no estén en una red de invitados. |
+| No llegan los juegos nuevos | `game-to-tv tv status salon` (línea «Juegos»). El servidor solo cambia de paquete al arrancar: sal de la app y espera 15 min (o reinicia la tele). Si salió «La actualización de los juegos no ha funcionado», esa versión falló en la tele y no se reintenta: sube un arreglo. Más en [Actualizaciones automáticas](#actualizaciones-automáticas). |
 | Va a tirones | `game-to-tv tv perf salon`. Los canvas ya van limitados a 1280 px de ancho; cierra otras apps. |

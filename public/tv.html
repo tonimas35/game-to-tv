@@ -142,6 +142,10 @@
   .pchip .dot svg { display: block; width: 100%; height: 100%; }
   .pchip.free b { color: rgba(255,255,255,0.5); }
   .keys { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 22px; color: rgba(255,255,255,0.38); }
+  /* Android app: which game bundle runs (automatic updates), small and dim */
+  .ver { position: absolute; right: 52px; bottom: 7px; font-size: 15px; color: rgba(255,255,255,0.22); display: none; }
+  .ver.on { display: block; }
+  #vMenu.inSec .ver { display: none; }
   .qrbox {
     position: absolute; right: 44px; bottom: 34px; width: 640px; height: 262px; box-sizing: border-box;
     padding: 20px; border-radius: 28px; background: #fff; color: #0a0c1f; display: flex; align-items: center;
@@ -221,6 +225,7 @@
       </div>
     </div>
     <div class="keys" id="menuKeys">◀ ▶ elegir juego · OK jugar</div>
+    <div class="ver" id="verTag"></div>
   </section>
 
   <!-- Game views are added here by each game's tv.js -->
@@ -665,7 +670,29 @@
 
   var qrLoaded = false;
   var qrImg = $('qrImg');
+  // Android app: «v0.8.0 · 24/10/2026» (and ↓ when it came as an automatic update)
+  var verShown = false;
+  function loadVersion() {
+    if (verShown || !httpBase || !window.XMLHttpRequest) return;
+    var x = new XMLHttpRequest();
+    x.open('GET', httpBase + '/info', true);
+    x.timeout = 4000;
+    x.onload = function () {
+      var j = null;
+      try { j = JSON.parse(x.responseText); } catch (e) { return; }
+      var b = j && j.tele && j.tele.bundle;
+      if (!b || !b.version) return;
+      verShown = true;
+      var m = /^([^+]+)\+(\d{4})(\d{2})(\d{2})/.exec(b.version);
+      var el = $('verTag');
+      setText(el, (m ? 'v' + m[1] + ' · ' + m[4] + '/' + m[3] + '/' + m[2] : 'v' + b.version) + (b.source === 'descargado' ? ' ↓' : ''));
+      el.classList.add('on');
+    };
+    x.send();
+  }
+
   function loadQr() {
+    loadVersion();
     if (qrLoaded || !httpBase) return;
     qrImg.onload = function () { qrLoaded = true; };
     qrImg.src = httpBase + '/qr.svg?t=' + Date.now();

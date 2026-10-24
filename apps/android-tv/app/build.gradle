@@ -16,6 +16,9 @@ def libnodeDir = file('libnode')
 // ABIs to build: the TVs are ARM. CI's emulator test adds x86_64 (-Pg2tAbis=x86_64)
 def abis = (project.findProperty('g2tAbis') ?: 'armeabi-v7a,arm64-v8a').toString().tokenize(',')*.trim()
 def bundleOut = layout.buildDirectory.dir('generated/g2t/assets')
+// Automatic game updates: where bundle.json + bundle.zip are published (the
+// «apk» branch, see .github/workflows/android.yml and Updater.java)
+def updateUrl = (project.findProperty('g2tUpdateUrl') ?: 'https://raw.githubusercontent.com/tonimas35/game-to-tv/apk/').toString()
 
 android {
     namespace 'io.gametotv.android'
@@ -28,6 +31,7 @@ android {
         targetSdk 34
         versionCode appVersionCode
         versionName appVersion
+        buildConfigField 'String', 'UPDATE_URL', '"' + updateUrl + '"'
         externalNativeBuild {
             cmake {
                 // libnode.so needs libc++_shared.so
@@ -66,6 +70,10 @@ android {
         debug {
             signingConfig signingConfigs.sideload
         }
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     externalNativeBuild {
@@ -116,7 +124,8 @@ dependencies {
 }
 
 // The Node.js project (server, games, public/, ws/qrcode/pngjs) goes into
-// assets/nodejs-project/ (src/drivers/android/bundle.js)
+// assets/nodejs-project/ (src/drivers/android/bundle.js). CI zips this same
+// folder as bundle.zip for the automatic updates.
 def bundleNodeProject = tasks.register('bundleNodeProject', Exec) {
     def out = bundleOut.get().dir('nodejs-project').asFile
     workingDir repoRoot
@@ -124,7 +133,10 @@ def bundleNodeProject = tasks.register('bundleNodeProject', Exec) {
     inputs.dir(new File(repoRoot, 'src'))
     inputs.dir(new File(repoRoot, 'public'))
     inputs.file(new File(repoRoot, 'package.json'))
+    inputs.file(new File(repoRoot, 'apps/android-tv/bundle-contract.json'))
     outputs.dir(out)
+    // bundle.json carries the commit's build number: always regenerate (about 1 s)
+    outputs.upToDateWhen { false }
 }
 
 def checkLibnode = tasks.register('checkLibnode') {

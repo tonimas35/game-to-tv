@@ -1,0 +1,4 @@
+{
+  "nota": "minApp = versionCode mínimo de la app (APK) que puede ejecutar el paquete de juegos que se descarga solo. Súbelo SOLO cuando cambie el contrato entre Java y Node (argumentos de NodeService, main.js, /info, estado.json, puerto…). Las teles con una app más vieja se quedan con su paquete hasta que se instale un APK nuevo. Ver docs/tele-android.md («Actualizaciones automáticas»).",
+  "minApp": 80000
+}

@@ -1,11 +1,16 @@
 # «Juegos del Salón» for Android TV / Google TV / Fire TV (apps/android-tv/).
 #
+#  pruebas   npm test + npm run check (nothing is published without them)
 #  apk       the APKs (armeabi-v7a, arm64-v8a and universal), signed with the
 #            sideload key committed in apps/android-tv/ so that `adb install -r`
 #            accepts every new build. Artifact: juegos-del-salon-android
 #  emulador  the same app built for x86_64 on an Android 12 emulator with the
 #            «Android TV (1080p)» profile: Node starts, /info answers, the TV
-#            page scales to the screen and the remote keys work (D-pad, OK, Back)
+#            page scales to the screen and the remote keys work (D-pad, OK, Back);
+#            then the automatic game updates against a fake server (ota-check.js)
+#  publicar  main only, when all of the above pass: the APKs and the game
+#            bundle (bundle.zip + bundle.json, what the installed apps download
+#            by themselves) go to the «apk» branch
 name: Android TV
 
 on:
@@ -31,9 +36,20 @@ env:
   NODEJS_MOBILE_VERSION: v18.20.4
 
 jobs:
+  pruebas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run check
+
   apk:
-    permissions:
-      contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -84,27 +100,19 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      # Public, stable download links (no login): the APKs go to the «apk»
-      # branch, so a TV browser can fetch https://github.com/<repo>/raw/apk/tv.apk
-      # (tv.apk = armeabi-v7a: Android TV, Google TV and Fire TV, 32 and 64 bits)
-      - name: Publicar en la rama «apk»
-        if: github.ref == 'refs/heads/main'
-        env:
-          VERSION: ${{ steps.v.outputs.version }}
+      # The game bundle for the automatic updates: exactly the nodejs-project
+      # folder that went into these APKs (assets), zipped
+      - name: Paquete de juegos (bundle.zip + bundle.json)
         run: |
-          set -e
-          mkdir pub && cd pub
-          cp ../dist/*-armeabi-v7a.apk tv.apk
-          cp ../dist/*-arm64-v8a.apk tv-arm64.apk
-          cp ../dist/*-universal.apk tv-universal.apk
-          sha256sum *.apk > SHA256SUMS.txt
-          printf '# Juegos del Salón para Android TV / Fire TV\n\nVersión %s. Descarga directa: `tv.apk` (vale para casi todas las teles y Fire TV).\nGuía: docs/tele-android.md en la rama main.\n' "$VERSION" > README.md
-          git init -q -b apk
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -q -m "APK $VERSION ($GITHUB_SHA)"
-          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" apk
+          node scripts/android-bundle.js --ota dist/ota --from apps/android-tv/app/build/generated/g2t/assets/nodejs-project
+          cat dist/ota/bundle.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: juegos-del-salon-bundle
+          path: dist/ota/
+          if-no-files-found: error
+          retention-days: 90
 
   emulador:
     runs-on: ubuntu-24.04
@@ -153,7 +161,7 @@ jobs:
           profile: tv_1080p
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 2048
-          script: G2T_NOTICE=1 G2T_NOTICE_LINES=40 bash apps/android-tv/ci/run.sh "Emulador" bash apps/android-tv/ci/emulator-test.sh apps/android-tv/app/build/outputs/apk/release/app-x86_64-release.apk emulador
+          script: G2T_NOTICE=1 G2T_NOTICE_LINES=60 bash apps/android-tv/ci/run.sh "Emulador" bash apps/android-tv/ci/emulator-test.sh apps/android-tv/app/build/outputs/apk/release/app-x86_64-release.apk emulador
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -162,3 +170,47 @@ jobs:
           path: emulador/
           if-no-files-found: ignore
           retention-days: 14
+
+  # Public, stable download links (no login), only from main and only if the
+  # tests, the APK build and the emulator all passed: a broken commit never
+  # reaches the TVs. The «apk» branch gets:
+  #   tv.apk (armeabi-v7a: Android TV, Google TV and Fire TV, 32 and 64 bits),
+  #   tv-arm64.apk, tv-universal.apk: https://github.com/<repo>/raw/apk/tv.apk
+  #   bundle.zip + bundle.json: the game bundle that installed apps download by
+  #   themselves (Updater.java reads raw.githubusercontent.com/<repo>/apk/bundle.json)
+  publicar:
+    if: github.ref == 'refs/heads/main'
+    needs: [pruebas, apk, emulador]
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: juegos-del-salon-android
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: juegos-del-salon-bundle
+          path: dist/ota
+      - name: Publicar en la rama «apk»
+        run: |
+          set -e
+          VERSION="$(node -p "require('./package.json').version")"
+          BUNDLE="$(node -p "require('./dist/ota/bundle.json').version")"
+          mkdir pub && cd pub
+          cp ../dist/*-armeabi-v7a.apk tv.apk
+          cp ../dist/*-arm64-v8a.apk tv-arm64.apk
+          cp ../dist/*-universal.apk tv-universal.apk
+          cp ../dist/ota/bundle.zip ../dist/ota/bundle.json .
+          sha256sum *.apk bundle.zip > SHA256SUMS.txt
+          printf '# Juegos del Salón para Android TV / Fire TV\n\nVersión %s (juegos %s). Descarga directa: `tv.apk` (vale para casi todas las teles y Fire TV).\nLa app instalada se actualiza sola los juegos con `bundle.json` + `bundle.zip`.\nGuía: docs/tele-android.md en la rama main.\n' "$VERSION" "$BUNDLE" > README.md
+          cat bundle.json
+          git init -q -b apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "APK $VERSION, juegos $BUNDLE ($GITHUB_SHA)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" apk
