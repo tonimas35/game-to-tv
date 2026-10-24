@@ -174,6 +174,28 @@ una clave de tienda**. Si alguna vez instalas un APK firmado con otra clave,
 `adb install -r` falla con `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: desinstala
 primero (`adb uninstall io.gametotv.android`).
 
+## Sin ordenador: desde la propia tele
+
+No hace falta depuración ni PC. Cada versión de `main` se publica, sin
+iniciar sesión, en:
+
+```
+https://github.com/tonimas35/game-to-tv/raw/apk/tv.apk
+```
+
+(`tv.apk` es la versión de 32 bits, que funciona en casi todas las Android TV,
+Google TV y Fire TV; también hay `tv-arm64.apk` y `tv-universal.apk`.)
+
+1. Instala un navegador en la tele (en Android TV, por ejemplo **TV Bro**; en
+   Fire TV, la app **Downloader** o **Amazon Silk**).
+2. Abre esa dirección y descarga el archivo.
+3. Ábrelo: la tele dirá que no puede instalar apps de esa fuente. Pulsa
+   **Ajustes**, activa el permiso para ese navegador y vuelve atrás: sale el
+   instalador. Pulsa **Instalar** y luego **Abrir**.
+4. Desde entonces, «Juegos del Salón» está en la lista de apps de la tele.
+
+Para actualizar, repite los pasos: la versión nueva se instala encima.
+
 ## 4. Jugar
 
 Abre **«Juegos del Salón»** desde la pantalla de inicio de la tele (en Android
