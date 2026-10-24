@@ -2,9 +2,9 @@
 
 **Juegos de grupo para el salón (de 2 a 6 jugadores, y «2048» también a solas): la tele es la pantalla y
 los móviles son los mandos.** Se escanea un QR y a jugar: no hay que instalar nada en los móviles.
-Un pequeño servidor de Node.js reparte el juego. En una **tele LG va dentro de
-la propia tele** (el PC solo hace falta para instalar la app); con cualquier
-otra pantalla, corre en un PC de casa. Unos *drivers* se encargan de poner los
+Un pequeño servidor de Node.js reparte el juego. En una **tele LG o Android
+(Android TV, Google TV, Fire TV) va dentro de la propia tele** (el PC solo hace
+falta para instalar la app); con cualquier otra pantalla, corre en un PC de casa. Unos *drivers* se encargan de poner los
 juegos en la tele (instalar una app, abrirla, mandar avisos, hacer capturas…).
 
 ![Menú de Juegos del Salón en la tele](docs/img/menu.jpg)
@@ -72,9 +72,8 @@ que sois, lo pone en gris con el motivo («De 2 a 4 jugadores · sois 6»).
 |---|---|---|
 | LG webOS (probado en webOS 22) | ✅ sin PC (la tele es el servidor) | App instalada con el modo desarrollador; el servidor de los juegos va dentro de la tele. Desde el PC: instalar, abrir, estado, avisos, botones, capturas y medir FPS. También en modo pc (`--modo pc`). |
 | Navegador (cualquier tele, proyector o portátil con navegador) | ✅ | Abrir la dirección que muestra `game-to-tv start`. Nada que instalar. |
-| Amazon Fire TV | 🔜 | De momento, con el driver «Navegador» y el navegador Silk. Plan en [src/drivers/firetv/README.md](src/drivers/firetv/README.md). |
+| Android TV / Google TV / Fire TV | ✅ app con el servidor dentro | App «Juegos del Salón» (Android 7+, ARM de 32 o 64 bits) instalada con `adb` desde el PC; el servidor de los juegos va dentro de la tele (Node.js de nodejs-mobile, puerto 8090). Desde el PC: instalar, abrir, estado, información, botones, capturas y FPS. Guía: [docs/tele-android.md](docs/tele-android.md). |
 | Samsung Tizen | 🔜 | Pendiente (ver [docs/roadmap.md](docs/roadmap.md)). |
-| Android TV / Google TV | 🔜 | Pendiente. |
 
 ## La forma más fácil (sin saber nada técnico)
 
@@ -170,6 +169,23 @@ completa, con el modo tele y el modo pc: [docs/tele-lg.md](docs/tele-lg.md).
 atascado en páginas que no cargaban a la primera. La app espera a que el
 servidor responda y entonces abre los juegos.
 
+### Android TV, Google TV y Fire TV
+
+```bash
+game-to-tv tv add salon 192.168.1.60 --driver android
+game-to-tv tv pair salon                # acepta «¿Permitir la depuración?» en la tele
+game-to-tv tv install salon             # la app CON el servidor dentro (o --apk ARCHIVO)
+game-to-tv tv open salon                # o ábrela con el mando: «Juegos del Salón»
+```
+
+Antes hay que activar las **opciones para desarrolladores** y la depuración
+en la tele, y tener `adb` (Android platform-tools) en el PC. El APK lo compila
+GitHub Actions (artefacto `juegos-del-salon-android`, uno por procesador);
+`tv install` elige el que le toca a la tele. Como en LG, al abrir la app la
+tele arranca su servidor (puerto 8090) y el QR apunta a ella; se apaga solo 15
+minutos después de salir de la app si no queda nadie. Guía completa, también
+para instalarla con `adb` a secas: [docs/tele-android.md](docs/tele-android.md).
+
 ### Cualquier otra pantalla con navegador
 
 ```bash
@@ -205,11 +221,12 @@ fotos, muestra un fondo tranquilo. En LG: `game-to-tv tv open salon --ruta /ambi
 | Comando | Para qué |
 |---|---|
 | `game-to-tv start [--port 3000] [--host-ip IP] [--jugadores 6] [--galeria DIR] [--abrir TELE] [--navegador] [--sencillo]` | Arranca el servidor (6 huecos de jugador por defecto, de 2 a 8). `--navegador` abre la pantalla de la tele en este PC a pantalla completa; `--sencillo`, instrucciones cortas para la familia. Sin configuración ni teles, arranca igual en el puerto 3000 sin preguntar nada |
-| `game-to-tv doctor` | Revisa Node, puerto, IP, cortafuegos de Windows, ares-cli y teles (no cambia nada) |
+| `game-to-tv doctor` | Revisa Node, puerto, IP, cortafuegos de Windows, ares-cli, adb y teles (no cambia nada) |
 | `game-to-tv tv scan` | Busca teles (LG por SSDP) |
-| `game-to-tv tv add NOMBRE IP [--driver webos\|browser]` · `tv list` · `tv remove NOMBRE` | Gestiona las teles |
+| `game-to-tv tv add NOMBRE IP [--driver webos\|android\|browser]` · `tv list` · `tv remove NOMBRE` | Gestiona las teles |
 | `game-to-tv tv pair NOMBRE` | Empareja (aviso en la tele) |
 | `game-to-tv tv install NOMBRE [--modo tele\|pc] [--server-url URL] [--puerto 8090] [--jugadores 6] [--solo-ipk]` · `tv ipk` | Crea e instala la app (LG: modo tele por defecto, con el servidor dentro) |
+| `game-to-tv tv install NOMBRE [--apk ARCHIVO.apk\|CARPETA\|ARTEFACTO.zip]` | Android TV / Google TV / Fire TV: instala con `adb` el APK de su procesador (sin `--apk`, el último de GitHub Actions) |
 | `game-to-tv tv open NOMBRE [--ruta /ambiente]` | Abre los juegos en la tele |
 | `game-to-tv tv status NOMBRE [--logs]` | ¿Responde el servidor de dentro de la tele? Versión, Node, galería y registro |
 | `game-to-tv tv shot NOMBRE [archivo.jpg]` | Captura de pantalla de la tele |
@@ -237,6 +254,7 @@ el hub. Guía paso a paso con un juego completo de ejemplo («Reflejos», de 2 a
 - [docs/crear-un-juego.md](docs/crear-un-juego.md): tu propio juego en una tarde.
 - [docs/drivers.md](docs/drivers.md): cómo dar soporte a otra marca de tele.
 - [docs/tele-lg.md](docs/tele-lg.md): guía completa para LG (modo tele y modo pc, modo desarrollador incluido).
+- [docs/tele-android.md](docs/tele-android.md): Android TV, Google TV y Fire TV (depuración, `adb`, la app con el servidor dentro).
 - [docs/solucion-problemas.md](docs/solucion-problemas.md): cortafuegos, IP, FPS, salvapantallas, YouTube, iconos…
 - [docs/roadmap.md](docs/roadmap.md): lo que viene.
 - [CHANGELOG.md](CHANGELOG.md): cambios de cada versión.
@@ -257,9 +275,11 @@ bash test/instalar/simular.sh   # ensayo completo de los instaladores de un clic
 
 **game-to-tv** turns the living-room TV into a party-game screen while
 everyone's phone becomes the controller (scan a QR code, no app install). A
-small Node.js server (HTTP + WebSocket on one port) runs either INSIDE an LG
-webOS TV (as a JS service of the launcher app, on the TV's own Node 12, port
-8090: no PC needed to play) or on a PC on the home LAN. Games are self-contained folders (`src/games/<id>/`: manifest, server
+small Node.js server (HTTP + WebSocket on one port) runs either INSIDE the TV
+(an LG webOS TV, as a JS service of the launcher app on the TV's own Node 12;
+or an Android TV / Google TV / Fire TV, in the app «Juegos del Salón» with
+Node 18 from nodejs-mobile; port 8090 either way: no PC needed to play) or on
+a PC on the home LAN. Games are self-contained folders (`src/games/<id>/`: manifest, server
 module, TV view, phone view); the hub handles players, reconnection, the menu
 and the QR. *Drivers* get the game screen onto TVs: the LG webOS driver
 discovers TVs (SSDP), pairs over SSAP, builds and installs the launcher app
@@ -267,7 +287,8 @@ with its server service (pure-JS `.ipk` packaging or `ares-package`, installed
 with LG's `ares-cli` in Developer Mode), launches it, checks the TV-hosted
 server, sends toasts and remote buttons, takes screenshots and measures
 real FPS through Chrome DevTools. A generic «browser» driver covers any screen
-with a web browser; Fire TV, Tizen and Android TV are on the roadmap.
+with a web browser; the «android» driver installs the Android TV app with adb
+(sideload APKs built by GitHub Actions). Tizen is on the roadmap.
 Rooms hold up to 6 players by default. Includes «Dibuja y adivina»
 (Pictionary: cooperative for two, free-for-all with a rotating drawer for 3-6),
 Pong (doubles for 3-4, foosball-style paddles), «El Infiltrado» (a social

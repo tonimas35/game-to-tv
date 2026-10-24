@@ -6,8 +6,9 @@ Un **driver** es el código que sabe hablar con un tipo de pantalla. Están en
 | Driver | Estado | Qué hace |
 |---|---|---|
 | `webos` | ✅ | LG webOS: SSDP, emparejamiento SSAP, app con el servidor dentro de la tele (modo tele) o lanzadora (modo pc), estado del servidor de la tele, avisos, botones, capturas, FPS por DevTools. |
+| `android` | ✅ | Android TV, Google TV y Fire TV por `adb`: app con el servidor dentro de la tele (nodejs-mobile), APK según el procesador, estado del servidor, información, botones, capturas y FPS por las DevTools del WebView. Guía: [tele-android.md](tele-android.md). |
 | `browser` | ✅ | Cualquier pantalla con navegador: solo da la dirección (y un QR). |
-| `firetv` | 🔜 | Esqueleto con el plan ([README](../src/drivers/firetv/README.md)). |
+| `firetv` | ↪ | Solo explica que las Fire TV usan el driver `android`. |
 
 ## La interfaz
 
@@ -60,6 +61,7 @@ module.exports = {
    `src/drivers/webos/bundle.js`).
 4. Si hay herramientas externas (como `ares-cli` o `adb`), búscalas en el
    `PATH` y, si faltan, explica **los pasos exactos** para instalarlas.
+   Ejecútalas sin shell siempre que se pueda (mira `src/drivers/android/adb.js`).
 5. Pruebas en `test/<id>.test.js` **sin tele real**: un servidor falso que hable
    el protocolo (mira `test/helpers/fake-tv.js`) y comandos falsos en un `PATH`
    temporal (como los `ares-*` de `test/webos.test.js`).
@@ -78,5 +80,17 @@ module.exports = {
 | `ipk.js` | `.ipk` en JavaScript puro (`ar` + `tar.gz`), con la app y sus servicios, como `ares-package`. |
 | `ares.js` | Ejecuta `ares-setup-device`, `ares-package` (`<app> <servicio> --no-minify` en modo tele), `ares-install`, `ares-inspect` y escribe los pasos si faltan. |
 | `cdp.js` | Mide FPS con `Runtime.evaluate` (`requestAnimationFrame` durante N s) por el protocolo de DevTools. |
+
+## Cómo está hecho el de Android (`src/drivers/android/`)
+
+| Archivo | Qué hace |
+|---|---|
+| `adb.js` | Busca `adb` (`GAME_TO_TV_ADB`, `PATH`, SDK de Android, `~/.game-to-tv/platform-tools`). Arranca antes el servidor de adb aparte y sin tuberías (`adb start-server`) y ejecuta `adb` siempre sin shell; `connect`, `get-state`, `shell` (con cada argumento entrecomillado para el `sh` de la tele) y `getprop`. |
+| `artifact.js` | Elige el APK por ABI (`ro.product.cpu.abilist`), descomprime el `.zip` del artefacto y descarga el último de GitHub Actions (con token de `GITHUB_TOKEN`/`GH_TOKEN` o `gh auth token`). |
+| `bundle.js` | El proyecto de Node que va dentro del APK (el mismo contenido que el servicio de webOS, más `main.js` y `files.txt`). |
+| `index.js` | `pair`, `install`, `launch` (`am start … --es path`), `status` (`GET :8090/info`), `info`, `sendKey` (`input keyevent`), `screenshot` (`exec-out screencap -p`) y `perf` (`adb forward … webview_devtools_remote_<pid>` + `cdp.js` de webOS). |
+
+La app está en `apps/android-tv/` (ver su README) y el servidor que corre
+dentro, en `src/tv-service/android.js`.
 
 Ideas para otras marcas: [roadmap.md](roadmap.md).

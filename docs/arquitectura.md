@@ -40,11 +40,12 @@ en dos sitios:
 | `src/cli/` | Comandos: `start`, `doctor` (con el análisis del cortafuegos), `tv …`. Analizador de argumentos mínimo, sin dependencias. |
 | `src/config.js` | `~/.game-to-tv/config.json` (teles, clave de emparejamiento, carpetas). Se escribe con permisos `0600`. `GAME_TO_TV_HOME` la mueve. |
 | `src/server/` | `index.js` (HTTP, WebSocket, rutas; modo `pc` o `tele`), `hub.js` (jugadores y juegos), `net.js` (IP de la red local), `ambient.js` (modo ambiente). |
-| `src/tv-service/` | El servicio JS de webOS del modo tele: `core.js` (métodos `start`, `status`, `heartbeat`, `stop`, `logs`; IP de la tele, carpeta de la galería, apagado por inactividad) y `service.js` (la entrada que ejecuta webOS). |
+| `src/tv-service/` | El servidor del modo tele: `core.js` (métodos `start`, `status`, `heartbeat`, `stop`, `logs`; IP de la tele, carpeta de la galería, apagado por inactividad), `service.js` (la entrada que ejecuta webOS) y `android.js` (la que ejecuta la app de Android con nodejs-mobile). |
 | `src/games/` | `index.js` (registro de juegos) y una carpeta por juego. |
 | `public/` | `tv.html` y `m.html` (los *shells*), `ambiente.html`, `keepalive.mp4` y `lib/` (ayudas compartidas del navegador). |
 | `src/drivers/` | Interfaz y registro de drivers, y uno por tipo de tele. |
 | `apps/webos-launcher/` | Plantilla de la app lanzadora para LG (una sola, para el modo tele y el modo pc). |
+| `apps/android-tv/` | App de Android TV / Google TV / Fire TV (Gradle, Java): `WebView` y servicio con Node.js (nodejs-mobile) en el proceso `:node`. La compila `.github/workflows/android.yml`. |
 | `scripts/` | `check-browser-js.js` (ES2019), `check-node12.js` (el servidor de la tele, compatible con Node 12) y `make-icons.js`. |
 | `test/` | Pruebas sin dependencias de test (scripts de Node con `check()`). |
 
@@ -96,6 +97,35 @@ en dos sitios:
 - **Node 12**: la tele trae Node 12.21. `npm run check` analiza el paquete real
   (acorn en ES2019 + APIs prohibidas) y las pruebas arrancan el servicio
   empaquetado; `npm run test:node12` lo pasa todo con Node 12.
+
+## El modo tele en Android (`apps/android-tv/`, `src/tv-service/android.js`)
+
+```
+  ┌──────────────────────── Tele Android (TV, Google TV, Fire TV) ─────────────────────┐
+  │  MainActivity (proceso principal): WebView a pantalla completa                     │
+  │    1. «Preparando los juegos…» (assets/loading.html)                               │
+  │    2. ¿/info responde? no → startForegroundService(NodeService, IP de Java)        │
+  │    3. sondea http://127.0.0.1:8090/info  →  4. abre http://127.0.0.1:8090/        │
+  │    al salir: about:blank (la página deja de contar como pantalla)                  │
+  │                                                                                    │
+  │  NodeService (proceso :node, servicio en primer plano)                             │
+  │    copia assets/nodejs-project → files/ · node::Start(main.js --host-ip …)         │
+  │    src/tv-service/android.js → core.js: el MISMO servidor, puerto 8090             │
+  │    15 min sin pantalla ni jugadores → cierra y SIGKILL al proceso :node            │
+  └────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Un proceso para Node**: nodejs-mobile solo puede arrancar Node una vez
+  por proceso. Al apagarse el servidor, el proceso termina; la próxima vez que
+  se abre la app se arranca otro. Si sigue vivo, se reutiliza.
+- **La IP para el QR la da Java** (`ConnectivityManager`/`LinkProperties`
+  de la red activa, cable antes que Wi‑Fi): `os.networkInterfaces()` no es
+  fiable en Android. Si cambia, la app reinicia el servidor.
+- **Datos** en `files/datos/` (galería, récords, `estado.json` con el
+  estado o el error del arranque).
+- **Teclas**: el `WebView` recibe flechas y Enter; Atrás manda Escape a la
+  página o, en el menú principal (`window.__tv.atMainMenu()`), sale con dos
+  pulsaciones seguidas.
 
 ## El hub (`src/server/hub.js`)
 

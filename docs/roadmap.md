@@ -5,10 +5,10 @@ Ideas ordenadas más o menos por prioridad. ¿Te apetece alguna? Mira
 
 ## Pantallas
 
-- **Fire TV** (driver `firetv`): `adb` por la red, una APK mínima con un
-  `WebView`, `adb screencap` y `adb shell input keyevent`. Plan detallado en
-  [src/drivers/firetv/README.md](../src/drivers/firetv/README.md).
-- **Android TV / Google TV**: casi lo mismo que Fire TV (misma APK).
+- ~~Fire TV, Android TV y Google TV~~: hecho, con el servidor dentro de la
+  tele ([tele-android.md](tele-android.md)). Pendiente: publicar los APK en
+  las «releases» para descargarlos sin iniciar sesión en GitHub, y buscar las
+  teles Android en la red (`tv scan`).
 - **Samsung Tizen**: app web empaquetada (`.wgt`) con Tizen Studio / `tizen`
   CLI en modo desarrollador; control remoto por el WebSocket de Samsung
   (puerto 8002) con su emparejamiento por aviso.

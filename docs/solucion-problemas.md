@@ -235,3 +235,11 @@ Pon imágenes `.jpg`, `.png`, `.webp` o `.gif` en `~/.game-to-tv/ambiente` (o la
 carpeta de `AMBIENTE_DIR` / `ambientDir` en la configuración). La lista se
 relee cada 5 minutos. Zona horaria del reloj: `timezone` en la configuración o
 `TZ_AMBIENTE` (por defecto `Europe/Madrid`).
+
+## Android TV, Google TV y Fire TV
+
+Conexión por `adb`, autorización, firma del APK, «Preparando los juegos…» que
+no acaba y móviles que no llegan a la tele: tabla en
+[tele-android.md](tele-android.md#solución-de-problemas). El registro del
+servidor se ve con `game-to-tv tv status NOMBRE --logs`, en
+`http://IP-DE-LA-TELE:8090/logs` o con `adb logcat -s g2t g2t-node`.

@@ -3,6 +3,42 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versiones según [SemVer](https://semver.org/lang/es/).
 
+## Sin publicar
+
+### Añadido
+
+- **Android TV, Google TV y Fire TV con el servidor dentro de la tele**: la
+  app «Juegos del Salón» (`apps/android-tv/`, `io.gametotv.android`) lleva
+  Node.js 18 (nodejs-mobile) y arranca el mismo servidor que el modo tele de
+  LG (puerto 8090) en un servicio en primer plano de su propio proceso. La
+  pantalla es un `WebView` a pantalla completa con «Preparando los juegos…»
+  mientras arranca; el QR usa la IP de la tele que da Android (cable o
+  Wi‑Fi). Mando: flechas y OK, **Atrás** como en LG (en el menú principal,
+  dos veces para salir) y teclas multimedia. Se apaga solo 15 minutos después
+  de salir de la app si no queda nadie; al volver a abrirla, reutiliza el
+  servidor si sigue encendido. Sale en la pantalla de inicio de Android TV y
+  Google TV (banner propio) y en la de Fire TV.
+- Driver **`android`** (`game-to-tv tv add NOMBRE IP --driver android`), con
+  `adb`: `tv pair` (aviso de depuración en la tele), `tv install` (el APK de
+  su procesador; `--apk` con un .apk, una carpeta o el .zip del artefacto, o
+  sin `--apk` el último de GitHub Actions), `tv open [--ruta]`, `tv status`
+  (el servidor de dentro de la tele), `tv info`, `tv key`, `tv shot` y
+  `tv perf`. `adb` se busca en `GAME_TO_TV_ADB`, el `PATH` y las carpetas
+  habituales del SDK, y siempre se ejecuta sin shell, con su servidor
+  arrancado aparte. `doctor` revisa `adb` y las teles Android.
+- GitHub Actions (`.github/workflows/android.yml`): APKs para armeabi-v7a,
+  arm64-v8a y universal (artefacto `juegos-del-salon-android`), firmados con
+  una clave de sideload incluida en el repositorio para que `adb install -r`
+  actualice siempre; y una prueba en un emulador con perfil de tele (Node,
+  `/info`, escala de la página y teclas del mando).
+- Guía [docs/tele-android.md](docs/tele-android.md).
+
+### Cambiado
+
+- `--driver firetv` remite al driver `android`.
+- La página de la tele limita los canvas a 1280 px de ancho también en la app
+  de Android (como en webOS) y expone `window.__tv.atMainMenu()`.
+
 ## 0.7.0 - 2026-10-15
 
 ### Añadido
