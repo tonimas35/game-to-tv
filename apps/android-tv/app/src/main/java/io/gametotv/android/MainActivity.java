@@ -73,6 +73,7 @@ public class MainActivity extends Activity {
     private volatile boolean failed;
     private long lastBackAt;
     private String path = "/";
+    private int idleMin;                 // tests only: `am start … --ei idleMin 1` (default 15, NodeService)
     private String version = "?";
 
     @Override
@@ -81,6 +82,7 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON | WindowManager.LayoutParams.FLAG_FULLSCREEN);
         try { version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception e) { /* noop */ }
         path = pathFrom(getIntent());
+        idleMin = getIntent() != null ? getIntent().getIntExtra(NodeService.EXTRA_IDLE_MIN, 0) : 0;
         io = Executors.newSingleThreadExecutor();
         // `game-to-tv tv perf` measures FPS through DevTools (adb forward … webview_devtools_remote_<pid>)
         WebView.setWebContentsDebuggingEnabled(true);
@@ -275,6 +277,7 @@ public class MainActivity extends Activity {
     private void startNode(Net.Result net) {
         Intent i = new Intent(this, NodeService.class).setAction(NodeService.ACTION_START);
         if (net.ip != null) i.putExtra(NodeService.EXTRA_HOST_IP, net.ip).putExtra(NodeService.EXTRA_NET, net.kind);
+        if (idleMin > 0) i.putExtra(NodeService.EXTRA_IDLE_MIN, idleMin);
         try {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
             else startService(i);

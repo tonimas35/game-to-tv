@@ -138,6 +138,33 @@ async function menu() { return ev('window.__tv.menu()'); }
     check(!!(await waitFor(async function () { return (await menu()).row === 'main'; }, 8000, 'stop')), 'Stop del mando hace de Atrás');
   }
 
+  // Two phones join (through the forwarded port, like phones on the Wi-Fi),
+  // a game starts and Back on the remote asks before leaving it
+  const WebSocket = require('ws');
+  function phone(name) {
+    return new Promise(function (resolve, reject) {
+      const ws = new WebSocket(SERVER.replace('http', 'ws') + '/ws');
+      ws.on('open', function () { ws.send(JSON.stringify({ t: 'join', name: name, cid: 'cid-' + name })); resolve(ws); });
+      ws.on('error', reject);
+    });
+  }
+  const p1 = await phone('Ana');
+  const p2 = await phone('Luis');
+  check(!!(await waitFor(async function () { return (await getJson(SERVER + '/info')).actividad.players === 2; }, 10000, 'dos móviles')), 'Dos móviles se unen por el puerto 8090');
+  p1.send(JSON.stringify({ t: 'pick', game: 'ejemplo-reflejos' }));
+  check(!!(await waitFor(async function () { return (await ev('__tv.screen()')) !== 'menu'; }, 10000, 'empieza el juego')), 'Un móvil elige «Reflejos» y la tele cambia al juego');
+  await sleep(1500);
+  shot('3b-juego');
+  key('KEYCODE_BACK');
+  check(!!(await waitFor(function () { return ev('document.getElementById("confirm").classList.contains("on")'); }, 8000, 'confirmación')), 'En un juego, Atrás pregunta «¿Volver al menú?» (Escape en la página)');
+  check(foreground(), 'Y la app sigue delante');
+  key('KEYCODE_DPAD_LEFT');
+  await sleep(400);
+  key('KEYCODE_DPAD_CENTER');
+  check(!!(await waitFor(async function () { return (await ev('__tv.screen()')) === 'menu'; }, 10000, 'vuelta al menú')), '◀ y OK en «Sí, al menú» vuelven al menú');
+  p1.close();
+  p2.close();
+
   // At the main menu: one Back stays, two Backs within 2 s exit
   key('KEYCODE_BACK');
   await sleep(2600);
@@ -157,6 +184,27 @@ async function menu() { return ev('window.__tv.menu()'); }
   check(sh('pidof ' + APP + ':node') === pidNode, 'Y reutiliza el mismo servidor (mismo proceso :node)');
   await sleep(1000);
   shot('5-otra-vez');
+
+  // Idle shutdown end to end, with a fresh server that shuts down after 1 min
+  // (`--ei idleMin 1`, only for this test; the app uses 15)
+  adb(['shell', 'am', 'force-stop', APP]);
+  await waitFor(function () { return !sh('pidof ' + APP + ':node'); }, 15000, 'force-stop');
+  adb(['shell', 'am', 'start', '-n', APP + '/.MainActivity', '--ei', 'idleMin', '1']);
+  const fresh = await waitFor(page, 90000, 'arranque con idleMin 1');
+  const info1 = fresh ? await getJson(SERVER + '/info') : {};
+  const pidIdle = sh('pidof ' + APP + ':node');
+  check(!!fresh && info1.tele && info1.tele.idleMinutes === 1 && pidIdle && pidIdle !== pidNode, 'Servidor nuevo (proceso ' + pidIdle + ') que se apaga tras 1 min sin uso');
+  key('KEYCODE_HOME');
+  check(!!(await waitFor(function () { return !foreground(); }, 8000, 'Inicio')), 'Botón Inicio: la app queda detrás');
+  const t0 = Date.now();
+  const gone = await waitFor(function () { return !sh('pidof ' + APP + ':node'); }, 180000, 'apagado por inactividad');
+  check(!!gone, 'Sin pantalla ni jugadores, el proceso :node termina solo (' + Math.round((Date.now() - t0) / 1000) + ' s)');
+  adb(['shell', 'am', 'start', '-n', APP + '/.MainActivity']);
+  const again = await waitFor(page, 90000, 'volver a abrir tras el apagado');
+  const pidNew = sh('pidof ' + APP + ':node');
+  check(!!again && pidNew && pidNew !== pidIdle, 'Al volver a abrir la app, arranca otro servidor (proceso ' + pidNew + ')');
+  await sleep(1000);
+  shot('6-tras-apagado');
   finish();
 })().catch(function (e) {
   console.log(e && e.stack || e);

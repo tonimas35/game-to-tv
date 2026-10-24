@@ -17,7 +17,7 @@ echo "build-tools: $BT"
 for f in "$DIST"/*.apk; do
   echo "== $(basename "$f") $(du -h "$f" | cut -f1) ($(stat -c %s "$f") bytes)"
   unzip -l "$f" > "$DIST/.list"
-  grep -E 'lib/|assets/nodejs-project/(main\.js|files\.txt|bundle\.json)' "$DIST/.list" || true
+  grep -E ' lib/[a-z0-9_-]+/[^/]+\.so$|assets/nodejs-project/(main\.js|files\.txt|bundle\.json)$' "$DIST/.list" || true
   grep -c 'assets/nodejs-project/' "$DIST/.list" | sed 's/^/   archivos del proyecto de Node: /'
   grep 'assets/nodejs-project/main.js' "$DIST/.list" > /dev/null
   grep 'libnode.so' "$DIST/.list" > /dev/null
@@ -26,6 +26,8 @@ for f in "$DIST"/*.apk; do
 done
 rm -f "$DIST/.list"
 (cd "$DIST" && sha256sum ./*.apk | sed 's# \./# #' > SHA256SUMS.txt && cat SHA256SUMS.txt)
+echo "---- APKs ----"
+for f in "$DIST"/*.apk; do echo "$(basename "$f"): $(stat -c %s "$f") bytes ($(du -h "$f" | cut -f1))"; done
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     echo "### Juegos del Salón $V para Android TV"

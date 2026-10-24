@@ -36,7 +36,7 @@ import java.util.List;
  * On Android TV the notification is not normally visible.
  *
  * Intents:
- *   ACTION_START  (extras: hostIp, net) start Node if it is not running yet (idempotent)
+ *   ACTION_START  (extras: hostIp, net, idleMin) start Node if it is not running yet (idempotent)
  *   ACTION_STOP   stop: the app asks for it when the TV's IP changed or to retry
  */
 public class NodeService extends Service {
@@ -45,6 +45,7 @@ public class NodeService extends Service {
     static final String ACTION_STOP = "io.gametotv.android.STOP";
     static final String EXTRA_HOST_IP = "hostIp";
     static final String EXTRA_NET = "net";
+    static final String EXTRA_IDLE_MIN = "idleMin";
     static final int PORT = 8090;
     static final int IDLE_MINUTES = 15;
     static final int MAX_OLD_SPACE_MB = 128;   // the Philips TV has ~350 MB free in total
@@ -84,16 +85,18 @@ public class NodeService extends Service {
             }
             final String hostIp = ip;
             final String netKind = net;
+            int idle = intent != null ? intent.getIntExtra(EXTRA_IDLE_MIN, IDLE_MINUTES) : IDLE_MINUTES;
+            final int idleMin = idle >= 1 && idle <= 1440 ? idle : IDLE_MINUTES;
             // node::Start blocks until Node ends: its own thread with a big stack
             Thread t = new Thread(null, new Runnable() {
-                @Override public void run() { runNode(hostIp, netKind); }
+                @Override public void run() { runNode(hostIp, netKind, idleMin); }
             }, "nodejs", 16L * 1024 * 1024);
             t.start();
         }
         return START_NOT_STICKY;
     }
 
-    private void runNode(String hostIp, String net) {
+    private void runNode(String hostIp, String net, int idleMin) {
         Context c = getApplicationContext();
         File data = NodeBundle.dataDir(c);
         //noinspection ResultOfMethodCallIgnored
@@ -111,7 +114,7 @@ public class NodeService extends Service {
         argv.add("--max-old-space-size=" + MAX_OLD_SPACE_MB);
         argv.add(NodeBundle.mainScript(c).getAbsolutePath());
         argv.add("--port"); argv.add(String.valueOf(PORT));
-        argv.add("--idle-min"); argv.add(String.valueOf(IDLE_MINUTES));
+        argv.add("--idle-min"); argv.add(String.valueOf(idleMin));
         if (hostIp != null) { argv.add("--host-ip"); argv.add(hostIp); }
         if (net != null) { argv.add("--net"); argv.add(net); }
         argv.add("--data-dir"); argv.add(data.getAbsolutePath());
