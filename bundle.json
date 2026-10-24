@@ -1,0 +1,11 @@
+{
+  "version": "0.8.0+20261024154322",
+  "pkg": "0.8.0",
+  "build": 20261024154322,
+  "built": "2026-10-24T16:00:01.798Z",
+  "sha256": "7a87a40b60ff633b0ee2c91c84a0bdc8a846abde57e7c6c80f731d007997bdc2",
+  "size": 485141,
+  "minApp": 80000,
+  "commit": "d0bca25e2f5ffa79cc161d58e615378ff004ce9f",
+  "files": 212
+}
