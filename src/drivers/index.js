@@ -28,6 +28,7 @@ const { DriverError } = require('./errors');
 
 const DRIVERS = {
   webos: require('./webos'),
+  android: require('./android'),
   browser: require('./browser'),
   firetv: require('./firetv')
 };

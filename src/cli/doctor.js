@@ -5,7 +5,7 @@
  *  - the port is free (or already used by game-to-tv)
  *  - LAN IP (and suspicious adapters)
  *  - Windows firewall (network profile, Node.js block rules, port rule)
- *  - ares-cli (needed to install the LG app)
+ *  - ares-cli (needed to install the LG app) and adb (Android TV / Fire TV)
  *  - configured TVs (reachable?) and, for LG, whether the server inside the
  *    TV («modo tele», port 8090) is answering
  */
@@ -16,6 +16,7 @@ const config = require('../config');
 const { rankedIPv4, scoreIface } = require('../server/net');
 const drivers = require('../drivers');
 const ares = require('../drivers/webos/ares');
+const adb = require('../drivers/android/adb');
 const firewall = require('./firewall');
 const ui = require('./ui');
 
@@ -109,6 +110,13 @@ async function doctor(flags) {
     ui.warn('ares-cli no está instalado: solo hace falta para instalar la app en teles LG (npm install -g @webos-tools/cli).');
   }
 
+  // adb (Android TV / Google TV / Fire TV). Only looked for, never started here
+  const hasAndroid = Object.keys(cfg.tvs).some(function (k) { return cfg.tvs[k].driver === 'android'; });
+  const adbPath = adb.find();
+  if (adbPath) ui.ok('adb encontrado (' + adbPath + ')');
+  else if (hasAndroid) { problems++; ui.fail('No encuentro adb: hace falta para instalar y controlar las teles Android.\n' + adb.installHelp().split('\n').map(function (l) { return '      ' + l; }).join('\n')); }
+  else ui.info(ui.c.dim('adb no está instalado: solo hace falta para teles Android TV / Google TV / Fire TV (docs/tele-android.md).'));
+
   // Gallery folder
   const gdir = config.galleryDir(cfg);
   try { fs.mkdirSync(gdir, { recursive: true }); fs.accessSync(gdir, fs.constants.W_OK); ui.ok('Galería de dibujos: ' + gdir); }
@@ -137,6 +145,20 @@ async function doctor(flags) {
         ui.info(ui.c.dim('  Servidor dentro de «' + n + '»: no responde en ' + st.url + ' (normal si la app no está abierta: game-to-tv tv open ' + n + ')'));
       } else {
         ui.info(ui.c.dim('  Servidor dentro de «' + n + '»: no responde en ' + st.url + (t.mode === 'pc' ? ' (app instalada en modo pc)' : ' (¿instalada en modo tele? game-to-tv tv install ' + n + ')')));
+      }
+    } else if (t.driver === 'android') {
+      const port = Number(t.adbPort) || 5555;
+      const adbOpen = t.adbSerial ? null : await tcpReachable(t.ip, port);
+      const st = await d.status(Object.assign({ name: n }, t), { timeout: 1500 });
+      const parts = [adbOpen === null ? 'adb por ' + t.adbSerial : (adbOpen ? 'adb por red (puerto ' + port + ') abierto' : 'adb por red (puerto ' + port + ') no responde'),
+        t.installedAt ? 'app instalada' + (t.installedVersion ? ' (' + t.installedVersion + ')' : '') : 'app sin instalar desde este PC'];
+      if (adbOpen === false && !st.reachable) { problems++; ui.fail('Tele «' + n + '» (' + d.name + ', ' + t.ip + '): ' + parts.join(' · ') + ' (¿apagada, en otra red o sin la depuración activada? docs/tele-android.md)'); }
+      else ui.ok('Tele «' + n + '» (' + d.name + ', ' + t.ip + '): ' + parts.join(' · '));
+      if (st.reachable) {
+        const i = st.info || {};
+        ui.ok('  Servidor dentro de «' + n + '» respondiendo en ' + st.url + ' (versión ' + (i.version || '?') + ')');
+      } else {
+        ui.info(ui.c.dim('  Servidor dentro de «' + n + '»: no responde en ' + st.url + ' (normal si la app no está abierta: game-to-tv tv open ' + n + ')'));
       }
     } else {
       ui.ok('Tele «' + n + '» (' + d.name + ', ' + t.ip + ')');

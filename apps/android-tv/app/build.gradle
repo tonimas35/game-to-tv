@@ -1,0 +1,140 @@
+// «Juegos del Salón» for Android TV / Google TV / Fire TV: a fullscreen
+// WebView plus the game server running inside the TV on nodejs-mobile.
+// Built by .github/workflows/android.yml (see ../README.md).
+plugins {
+    id 'com.android.application'
+}
+
+// Version from the project's package.json: 0.7.0 -> versionName 0.7.0, versionCode 70000
+def repoRoot = file('../../..')
+def pkgJson = new groovy.json.JsonSlurper().parse(new File(repoRoot, 'package.json'))
+def appVersion = pkgJson.version as String
+def nums = (appVersion.replaceAll(/[^0-9.].*$/, '').tokenize('.') + ['0', '0', '0']).take(3).collect { it as int }
+def appVersionCode = nums[0] * 1000000 + nums[1] * 10000 + nums[2] * 100
+
+def libnodeDir = file('libnode')
+// ABIs to build: the TVs are ARM. CI's emulator test adds x86_64 (-Pg2tAbis=x86_64)
+def abis = (project.findProperty('g2tAbis') ?: 'armeabi-v7a,arm64-v8a').toString().tokenize(',')*.trim()
+def bundleOut = layout.buildDirectory.dir('generated/g2t/assets')
+
+android {
+    namespace 'io.gametotv.android'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'io.gametotv.android'
+        // nodejs-mobile's libnode.so is built for API 24 (Android 7)
+        minSdk 24
+        targetSdk 34
+        versionCode appVersionCode
+        versionName appVersion
+        externalNativeBuild {
+            cmake {
+                // libnode.so needs libc++_shared.so
+                arguments '-DANDROID_STL=c++_shared'
+                cppFlags '-std=c++17'
+                abiFilters(*abis)
+            }
+        }
+    }
+
+    // One APK per ABI (the Philips TV is armeabi-v7a only; Fire TV sticks are
+    // armeabi-v7a or arm64-v8a) plus a universal one with both
+    splits {
+        abi {
+            enable true
+            reset()
+            include(*abis)
+            universalApk abis.size() > 1
+        }
+    }
+
+    signingConfigs {
+        sideload {
+            storeFile file("../${project.property('g2tStoreFile')}")
+            storePassword project.property('g2tStorePassword')
+            keyAlias project.property('g2tKeyAlias')
+            keyPassword project.property('g2tKeyPassword')
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sideload
+        }
+        debug {
+            signingConfig signingConfigs.sideload
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += [bundleOut]
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Compressed in the APK (libnode.so is ~60 MB uncompressed) and
+            // extracted on install
+            useLegacyPackaging true
+        }
+    }
+
+    androidResources {
+        // Default pattern skips folders starting with «_» and dotfiles: keep
+        // every file of the Node project
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+        noCompress 'mp4'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
+
+// The Node.js project (server, games, public/, ws/qrcode/pngjs) goes into
+// assets/nodejs-project/ (src/drivers/android/bundle.js)
+def bundleNodeProject = tasks.register('bundleNodeProject', Exec) {
+    def out = bundleOut.get().dir('nodejs-project').asFile
+    workingDir repoRoot
+    commandLine 'node', 'scripts/android-bundle.js', out.absolutePath
+    inputs.dir(new File(repoRoot, 'src'))
+    inputs.dir(new File(repoRoot, 'public'))
+    inputs.file(new File(repoRoot, 'package.json'))
+    outputs.dir(out)
+}
+
+def checkLibnode = tasks.register('checkLibnode') {
+    doLast {
+        if (!new File(libnodeDir, 'include/node/node.h').exists()) {
+            throw new GradleException('Falta nodejs-mobile en ' + libnodeDir + '. Descárgalo con: bash apps/android-tv/get-libnode.sh')
+        }
+    }
+}
+
+tasks.named('preBuild') {
+    dependsOn bundleNodeProject, checkLibnode
+}

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juegos del Salón</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: #070915; color: #fff; overflow: hidden; cursor: none;
+    font-family: 'Roboto', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+  body { background: radial-gradient(ellipse at 50% 30%, #1a1440 0%, #070915 62%); }
+  #box { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; padding: 0 6vw; }
+  h1 { margin: 0; font-size: 5.6vw; font-weight: 900; color: #a98bff; letter-spacing: 0.02em; }
+  #title { margin: 3vh 0 0; font-size: 3vw; font-weight: 800; }
+  #sub { margin: 1.5vh auto 0; max-width: 70vw; font-size: 1.9vw; line-height: 1.4; color: rgba(255,255,255,0.65); }
+  #tips { margin: 4vh auto 0; max-width: 64vw; text-align: left; font-size: 1.6vw; line-height: 1.5; color: rgba(255,255,255,0.7); display: none; }
+  #tips.on { display: block; }
+  #tips b { color: #fff; }
+  .dots span { display: inline-block; width: 1.2vw; height: 1.2vw; margin: 3vh 0.5vw 0; border-radius: 50%; background: #22e6ff; opacity: 0.25; transition: opacity 0.2s; }
+  .dots span.on { opacity: 1; }
+  .err .dots { visibility: hidden; }
+  .err #title { color: #ff8a9a; }
+</style>
+</head>
+<body>
+<div id="box">
+  <h1>Juegos del Salón</h1>
+  <p id="title">Preparando los juegos…</p>
+  <p id="sub">La tele está poniendo en marcha su servidor. La primera vez tarda unos segundos.</p>
+  <div class="dots" id="dots"><span></span><span></span><span></span></div>
+  <div id="tips"></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  // Shown by MainActivity while Node starts inside the TV. The activity
+  // calls window.g2tState(title, sub, error, tipsHtml) and navigates to
+  // http://127.0.0.1:8090/ as soon as /info answers.
+  var dot = 0;
+  setInterval(function () {
+    var d = document.querySelectorAll('.dots span');
+    for (var i = 0; i < d.length; i++) d[i].className = i === dot ? 'on' : '';
+    dot = (dot + 1) % d.length;
+  }, 400);
+  window.g2tState = function (title, sub, error, tips) {
+    document.getElementById('title').textContent = title || '';
+    document.getElementById('sub').textContent = sub || '';
+    var t = document.getElementById('tips');
+    t.innerHTML = tips || '';
+    t.className = tips ? 'on' : '';
+    document.body.className = error ? 'err' : '';
+  };
+})();
+</script>
+</body>
+</html>

@@ -4,3 +4,6 @@
 # - el .command es bash para Mac: siempre LF (y ejecutable: git lo guarda)
 *.bat -text diff
 *.command text eol=lf
+
+# Android: la clave para instalar por ADB es binaria
+*.keystore binary

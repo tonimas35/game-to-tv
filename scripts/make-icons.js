@@ -67,3 +67,15 @@ const dir = path.join(__dirname, '..', 'apps', 'webos-launcher');
 fs.writeFileSync(path.join(dir, 'icon.png'), draw(80));
 fs.writeFileSync(path.join(dir, 'largeIcon.png'), draw(130));
 console.log('Iconos creados en ' + dir);
+
+// Android TV / Fire TV app (apps/android-tv/): the same art as launcher icons.
+// The 320x180 TV banner (drawable-xhdpi/banner.png) is the 192 px icon plus
+// the name: python3 apps/android-tv/make-banner.py (needs Pillow).
+const res = path.join(__dirname, '..', 'apps', 'android-tv', 'app', 'src', 'main', 'res');
+const DENSITIES = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
+Object.keys(DENSITIES).forEach(function (d) {
+  const out = path.join(res, 'mipmap-' + d);
+  fs.mkdirSync(out, { recursive: true });
+  fs.writeFileSync(path.join(out, 'ic_launcher.png'), draw(DENSITIES[d]));
+});
+console.log('Iconos de Android creados en ' + res);

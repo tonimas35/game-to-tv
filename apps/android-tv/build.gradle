@@ -1,0 +1,4 @@
+// «Juegos del Salón» for Android TV / Google TV / Fire TV. See README.md.
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

@@ -908,6 +908,8 @@
   window.__tv = {
     hub: function () { return hubState; },
     screen: function () { return currentScreen; },
+    // The Android TV app asks this on «Back»: at the main menu a second Back exits the app
+    atMainMenu: function () { return currentScreen === 'menu' && row.id === 'main' && !confirmOpen; },
     view: function (id) { return G2T.tv.get(id); },
     // The menu: { row: 'main' | section id, index, focus: card id, cards: [card ids] }
     menu: function () {

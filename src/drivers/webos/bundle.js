@@ -91,6 +91,23 @@ function productionModules(root) {
 }
 
 /**
+ * Copies the server's run-time files (SOURCES and the production
+ * node_modules) into dir. Shared with the Android app's bundle
+ * (src/drivers/android/bundle.js). Returns { modules, stats: { files, bytes } }.
+ */
+function copyRuntime(dir) {
+  const stats = { files: 0, bytes: 0 };
+  SOURCES.forEach(function (rel) {
+    copyTree(path.join(ROOT, rel), path.join(dir, rel), null, stats);
+  });
+  const modules = productionModules(ROOT);
+  modules.forEach(function (m) {
+    copyTree(m.dir, path.join(dir, m.rel), { skipRoot: EXCLUDE_PER_PACKAGE[m.name] || null }, stats);
+  });
+  return { modules: modules, stats: stats };
+}
+
+/**
  * opts: { appId, serviceId, version, port, idleMinutes, outDir, description }
  * Returns { dir, serviceId, modules, stats }
  */
@@ -102,15 +119,9 @@ function buildService(opts) {
   const version = opts.version || require('../../../package.json').version;
   const dir = opts.outDir || fs.mkdtempSync(path.join(os.tmpdir(), 'g2t-webos-svc-'));
   fs.mkdirSync(dir, { recursive: true });
-  const stats = { files: 0, bytes: 0 };
-
-  SOURCES.forEach(function (rel) {
-    copyTree(path.join(ROOT, rel), path.join(dir, rel), null, stats);
-  });
-  const modules = productionModules(ROOT);
-  modules.forEach(function (m) {
-    copyTree(m.dir, path.join(dir, m.rel), { skipRoot: EXCLUDE_PER_PACKAGE[m.name] || null }, stats);
-  });
+  const copied = copyRuntime(dir);
+  const stats = copied.stats;
+  const modules = copied.modules;
 
   function write(name, text) {
     fs.writeFileSync(path.join(dir, name), text);
@@ -144,4 +155,4 @@ function buildService(opts) {
   return { dir: dir, serviceId: serviceId, modules: modules, stats: stats };
 }
 
-module.exports = { ROOT: ROOT, SOURCES: SOURCES, SKIP_MODULES: SKIP_MODULES, buildService: buildService, productionModules: productionModules };
+module.exports = { ROOT: ROOT, SOURCES: SOURCES, SKIP_MODULES: SKIP_MODULES, buildService: buildService, copyRuntime: copyRuntime, productionModules: productionModules };

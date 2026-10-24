@@ -45,8 +45,10 @@ function listFiles() {
       if (/^(tv|phone)\.(js|css)$/.test(f)) out.push(path.join(games, d.name, f));
     });
   });
-  const launcher = path.join(ROOT, 'apps', 'webos-launcher', 'index.html');
-  if (fs.existsSync(launcher)) out.push(launcher);
+  [path.join(ROOT, 'apps', 'webos-launcher', 'index.html'),
+    path.join(ROOT, 'apps', 'android-tv', 'app', 'src', 'main', 'assets', 'loading.html')].forEach(function (f) {
+    if (fs.existsSync(f)) out.push(f);
+  });
   return out;
 }
 

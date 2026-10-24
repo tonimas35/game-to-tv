@@ -123,6 +123,11 @@ function galleryCandidates(env, serviceDir) {
  *   networkInterfaces, galleryCandidates, fs, env, version, serviceDir,
  *   serverOptions  extra options for createServer (tests: gamesDirs, slotHoldMs…)
  *   console        where log lines are also written (default: console)
+ *   keepAlive      false = no webOS keepAlive activity (Android: the app's
+ *                  foreground service keeps the process alive instead)
+ *   onStop(r)      called after every stop with { reason, wasRunning }
+ *                  (Android: the idle shutdown ends the whole process)
+ *   extraInfo()    extra fields for `status` and /info `tele` (Android: platform, sdk, abi…)
  */
 function createTvService(deps) {
   deps = deps || {};
@@ -191,7 +196,7 @@ function createTvService(deps) {
 
   // ------------------------------------------------------------ keepAlive activity
   function acquireKeepAlive() {
-    if (st.keep) return;
+    if (st.keep || deps.keepAlive === false) return;
     const am = service.activityManager;
     if (!am || typeof am.create !== 'function') { log('Sin activityManager: webOS podría cerrar el servicio por inactividad'); return; }
     st.keep = { pending: true };
@@ -326,14 +331,18 @@ function createTvService(deps) {
       st.subs = [];
       releaseKeepAlive();
       if (wasRunning) log('Servidor parado (' + st.stoppedReason + ')');
-      return { returnValue: true, stopped: true, wasRunning: wasRunning, reason: st.stoppedReason };
+      const r = { returnValue: true, stopped: true, wasRunning: wasRunning, reason: st.stoppedReason };
+      if (deps.onStop) { try { deps.onStop(r); } catch (e) { log('onStop: ' + e.message); } }
+      return r;
     });
   }
 
   function teleInfo() {
     const g = st.gallery || { dir: null, tried: [] };
     const a = activity();
-    return {
+    let extra = {};
+    if (deps.extraInfo) { try { extra = deps.extraInfo() || {}; } catch (e) { extra = { extraError: e.message }; } }
+    return Object.assign({
       node: process.version,
       uptime: Math.round((Date.now() - startedAt) / 1000),
       galleryDir: g.dir,
@@ -344,7 +353,7 @@ function createTvService(deps) {
       idleFor: isActive(a) ? 0 : Math.round((Date.now() - st.lastActive) / 1000),
       subscriptions: st.subs.length,
       keepAlive: !!st.keep
-    };
+    }, extra);
   }
 
   function status() {
@@ -406,7 +415,7 @@ function createTvService(deps) {
     st.lastActive = Date.now();
   }
 
-  log('Servicio ' + serviceId + ' cargado (Node ' + process.version + ', puerto ' + port + ', apagado tras ' + (idleMs > 0 ? idleMs / 60000 + ' min' : 'nunca') + ' sin uso)');
+  log((deps.keepAlive === false ? 'Servidor ' : 'Servicio ') + serviceId + ' cargado (Node ' + process.version + ', puerto ' + port + ', apagado tras ' + (idleMs > 0 ? idleMs / 60000 + ' min' : 'nunca') + ' sin uso)');
 
   return {
     service: service,

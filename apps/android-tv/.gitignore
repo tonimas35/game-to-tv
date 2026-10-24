@@ -1,0 +1,10 @@
+# Downloaded by get-libnode.sh (nodejs-mobile, ~55 MB)
+/app/libnode/
+# Gradle and Android Studio
+.gradle/
+build/
+/local.properties
+.idea/
+*.iml
+.cxx/
+/app/.cxx/

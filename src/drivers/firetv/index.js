@@ -1,18 +1,18 @@
 'use strict';
 /*
- * Amazon Fire TV driver: NOT implemented yet (see README.md in this folder
- * for the plan: adb over the network, a small Android WebView launcher APK,
- * adb screencap and adb keyevents). Meanwhile, use the «browser» driver
- * with the Silk browser.
+ * Amazon Fire TV: use the «android» driver (src/drivers/android/), which
+ * installs the app «Juegos del Salón» with the server inside through adb
+ * (Fire TV is Android underneath). This id only stays so that
+ * `--driver firetv` explains it.
  */
 const driver = {
   id: 'firetv',
-  name: 'Amazon Fire TV (pendiente)',
-  description: 'Aún no está hecho: de momento usa el driver «browser» con el navegador Silk.',
+  name: 'Amazon Fire TV (usa --driver android)',
+  description: 'Las Fire TV usan el driver «android»: game-to-tv tv add NOMBRE IP --driver android.',
   capabilities: { discover: false, pair: false, install: false, launch: false, control: false, screenshot: false, perf: false },
   unsupportedHelp: function () {
-    return 'El driver de Fire TV todavía no está implementado (ver src/drivers/firetv/README.md).\n' +
-      'Mientras tanto: game-to-tv tv add NOMBRE IP --driver browser, y abre la dirección en el navegador Silk.';
+    return 'Para Fire TV usa el driver «android» (la app con el servidor dentro, por adb):\n' +
+      '  game-to-tv tv add NOMBRE IP --driver android   (guía: docs/tele-android.md)';
   }
 };
 

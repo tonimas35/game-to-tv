@@ -10,7 +10,7 @@ const ui = require('./ui');
 const TV_HELP = [
   '',
   '  game-to-tv tv scan [--tiempo 3]',
-  '  game-to-tv tv add NOMBRE IP [--driver webos|browser|firetv] [--app-id ID]',
+  '  game-to-tv tv add NOMBRE IP [--driver webos|android|browser] [--app-id ID]',
   '  game-to-tv tv list',
   '  game-to-tv tv remove NOMBRE',
   '  game-to-tv tv pair NOMBRE',
@@ -19,6 +19,8 @@ const TV_HELP = [
   '      --modo tele (por defecto en LG): el servidor va DENTRO de la tele; el PC solo hace falta para instalar.',
   '                  --server-url (opcional) es un servidor de PC de reserva si el de la tele falla.',
   '      --modo pc:  la app abre el servidor del PC (--server-url, por defecto este PC en el puerto 3000).',
+  '  game-to-tv tv install NOMBRE [--apk ARCHIVO.apk|CARPETA|ARTEFACTO.zip]   (Android TV / Google TV / Fire TV)',
+  '      Sin --apk descarga la última compilación de GitHub Actions (hace falta «gh auth login» o GITHUB_TOKEN).',
   '  game-to-tv tv ipk [--modo tele|pc] [--server-url URL] [--salida CARPETA]',
   '  game-to-tv tv open NOMBRE [--ruta /ambiente] [--navegador]',
   '  game-to-tv tv status NOMBRE [--logs] [--json]   (modo tele: ¿responde el servidor de la tele?)',
@@ -75,7 +77,13 @@ function saveTv(tv) {
 function sessionOpts(tv) {
   return {
     onPrompt: function () {
-      ui.box([
+      ui.box(tv.driver === 'android' ? [
+        'MIRA LA TELE «' + tv.name + '»',
+        '',
+        '«¿Permitir la depuración USB?»: marca',
+        '«Permitir siempre desde este ordenador» y acepta.',
+        'Tienes 60 segundos.'
+      ] : [
         'MIRA LA TELE «' + tv.name + '»',
         '',
         'Acepta con el mando el aviso de conexión',
@@ -146,6 +154,11 @@ async function run(args, flags) {
         ui.info('  1. game-to-tv tv pair ' + name + '      (acepta el aviso en la tele)');
         ui.info('  2. game-to-tv tv install ' + name + '   (necesita el modo desarrollador: docs/tele-lg.md)');
         ui.info('  3. game-to-tv start --abrir ' + name);
+      } else if (driverId === 'android') {
+        ui.info('Siguientes pasos (antes, activa la depuración en la tele: docs/tele-android.md):');
+        ui.info('  1. game-to-tv tv pair ' + name + '      (acepta «¿Permitir la depuración?» en la tele)');
+        ui.info('  2. game-to-tv tv install ' + name + '   (la app con el servidor dentro; o --apk ARCHIVO)');
+        ui.info('  3. game-to-tv tv open ' + name + '      (o ábrela con el mando: «Juegos del Salón»)');
       } else if (driverId === 'browser') {
         ui.info('Con el driver «browser» no hay que instalar nada: arranca el servidor y abre en la tele');
         ui.info('la dirección que aparece (game-to-tv tv open ' + name + ' te la recuerda).');
@@ -169,7 +182,7 @@ async function run(args, flags) {
         const t = cfg.tvs[n];
         let d = null;
         try { d = drivers.get(t.driver); } catch (e) { /* unknown driver */ }
-        const paired = d && d.capabilities.pair ? (t.clientKey ? ui.c.green('emparejada') : ui.c.yellow('sin emparejar')) : '';
+        const paired = d && d.capabilities.pair ? (t.clientKey || t.pairedAt ? ui.c.green('emparejada') : ui.c.yellow('sin emparejar')) : '';
         ui.info(ui.c.bold(n) + '  ' + t.ip + '  [' + (d ? d.name : t.driver + '?') + ']  ' + paired);
       });
       console.log('\n  Configuración: ' + config.configPath() + '\n');
@@ -193,11 +206,12 @@ async function run(args, flags) {
       drivers.requireCapability(d, 'pair');
       ui.info('Conectando con «' + tv.name + '» (' + tv.ip + ')…');
       const r = await d.pair(tv, sessionOpts(tv));
-      tv.clientKey = r.clientKey;
+      if (r.clientKey) tv.clientKey = r.clientKey;
       tv.pairedAt = new Date().toISOString();
       saveTv(tv);
-      ui.ok('¡Emparejada! La clave se ha guardado en ' + config.configPath() + ' (no la compartas).');
-      try { await d.toast(tv, 'game-to-tv conectado ✔'); } catch (e) { /* optional */ }
+      if (r.clientKey) ui.ok('¡Emparejada! La clave se ha guardado en ' + config.configPath() + ' (no la compartas).');
+      else ui.ok('¡Emparejada! ' + (r.message || ''));
+      if (typeof d.toast === 'function') { try { await d.toast(tv, 'game-to-tv conectado ✔'); } catch (e) { /* optional */ } }
       return 0;
     }
 
@@ -206,6 +220,7 @@ async function run(args, flags) {
       const tv = getTv(name);
       const d = drivers.get(tv.driver);
       drivers.requireCapability(d, 'install');
+      if (tv.driver === 'android') return installAndroid(tv, d, flags);
       const mode = installMode(flags, tv.driver);
       const port = intFlag(flags, 'puerto', tv.telePort || 8090);
       const idle = intFlag(flags, 'apagado', 15);
@@ -261,15 +276,20 @@ async function run(args, flags) {
     case 'estado': {
       const tv = getTv(name);
       const d = drivers.get(tv.driver);
-      if (typeof d.status !== 'function') throw new drivers.DriverError('El driver «' + d.name + '» no tiene servidor en la tele (solo LG en modo tele).', 'EUNSUPPORTED');
+      if (typeof d.status !== 'function') throw new drivers.DriverError('El driver «' + d.name + '» no tiene servidor en la tele (solo LG en modo tele y Android TV).', 'EUNSUPPORTED');
       const r = await d.status(tv, { port: typeof flags.puerto === 'string' ? flags.puerto : undefined, logs: !!flags.logs });
       if (flags.json) { console.log(JSON.stringify(r, null, 2)); return r.reachable ? 0 : 1; }
       console.log('');
       if (!r.reachable) {
         ui.warn('El servidor de la tele no responde en ' + r.url + ' (' + r.error + ').');
         ui.info('· ¿Está abierta la app «Juegos del Salón»? Ábrela con: game-to-tv tv open ' + tv.name);
-        ui.info('· ¿Se instaló en modo tele? (game-to-tv tv install ' + tv.name + ')' + (tv.mode ? '  Modo guardado: ' + tv.mode : ''));
-        ui.info('· Si las apps del modo desarrollador desaparecieron, la sesión de Developer Mode ha caducado.');
+        if (tv.driver === 'android') {
+          ui.info('· El servidor se apaga solo 15 min después de salir de la app si no queda nadie jugando.');
+          ui.info('· ¿Está instalada? game-to-tv tv info ' + tv.name + '  (y si no: game-to-tv tv install ' + tv.name + ')');
+        } else {
+          ui.info('· ¿Se instaló en modo tele? (game-to-tv tv install ' + tv.name + ')' + (tv.mode ? '  Modo guardado: ' + tv.mode : ''));
+          ui.info('· Si las apps del modo desarrollador desaparecieron, la sesión de Developer Mode ha caducado.');
+        }
         ui.info('  Más ayuda: docs/solucion-problemas.md');
         console.log('');
         return 1;
@@ -281,6 +301,7 @@ async function run(args, flags) {
       ui.info('Móviles (QR): ' + (i.movil || '?'));
       ui.info('Ahora: ' + (a.tvs || 0) + ' pantalla(s), ' + (a.players || 0) + ' jugador(es)' + (a.slots ? ' de ' + a.slots : '') + (a.screen ? ' · ' + a.screen : ''));
       if (i.mode === 'tele') {
+        if (t.platform === 'android') ui.info('Android ' + (t.sdk ? '(API ' + t.sdk + ')' : '') + ' · ' + (t.device || '?') + ' · ' + (t.abi || '?') + (t.net ? ' · red: ' + t.net : '') + (t.rssMB ? ' · memoria del servidor: ' + t.rssMB + ' MB' : ''));
         ui.info('Node ' + (t.node || '?') + ' · encendido hace ' + (t.uptime != null ? Math.round(t.uptime / 60) + ' min' : '?') +
           ' · se apaga tras ' + (t.idleMinutes || '?') + ' min sin uso' + (t.idleFor ? ' (sin uso desde hace ' + Math.round(t.idleFor / 60) + ' min)' : ''));
         ui.info('Galería: ' + (t.gallerySaving ? t.galleryDir : 'no se guardan dibujos (ninguna carpeta con permiso de escritura)'));
@@ -320,8 +341,8 @@ async function run(args, flags) {
       const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
       const out = path.resolve(args[2] || ('captura-' + tv.name + '-' + stamp + '.jpg'));
       fs.mkdirSync(path.dirname(out), { recursive: true });
-      await d.screenshot(tv, out, sessionOpts(tv));
-      ui.ok('Captura guardada en ' + out + ui.c.dim('  (las apps con DRM salen en negro)'));
+      const shot = await d.screenshot(tv, out, sessionOpts(tv));
+      ui.ok('Captura guardada en ' + ((shot && shot.file) || out) + ui.c.dim('  (las apps con DRM salen en negro)'));
       return 0;
     }
 
@@ -391,6 +412,28 @@ async function run(args, flags) {
       console.log(TV_HELP);
       return 2;
   }
+}
+
+// Android TV / Google TV / Fire TV: the app always carries the server inside
+async function installAndroid(tv, d, flags) {
+  if (typeof flags.modo === 'string' && flags.modo.toLowerCase() !== 'tele') {
+    throw new drivers.DriverError('En Android la app siempre lleva el servidor dentro (modo tele): quita --modo.', 'EARGS');
+  }
+  if (flags.apk === true) throw new drivers.DriverError('Falta la ruta: --apk ARCHIVO.apk (o la carpeta, o el .zip del artefacto).', 'EARGS');
+  ui.info('La app «Juegos del Salón» lleva el servidor ' + ui.c.bold('dentro de la tele') + ' (puerto 8090). El PC ya no hará falta para jugar.');
+  const r = await d.install(tv, {
+    apk: typeof flags.apk === 'string' ? flags.apk : undefined,
+    log: function (s) { ui.info(s); }
+  });
+  tv.mode = 'tele';
+  tv.telePort = 8090;
+  tv.installedAt = new Date().toISOString();
+  tv.installedVersion = r.appinfo && r.appinfo.version ? r.appinfo.version : undefined;
+  saveTv(tv);
+  ui.ok('App instalada en «' + tv.name + '» (' + path.basename(r.apk) + '). Ábrela con: game-to-tv tv open ' + tv.name);
+  ui.info('Al abrirla, la tele arranca su servidor y muestra el QR (http://' + tv.ip + ':8090/m).');
+  ui.info('Para comprobarlo desde el PC: game-to-tv tv status ' + tv.name);
+  return 0;
 }
 
 module.exports = { run: run, TV_HELP: TV_HELP, defaultServerUrl: defaultServerUrl };

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Juegos del Salón</string>
+    <string name="channel_name">Servidor de los juegos</string>
+    <string name="notif_title">Juegos del Salón</string>
+    <string name="notif_text">Servidor de los juegos encendido (se apaga solo tras 15 min sin uso)</string>
+    <string name="press_back_again">Pulsa Atrás otra vez para salir</string>
+</resources>

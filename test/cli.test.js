@@ -46,7 +46,7 @@ async function tvConfig() {
   r = await H_.runCli(['tv', 'add', 'proyector', '192.168.1.60', '--driver', 'browser'], env);
   check(r.code === 0 && /nada que instalar|no hay que instalar/.test(r.out), 'tv add con --driver browser');
   r = await H_.runCli(['tv', 'add', 'fire', '192.168.1.61', '--driver', 'firetv'], env);
-  check(r.code === 0 && /todavía no está implementado/.test(r.out), 'Fire TV: se guarda, pero avisa de que aún no está implementado');
+  check(r.code === 0 && /driver «android»/.test(r.out), 'Fire TV (--driver firetv): se guarda, pero remite al driver «android»');
   r = await H_.runCli(['tv', 'add', 'x', '192.168.1.62', '--driver', 'tizen'], env);
   check(r.code === 1 && /Driver desconocido/.test(r.out), 'Driver desconocido');
   r = await H_.runCli(['tv', 'list'], env);
@@ -56,13 +56,13 @@ async function tvConfig() {
   r = await H_.runCli(['tv', 'shot', 'proyector'], env);
   check(r.code === 1 && /no sabe hacer capturas/.test(r.out), 'El driver browser explica lo que no sabe hacer');
   r = await H_.runCli(['tv', 'perf', 'fire'], env);
-  check(r.code === 1 && /Fire TV todavía no está implementado/.test(r.out), 'El stub de Fire TV da un mensaje útil');
+  check(r.code === 1 && /Para Fire TV usa el driver «android»/.test(r.out) && /--driver android/.test(r.out), 'El id «firetv» explica que se usa el driver «android»');
   r = await H_.runCli(['tv', 'toast', 'nadie', 'hola'], env);
   check(r.code === 1 && /No hay ninguna tele llamada «nadie»/.test(r.out), 'Tele inexistente');
   r = await H_.runCli(['tv', 'remove', 'fire'], env);
   const cfg = JSON.parse(fs.readFileSync(path.join(env.GAME_TO_TV_HOME, 'config.json'), 'utf8'));
   check(r.code === 0 && !cfg.tvs.fire && cfg.tvs.proyector.driver === 'browser', 'tv remove');
-  check(drivers.list().map(function (d) { return d.id; }).join(',') === 'webos,browser,firetv', 'Drivers registrados: webos, browser, firetv');
+  check(drivers.list().map(function (d) { return d.id; }).join(',') === 'webos,android,browser,firetv', 'Drivers registrados: webos, android, browser, firetv');
   drivers.list().forEach(function (d) {
     const caps = Object.keys(d.capabilities).sort().join(',');
     check(caps === 'control,discover,install,launch,pair,perf,screenshot' && d.name && d.description, 'Driver «' + d.id + '» declara todas sus capacidades');
