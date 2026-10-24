@@ -129,7 +129,7 @@ jobs:
           profile: tv_1080p
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 2048
-          script: G2T_NOTICE=1 G2T_NOTICE_LINES=70 bash apps/android-tv/ci/run.sh "Emulador" bash apps/android-tv/ci/emulator-test.sh apps/android-tv/app/build/outputs/apk/release/app-x86_64-release.apk emulador
+          script: G2T_NOTICE=1 G2T_NOTICE_LINES=40 bash apps/android-tv/ci/run.sh "Emulador" bash apps/android-tv/ci/emulator-test.sh apps/android-tv/app/build/outputs/apk/release/app-x86_64-release.apk emulador
 
       - uses: actions/upload-artifact@v4
         if: always()

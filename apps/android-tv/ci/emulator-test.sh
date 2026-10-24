@@ -23,8 +23,9 @@ adb exec-out screencap -p > "$OUT/final.png" || true
 adb logcat -d -s g2t g2t-node chromium AndroidRuntime ActivityManager:W > "$OUT/logcat.txt" || true
 adb shell dumpsys meminfo io.gametotv.android > "$OUT/meminfo-app.txt" || true
 adb shell dumpsys meminfo io.gametotv.android:node > "$OUT/meminfo-node.txt" || true
-echo "---- logcat (final) ----"
+echo "---- logcat (g2t) ----"
 grep -E " (g2t|g2t-node)" "$OUT/logcat.txt" | tail -n 25 || true
+# Last: a compact result (CI turns the tail into an annotation of at most 4 KB)
 echo "---- resultado ----"
-grep -E "OK|FALLO|Resultado|^    |===" "$OUT/resultado.txt" | cut -c1-300
+grep -E "^  (OK|FALLO)|^Resultado" "$OUT/resultado.txt" | sed -e 's/^  OK     /OK /' -e 's/^  FALLO  /FALLO /' | cut -c1-90
 exit $code
